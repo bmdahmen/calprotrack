@@ -78,6 +78,17 @@
   .prog-bar{height:3px;background:#181818;border-radius:2px;overflow:hidden;}
   .prog-fill{height:100%;border-radius:2px;transition:width .35s ease;}
 
+  /* Calorie zone bar */
+  .cal-zone-outer{height:3px;border-radius:2px;position:relative;overflow:visible;background:#181818;}
+  .cal-zone-bg{position:absolute;inset:0;border-radius:2px;overflow:hidden;}
+  .cal-zone-actual{position:absolute;top:0;left:0;height:100%;border-radius:2px;transition:width .35s ease;z-index:2;}
+  .cal-zone-marker{position:absolute;top:-3px;width:1px;height:9px;z-index:3;}
+  .cal-zone-lbl{position:absolute;top:8px;font-size:7px;font-family:'DM Mono',monospace;color:#2a2a2a;transform:translateX(-50%);white-space:nowrap;letter-spacing:.04em;}
+  /* Bulk insight bar variants */
+  .insight-bar.bulk-low{color:#fbbf24;background:#1a1500;}
+  .insight-bar.bulk-good{color:#4ade80;background:#0a1a0f;}
+  .insight-bar.bulk-over{color:#f87171;background:#1a0808;}
+
   /* Chat */
   .chat-wrap{background:#111;border:1px solid #2a2a2a;border-radius:8px;margin-bottom:16px;}
   .chat-msgs{max-height:260px;overflow-y:auto;padding:8px 12px 6px;min-height:0;}
@@ -304,7 +315,11 @@
         <div>
           <div class="prog-wrap">
             <div class="prog-meta"><span>Calories</span><span class="prog-val" id="cal-txt"></span></div>
-            <div class="prog-bar"><div class="prog-fill" id="cal-fill" style="width:0%;background:#f97316"></div></div>
+            <div class="cal-zone-outer" id="cal-zone-outer">
+              <div class="cal-zone-bg" id="cal-zone-bg"></div>
+              <div class="cal-zone-actual" id="cal-fill" style="width:0%;background:#f97316"></div>
+              <div id="cal-zone-markers"></div>
+            </div>
           </div>
           <div class="prog-wrap" style="margin-bottom:16px">
             <div class="prog-meta"><span>Protein</span><span class="prog-val" id="pro-txt"></span></div>
@@ -433,6 +448,14 @@
           </div>
         </div>
 
+        <div style="margin-top:12px">
+          <label class="field-lbl">Tracking Goal</label>
+          <div class="activity-btns" id="goal-btns">
+            <button class="act-btn on" onclick="setGoal('deficit',this)">Deficit</button>
+            <button class="act-btn" onclick="setGoal('maintenance',this)">Maintenance</button>
+            <button class="act-btn" onclick="setGoal('bulk',this)">Bulk</button>
+          </div>
+        </div>
 
         <div style="margin-top:14px;font-family:'DM Mono',monospace;font-size:10px;color:#555;line-height:1.8;">
           Estimated TDEE: <span id="prof-tdee-display" style="color:#f97316">—</span><br>
@@ -640,14 +663,14 @@ function totals() {
 
 function updateUI() {
   const {cal, pro} = totals();
-  const remCal = CAL_T - cal, remPro = PRO_T - pro;
+  const calTarget = getCalTarget();
+  const remCal = calTarget - cal, remPro = PRO_T_USER - pro;
 
-  document.getElementById("cal-txt").textContent = `${cal} / ${CAL_T}` + (remCal>0?` · ${remCal} left`:" · OVER");
-  document.getElementById("pro-txt").textContent = `${pro}g / ${PRO_T}g` + (remPro>0?` · ${remPro}g left`:" · ✓");
-  document.getElementById("cal-fill").style.width = Math.min(100,cal/CAL_T*100)+"%";
-  document.getElementById("cal-fill").style.background = cal>CAL_T?"#f87171":"#f97316";
-  document.getElementById("pro-fill").style.width = Math.min(100,pro/PRO_T*100)+"%";
-  document.getElementById("pro-fill").style.background = pro>=PRO_T?"#4ade80":"#a78bfa";
+  document.getElementById("cal-txt").textContent = `${cal} / ${calTarget}` + (remCal>0?` · ${remCal} left`:" · OVER");
+  document.getElementById("pro-txt").textContent = `${pro}g / ${PRO_T_USER}g` + (remPro>0?` · ${remPro}g left`:" · ✓");
+  updateCalZoneBar(cal);
+  document.getElementById("pro-fill").style.width = Math.min(100,pro/PRO_T_USER*100)+"%";
+  document.getElementById("pro-fill").style.background = pro>=PRO_T_USER?"#4ade80":"#a78bfa";
 
   const remCalEl = document.getElementById("rem-cal");
   remCalEl.textContent = remCal>0?remCal:"0 ✓";
@@ -794,8 +817,8 @@ function renderHistory() {
       <td style="color:#444">${e.weightPM??'—'}</td>
       <td style="color:#444">${e.waistNavel??'—'}</td>
       <td style="color:#444">${e.waistSmallest??'—'}</td>
-      <td style="font-weight:600;color:${e.calories?(e.calories>CAL_T?'#f87171':'#4ade80'):'#2a2a2a'}">${e.calories??'—'}</td>
-      <td style="font-weight:600;color:${e.protein?(e.protein>=PRO_T?'#4ade80':'#f87171'):'#2a2a2a'}">${e.protein?e.protein+'g':'—'}</td>
+      <td style="font-weight:600;color:${e.calories?(trackingGoal==='bulk'?(e.calories>=getCalTarget()?'#4ade80':'#f87171'):(e.calories<=getCalTarget()?'#4ade80':'#f87171')):'#2a2a2a'}">${e.calories??'—'}</td>
+      <td style="font-weight:600;color:${e.protein?(e.protein>=PRO_T_USER?'#4ade80':'#f87171'):'#2a2a2a'}">${e.protein?e.protein+'g':'—'}</td>
       <td style="color:#383838;font-size:11px">${e.notes||''}</td>
     </tr>`).join("");
 }
@@ -1109,16 +1132,23 @@ async function refreshInsight() {
 
   // Determine color class
   const TDEE = TDEE_USER || 2100;
-  const PRO_T = PRO_T_USER || 120;
-  const proRemaining = PRO_T - pro;
-  const calRemaining = TDEE - cal;
+  const proRemaining = PRO_T_USER - pro;
+  const calTarget = getCalTarget();
+  const calToTarget = calTarget - cal;
   const delta = cal - TDEE;
   bar.className = 'insight-bar';
-  if (delta < -400) bar.classList.add('deficit-deep');
-  else if (delta < -100) bar.classList.add('deficit-mild');
-  else if (delta < 100) bar.classList.add('balanced');
-  else if (delta < 400) bar.classList.add('surplus-mild');
-  else bar.classList.add('surplus-fat');
+  if (trackingGoal === 'bulk') {
+    const bulkDelta = cal - calTarget;
+    if (bulkDelta < -200) bar.classList.add('bulk-low');
+    else if (bulkDelta < 200) bar.classList.add('bulk-good');
+    else bar.classList.add('bulk-over');
+  } else {
+    if (delta < -400) bar.classList.add('deficit-deep');
+    else if (delta < -100) bar.classList.add('deficit-mild');
+    else if (delta < 100) bar.classList.add('balanced');
+    else if (delta < 400) bar.classList.add('surplus-mild');
+    else bar.classList.add('surplus-fat');
+  }
   const cls = bar.className.replace('insight-bar ','').trim();
 
   // Meal context
@@ -1130,7 +1160,19 @@ async function refreshInsight() {
   else if (h < 20) mealContext = 'dinner time';
   else mealContext = 'evening, likely last meal of the day';
 
-  const prompt = `It is ${hStr} (${mealContext}). The user has eaten ${cal} kcal and ${pro}g protein today. Their daily targets are ~${TDEE} kcal and ${PRO_T_USER}g protein. Calories remaining: ${calRemaining} kcal. Protein remaining: ${proRemaining}g. Write ONE direct sentence (max 20 words) advising what the next meal should look like. Focus on what they actually need right now given the time and what's left. No emoji. No fluff.`;
+  const goalLabel = trackingGoal === 'bulk' ? 'muscle gain (bulk)' : trackingGoal === 'maintenance' ? 'weight maintenance' : 'fat loss (calorie deficit)';
+  let goalDirective;
+  if (cal >= calTarget) {
+    if (trackingGoal === 'bulk') {
+      goalDirective = `They have hit their bulk calorie target of ${calTarget} kcal. Encourage them — hitting a consistent calorie surplus is key for muscle gain. Great work!`;
+    } else {
+      goalDirective = `They have hit or exceeded their calorie limit of ${calTarget} kcal. Their goal is ${goalLabel}. Firmly but kindly tell them to settle down and avoid eating more today.`;
+    }
+  } else {
+    goalDirective = `Their goal is ${goalLabel}. They have ${calToTarget} kcal and ${proRemaining}g protein remaining toward their target.`;
+  }
+
+  const prompt = `It is ${hStr} (${mealContext}). The user has eaten ${cal} kcal and ${pro}g protein today. Their daily calorie target is ${calTarget} kcal and protein target is ${PRO_T_USER}g. ${goalDirective} Write ONE direct sentence (max 20 words). No emoji. No fluff.`;
 
   try {
     const data = await api('/', {
@@ -1240,12 +1282,13 @@ async function refreshHistInsight() {
     </div>`;
 
   // Build AI prompt
+  const histGoalLabel = trackingGoal === 'bulk' ? 'muscle gain (bulk)' : trackingGoal === 'maintenance' ? 'weight maintenance' : 'fat loss (calorie deficit)';
   const prompt = `Over the last ${chartRange} days:
 - Weight went from ${firstW.weightAM} lbs to ${lastW.weightAM} lbs (${weightChangeLbs > 0 ? '+' : ''}${weightChangeLbs.toFixed(1)} lbs, ${wStr} lbs/week).
 ${waistSummary ? '- ' + waistSummary : '- No waist data available.'}
-- Goal is fat loss.
+- Goal is ${histGoalLabel}.
 
-Write 2-3 encouraging but factual sentences evaluating this progress. Comment on the rate of weight change (is it healthy, too fast, too slow?), what the waist trend suggests about body composition, and whether they should stay the course or adjust. Be specific with numbers. No emoji.`;
+Write 2-3 encouraging but factual sentences evaluating this progress in the context of their goal. Comment on the rate of weight change (is it healthy, too fast, too slow for their goal?), what the waist trend suggests about body composition, and whether they should stay the course or adjust. Be specific with numbers. No emoji.`;
 
   try {
     const data = await api('/', {
@@ -1420,6 +1463,7 @@ function loginSuccess(user) {
   currentUser = user;
   if (user.pro_target) PRO_T_USER = user.pro_target;
   if (user.tdee) TDEE_USER = user.tdee;
+  if (user.goal) trackingGoal = user.goal;
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   const sub = document.querySelector('.logo-sub'); if(sub) sub.textContent = user.name.split(' ')[0].toUpperCase();
@@ -1470,12 +1514,20 @@ window.onGoogleLibraryLoad = initGoogleAuth;
 
 // stored login checked at bottom of script
 
-// ── Profile ────────────────────────────────────────────────────────────// ── Profile ────────────────────────────────────────────────────────────────
+// ── Profile ────────────────────────────────────────────────────────────────
 let currentActivity = 'sedentary';
+let trackingGoal = 'deficit'; // 'deficit' | 'maintenance' | 'bulk'
 let PRO_T_USER = 120;
 let TDEE_USER = 2100;
 
 const ACTIVITY_MULTIPLIERS = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725 };
+
+function getCalTarget() {
+  const tdee = TDEE_USER || 2100;
+  if (trackingGoal === 'maintenance') return tdee;
+  if (trackingGoal === 'bulk') return Math.round(tdee + 300);
+  return Math.round(tdee * 0.85); // deficit
+}
 
 function calcTDEE(age, weightLbs, heightIn, activity) {
   const kg = weightLbs * 0.453592;
@@ -1492,6 +1544,63 @@ function setActivity(act, btn) {
   scheduleProfileSave();
 }
 
+function setGoal(goal, btn) {
+  trackingGoal = goal;
+  document.querySelectorAll('#goal-btns .act-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  updateTDEEDisplay();
+  scheduleProfileSave();
+  updateUI();
+}
+
+function updateCalZoneBar(cal) {
+  const tdee = TDEE_USER || 2100;
+  const calTarget = getCalTarget();
+  const maxCal = Math.round(Math.max(tdee * 1.35, cal * 1.08, calTarget * 1.25, tdee + 500));
+
+  const bgEl = document.getElementById('cal-zone-bg');
+  const markersEl = document.getElementById('cal-zone-markers');
+  const fillEl = document.getElementById('cal-fill');
+  if (!bgEl || !markersEl || !fillEl) return;
+
+  // Zone sections based on TDEE thresholds
+  const zones = [
+    [0,               Math.max(tdee - 400, 0), '#0d1f14'],   // deep deficit
+    [Math.max(tdee - 400, 0), Math.max(tdee - 100, 0), '#0f1a10'], // mild deficit
+    [Math.max(tdee - 100, 0), tdee + 100,  '#1a1500'],       // maintenance
+    [tdee + 100,      tdee + 400,           '#1a0e00'],       // mild surplus
+    [tdee + 400,      maxCal,               '#1a0808'],       // heavy surplus
+  ];
+  bgEl.innerHTML = zones.map(([s, e, c]) => {
+    if (s >= maxCal || e <= s) return '';
+    const l = (s / maxCal * 100).toFixed(2);
+    const w = ((Math.min(e, maxCal) - s) / maxCal * 100).toFixed(2);
+    return `<div style="position:absolute;left:${l}%;width:${w}%;height:100%;background:${c}"></div>`;
+  }).join('');
+
+  // Fill bar color & width
+  fillEl.style.width = Math.min(99.5, cal / maxCal * 100).toFixed(2) + '%';
+  if (cal > calTarget) {
+    if (trackingGoal === 'bulk') fillEl.style.background = '#4ade80';
+    else if (cal > tdee + 100) fillEl.style.background = '#f87171';
+    else fillEl.style.background = '#fbbf24';
+  } else {
+    fillEl.style.background = '#f97316';
+  }
+
+  // Threshold markers
+  const addM = (val, lbl, color) => {
+    const pct = val / maxCal * 100;
+    if (pct < 3 || pct > 97) return '';
+    return `<div class="cal-zone-marker" style="left:${pct.toFixed(2)}%;background:${color}"></div>` +
+           `<div class="cal-zone-lbl" style="left:${pct.toFixed(2)}%">${lbl}</div>`;
+  };
+  let mHtml = '';
+  if (Math.abs(calTarget - tdee) > 80) mHtml += addM(calTarget, 'GOAL', '#f9731699');
+  mHtml += addM(tdee, 'TDEE', '#555');
+  markersEl.innerHTML = mHtml;
+}
+
 function updateTDEEDisplay() {
   const age = parseInt(document.getElementById('prof-age').value) || 35;
   const weight = parseFloat(document.getElementById('prof-weight').value) || 170;
@@ -1499,7 +1608,9 @@ function updateTDEEDisplay() {
   const tdee = calcTDEE(age, weight, height, currentActivity);
   TDEE_USER = tdee;
   PRO_T_USER = parseInt(document.getElementById('prof-protein').value) || 120;
-  document.getElementById('prof-tdee-display').textContent = tdee + ' kcal/day';
+  const calTarget = getCalTarget();
+  const goalSuffix = trackingGoal === 'bulk' ? '+300 surplus' : trackingGoal === 'maintenance' ? 'maintenance' : '15% deficit';
+  document.getElementById('prof-tdee-display').innerHTML = `${tdee} kcal/day &nbsp;·&nbsp; <span style="color:#ccc">target ${calTarget} kcal</span> <span style="color:#555;font-size:9px">(${goalSuffix})</span>`;
 }
 
 function scheduleProfileSave() {
@@ -1539,11 +1650,13 @@ async function saveProfile() {
     user_id: currentUser.id,
     privacy: 'private',
     tdee, cal_target: tdee, pro_target: protein,
-    age, weight_lbs: weight, height_in: height, activity: currentActivity
+    age, weight_lbs: weight, height_in: height, activity: currentActivity,
+    goal: trackingGoal
   });
   // Update stored user
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
   stored.tdee = tdee; stored.pro_target = protein; stored.privacy = currentPrivacy;
+  stored.goal = trackingGoal;
   localStorage.setItem('bl_user', JSON.stringify(stored));
 }
 
@@ -1567,6 +1680,11 @@ function loadProfilePane() {
   // Set activity button
   document.querySelectorAll('#activity-btns .act-btn').forEach(b => {
     b.classList.toggle('on', b.textContent.toLowerCase() === currentActivity);
+  });
+  trackingGoal = stored.goal || 'deficit';
+  // Set goal button
+  document.querySelectorAll('#goal-btns .act-btn').forEach(b => {
+    b.classList.toggle('on', b.textContent.toLowerCase() === trackingGoal);
   });
   updateTDEEDisplay();
   // Show migrate section if there's no history data yet for this user
