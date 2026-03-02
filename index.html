@@ -220,6 +220,18 @@
   .onboard-act-btn.on{border-color:#f97316;color:#f97316;}
   .onboard-tdee{font-family:'DM Mono',monospace;font-size:10px;color:#555;margin:14px 0 6px;line-height:1.8;}
   .onboard-tdee span{color:#f97316;}
+
+  .goal-btns{display:flex;gap:6px;margin-top:4px;}
+  .goal-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:'DM Mono',monospace;font-size:9px;padding:8px 4px;border-radius:6px;cursor:pointer;transition:all .15s;text-align:center;}
+  .goal-btn.on.deficit{border-color:#60a5fa;color:#60a5fa;}
+  .goal-btn.on.maintain{border-color:#fbbf24;color:#fbbf24;}
+  .goal-btn.on.bulk{border-color:#4ade80;color:#4ade80;}
+  /* Extended progress bar */
+  .prog-bar-wrap{position:relative;height:6px;background:#1a1a1a;border-radius:3px;overflow:visible;margin-top:4px;}
+  .prog-bar-bg{position:absolute;inset:0;background:#1a1a1a;border-radius:3px;overflow:hidden;}
+  .prog-fill-ext{position:absolute;top:0;left:0;height:100%;border-radius:3px;transition:width .3s;}
+  .prog-marker{position:absolute;top:-4px;width:2px;height:14px;border-radius:1px;opacity:0.6;}
+  .prog-marker-lbl{position:absolute;top:12px;font-family:'DM Mono',monospace;font-size:7px;letter-spacing:.05em;transform:translateX(-50%);white-space:nowrap;opacity:0.5;}
 </style>
 </head>
 <body>
@@ -304,7 +316,13 @@
         <div>
           <div class="prog-wrap">
             <div class="prog-meta"><span>Calories</span><span class="prog-val" id="cal-txt"></span></div>
-            <div class="prog-bar"><div class="prog-fill" id="cal-fill" style="width:0%;background:#f97316"></div></div>
+            <div class="prog-bar-wrap">
+              <div class="prog-bar-bg"><div class="prog-fill-ext" id="cal-fill" style="width:0%;background:#f97316"></div></div>
+              <div class="prog-marker" id="cal-marker-target" style="background:#f97316"></div>
+              <div class="prog-marker-lbl" id="cal-lbl-target" style="color:#f97316"></div>
+              <div class="prog-marker" id="cal-marker-tdee" style="background:#fbbf24"></div>
+              <div class="prog-marker-lbl" id="cal-lbl-tdee" style="color:#fbbf24"></div>
+            </div>
           </div>
           <div class="prog-wrap" style="margin-bottom:16px">
             <div class="prog-meta"><span>Protein</span><span class="prog-val" id="pro-txt"></span></div>
@@ -430,6 +448,15 @@
             <button class="act-btn" onclick="setActivity('light',this)">Light</button>
             <button class="act-btn" onclick="setActivity('moderate',this)">Moderate</button>
             <button class="act-btn" onclick="setActivity('active',this)">Active</button>
+          </div>
+        </div>
+
+        <div style="margin-top:12px">
+          <label class="field-lbl">Goal</label>
+          <div class="goal-btns" id="goal-btns">
+            <button class="goal-btn deficit" onclick="setGoalMode('deficit',this)">🔻 Deficit</button>
+            <button class="goal-btn maintain" onclick="setGoalMode('maintain',this)">⚖️ Maintain</button>
+            <button class="goal-btn bulk" onclick="setGoalMode('bulk',this)">📈 Bulk</button>
           </div>
         </div>
 
@@ -640,18 +667,63 @@ function totals() {
 
 function updateUI() {
   const {cal, pro} = totals();
-  const remCal = CAL_T - cal, remPro = PRO_T - pro;
+  const TDEE = TDEE_USER || 2100;
+  const CAL_T_EFF = CAL_T || 1800;
+  const remCal = CAL_T_EFF - cal, remPro = PRO_T - pro;
+  const over = cal > CAL_T_EFF;
+  const mode = currentGoalMode || 'deficit';
 
-  document.getElementById("cal-txt").textContent = `${cal} / ${CAL_T}` + (remCal>0?` · ${remCal} left`:" · OVER");
+  document.getElementById("cal-txt").textContent = `${cal} / ${CAL_T_EFF}` + (remCal>0?` · ${remCal} left`:" · OVER");
   document.getElementById("pro-txt").textContent = `${pro}g / ${PRO_T}g` + (remPro>0?` · ${remPro}g left`:" · ✓");
-  document.getElementById("cal-fill").style.width = Math.min(100,cal/CAL_T*100)+"%";
-  document.getElementById("cal-fill").style.background = cal>CAL_T?"#f87171":"#f97316";
+
+  // Extended bar: scale to 130% of TDEE so there's room beyond goal
+  const barMax = Math.max(TDEE * 1.3, CAL_T_EFF * 1.4, cal * 1.1);
+  const fillPct = Math.min(99, (cal / barMax) * 100);
+  const targetPct = (CAL_T_EFF / barMax) * 100;
+  const tdeePct = (TDEE / barMax) * 100;
+
+  const calFill = document.getElementById("cal-fill");
+  calFill.style.width = fillPct + "%";
+
+  // Color logic based on goal mode
+  let fillColor;
+  if (mode === 'bulk') {
+    fillColor = over ? "#4ade80" : "#f97316"; // green when over = good for bulk
+  } else if (mode === 'maintain') {
+    fillColor = over ? "#fbbf24" : "#f97316"; // yellow when over
+  } else {
+    fillColor = over ? "#f87171" : "#f97316"; // red when over = bad for deficit
+  }
+  calFill.style.background = fillColor;
+
+  // Position markers
+  const targetMarker = document.getElementById("cal-marker-target");
+  const targetLbl = document.getElementById("cal-lbl-target");
+  const tdeeMarker = document.getElementById("cal-marker-tdee");
+  const tdeeLbl = document.getElementById("cal-lbl-tdee");
+
+  if (targetMarker) {
+    targetMarker.style.left = targetPct + "%";
+    targetLbl.style.left = targetPct + "%";
+    targetLbl.textContent = "GOAL";
+  }
+  if (tdeeMarker && Math.abs(tdeePct - targetPct) > 3) {
+    tdeeMarker.style.left = tdeePct + "%";
+    tdeeLbl.style.left = tdeePct + "%";
+    tdeeLbl.textContent = "TDEE";
+    tdeeMarker.style.display = "block";
+    tdeeLbl.style.display = "block";
+  } else if (tdeeMarker) {
+    tdeeMarker.style.display = "none";
+    tdeeLbl.style.display = "none";
+  }
+
   document.getElementById("pro-fill").style.width = Math.min(100,pro/PRO_T*100)+"%";
   document.getElementById("pro-fill").style.background = pro>=PRO_T?"#4ade80":"#a78bfa";
 
   const remCalEl = document.getElementById("rem-cal");
   remCalEl.textContent = remCal>0?remCal:"0 ✓";
-  remCalEl.style.color = remCal>0?"#f97316":"#4ade80";
+  remCalEl.style.color = remCal>0?"#f97316":fillColor;
   const remProEl = document.getElementById("rem-pro");
   remProEl.textContent = remPro>0?remPro+"g":"0g ✓";
   remProEl.style.color = remPro>0?"#a78bfa":"#4ade80";
@@ -1130,7 +1202,15 @@ async function refreshInsight() {
   else if (h < 20) mealContext = 'dinner time';
   else mealContext = 'evening, likely last meal of the day';
 
-  const prompt = `It is ${hStr} (${mealContext}). The user has eaten ${cal} kcal and ${pro}g protein today. Their daily targets are ~${TDEE} kcal and ${PRO_T_USER}g protein. Calories remaining: ${calRemaining} kcal. Protein remaining: ${proRemaining}g. Write ONE direct sentence (max 20 words) advising what the next meal should look like. Focus on what they actually need right now given the time and what's left. No emoji. No fluff.`;
+  const mode = currentGoalMode || 'deficit';
+  const modeDesc = mode === 'bulk' ? 'trying to bulk (caloric surplus is the goal)' : mode === 'maintain' ? 'trying to maintain weight' : 'trying to lose weight (caloric deficit is the goal)';
+  let goalContext = '';
+  if (cal > TDEE && mode === 'deficit') goalContext = 'They have exceeded their calorie limit — encourage them to stop eating for the day.';
+  else if (cal > TDEE && mode === 'maintain') goalContext = 'They have exceeded their maintenance calories — encourage them to settle down and not eat more.';
+  else if (cal > TDEE && mode === 'bulk') goalContext = 'They are in a surplus which is good for their bulk goal — encourage them positively.';
+  else if (calRemaining < 200 && mode === 'bulk') goalContext = 'They are close to their calorie target but bulking requires more — encourage them to eat more.';
+
+  const prompt = `It is ${hStr} (${mealContext}). The user is ${modeDesc}. They have eaten ${cal} kcal and ${pro}g protein today. Daily targets: ${TDEE} kcal TDEE, cal target ${calRemaining + cal} kcal, ${PRO_T_USER}g protein. Calories remaining to target: ${calRemaining} kcal. Protein remaining: ${proRemaining}g. ${goalContext} Write ONE direct sentence (max 20 words) advising what to do next. No emoji. No fluff.`;
 
   try {
     const data = await api('/', {
@@ -1378,7 +1458,7 @@ async function obSubmit() {
     });
 
     // Update stored user with new stats
-    const updated = { ...currentUser, tdee, pro_target: proTarget, age, weight_lbs: weight, height_in: heightIn, activity: obActivity };
+    const updated = { ...currentUser, tdee, pro_target: proTarget, age, weight_lbs: weight, height_in: heightIn, activity: obActivity, goal_mode: 'deficit' };
     localStorage.setItem('bl_user', JSON.stringify(updated));
 
     TDEE_USER = tdee;
@@ -1472,6 +1552,7 @@ window.onGoogleLibraryLoad = initGoogleAuth;
 
 // ── Profile ────────────────────────────────────────────────────────────// ── Profile ────────────────────────────────────────────────────────────────
 let currentActivity = 'sedentary';
+let currentGoalMode = 'deficit'; // 'deficit' | 'maintain' | 'bulk'
 let PRO_T_USER = 120;
 let TDEE_USER = 2100;
 
@@ -1490,6 +1571,14 @@ function setActivity(act, btn) {
   btn.classList.add('on');
   updateTDEEDisplay();
   scheduleProfileSave();
+}
+
+function setGoalMode(mode, btn) {
+  currentGoalMode = mode;
+  document.querySelectorAll('#goal-btns .goal-btn').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  scheduleProfileSave();
+  updateUI();
 }
 
 function updateTDEEDisplay() {
@@ -1564,9 +1653,14 @@ function loadProfilePane() {
   if (stored.height_in) document.getElementById('prof-height').value = stored.height_in;
   if (stored.pro_target) document.getElementById('prof-protein').value = stored.pro_target;
   currentActivity = stored.activity || 'sedentary';
+  currentGoalMode = stored.goal_mode || 'deficit';
   // Set activity button
   document.querySelectorAll('#activity-btns .act-btn').forEach(b => {
     b.classList.toggle('on', b.textContent.toLowerCase() === currentActivity);
+  });
+  ['deficit','maintain','bulk'].forEach(mode => {
+    const btn = document.querySelector(`#goal-btns .goal-btn.${mode}`);
+    if (btn) btn.classList.toggle('on', mode === currentGoalMode);
   });
   updateTDEEDisplay();
   // Show migrate section if there's no history data yet for this user
