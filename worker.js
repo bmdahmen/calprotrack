@@ -60,10 +60,10 @@ export default {
 
     // ── Update profile ────────────────────────────────────────────────────────
     if (path === '/auth/profile') {
-      const { user_id, privacy, tdee, pro_target, age, weight_lbs, height_in, activity } = body;
+      const { user_id, tdee, pro_target, age, weight_lbs, height_in, activity, goal_mode } = body;
       await env.DB.prepare(
-        'UPDATE users SET privacy=?, tdee=?, pro_target=?, age=?, weight_lbs=?, height_in=?, activity=? WHERE id=?'
-      ).bind(privacy||'private', tdee||2100, pro_target||120, age||35, weight_lbs||170, height_in||66, activity||'sedentary', user_id).run();
+        'UPDATE users SET tdee=?, pro_target=?, age=?, weight_lbs=?, height_in=?, activity=?, goal_mode=? WHERE id=?'
+      ).bind(tdee||2100, pro_target||120, age||35, weight_lbs||170, height_in||66, activity||'sedentary', goal_mode||'deficit', user_id).run();
       return json({ ok: true });
     }
 
