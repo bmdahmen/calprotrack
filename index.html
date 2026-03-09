@@ -1187,8 +1187,13 @@ function formatDate(d) {
   return dt.toLocaleDateString('en-US',{month:'short',day:'2-digit',year:'numeric'}).replace(',','');
 }
 
+let historyExpanded = false;
+const HISTORY_PAGE = 15;
+
 function renderHistory() {
-  document.getElementById("hist-body").innerHTML = [...historyData].reverse().map(e=>`
+  const rows = [...historyData].reverse();
+  const visible = historyExpanded ? rows : rows.slice(0, HISTORY_PAGE);
+  document.getElementById("hist-body").innerHTML = visible.map(e=>`
     <tr onclick="goToDate('${e.date}')">
       <td style="color:#555">${formatDate(e.date)}</td>
       <td style="color:#bbb">${e.weightAM??'—'}</td>
@@ -1199,6 +1204,25 @@ function renderHistory() {
       <td style="font-weight:600;color:${e.protein?(e.protein>=PRO_T?(document.body.classList.contains('light')?'#1a6b2a':'#4ade80'):(document.body.classList.contains('light')?'#8b1a1a':'#f87171')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.protein?e.protein+'g':'—'}</td>
       <td style="color:#383838;font-size:11px">${e.notes||''}</td>
     </tr>`).join("");
+  const toggleRow = document.getElementById("hist-toggle-row");
+  if (rows.length > HISTORY_PAGE) {
+    if (!toggleRow) {
+      const tbody = document.getElementById("hist-body");
+      const tr = document.createElement("tr");
+      tr.id = "hist-toggle-row";
+      tr.innerHTML = `<td colspan="8" style="text-align:center;padding:8px;cursor:pointer;color:#666;font-size:11px;font-family:'DM Mono',monospace;" onclick="toggleHistoryExpand()">${historyExpanded ? '▲ Show less' : '▼ Show ' + (rows.length - HISTORY_PAGE) + ' more'}</td>`;
+      tbody.appendChild(tr);
+    } else {
+      toggleRow.querySelector("td").textContent = historyExpanded ? '▲ Show less' : '▼ Show ' + (rows.length - HISTORY_PAGE) + ' more';
+    }
+  } else if (toggleRow) {
+    toggleRow.remove();
+  }
+}
+
+function toggleHistoryExpand() {
+  historyExpanded = !historyExpanded;
+  renderHistory();
 }
 
 function goToDate(dateStr) {
@@ -1410,7 +1434,8 @@ async function sendHistChat() {
   // Build context from historyData
   const isOwner = currentUser && currentUser.email === 'bmdahmen@gmail.com';
   const seedData = isOwner ? SEED_HISTORY : [];
-  const allData = [...seedData, ...historyData].sort((a,b)=>a.date>b.date?1:-1);
+  const today = new Date().toISOString().slice(0,10);
+  const allData = [...seedData, ...historyData].filter(e=>e.date < today).sort((a,b)=>a.date>b.date?1:-1);
   const recent = allData.slice(-30);
   const ctx = recent.map(e => {
     const p = [e.date];
