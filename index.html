@@ -1069,10 +1069,10 @@ function setPrevMeasPlaceholders(currentDate) {
   const prev = all[0];
   if (!prev) return;
   const fields = [
-    ['wt-am', prev.weightAM ? `prev: ${prev.weightAM}` : null],
-    ['wt-pm', prev.weightPM ? `prev: ${prev.weightPM}` : null],
-    ['waist-nav', prev.waistNavel ? `prev: ${prev.waistNavel}` : null],
-    ['waist-sml', prev.waistSmallest ? `prev: ${prev.waistSmallest}` : null],
+    ['wt-am', prev.weightAM ?? null],
+    ['wt-pm', prev.weightPM ?? null],
+    ['waist-nav', prev.waistNavel ?? null],
+    ['waist-sml', prev.waistSmallest ?? null],
   ];
   fields.forEach(([id, ph]) => {
     const el = document.getElementById(id);
