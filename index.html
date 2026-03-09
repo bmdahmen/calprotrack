@@ -29,10 +29,150 @@
   .stat .lbl{font-family:'DM Mono',monospace;font-size:8px;color:#888;letter-spacing:3px;margin-bottom:1px;}
   .stat .val{font-size:13px;font-weight:500;color:#fff;font-family:'DM Mono',monospace;}
   .val.warn{color:#f87171!important;}.val.good{color:#4ade80!important;}
-  .tabs{display:flex;}
-  .tab-btn{background:none;border:none;border-bottom:2px solid transparent;color:#777;font-size:10px;letter-spacing:.1em;padding:9px 12px;cursor:pointer;text-transform:uppercase;transition:color .15s;}
+  .tabs{display:flex;gap:2px;}
+  .tab-btn{background:none;border:none;border-bottom:3px solid transparent;color:#888;font-size:13px;font-weight:600;letter-spacing:.05em;padding:10px 20px;cursor:pointer;text-transform:uppercase;transition:all .15s;font-family:'DM Mono',monospace;}
   .tab-btn.on{color:#f97316;border-bottom-color:#f97316;}
-  .tab-btn:hover:not(.on){color:#777;}
+  .tab-btn:hover:not(.on){color:#aaa;}
+  /* Avatar button */
+  .avatar-btn{background:none;border:none;cursor:pointer;padding:2px 4px;margin-right:2px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .avatar-btn img{width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #f97316;display:block;}
+  .avatar-btn .av-placeholder{width:32px;height:32px;border-radius:50%;background:#1a1a1a;border:2px solid #f97316;display:flex;align-items:center;justify-content:center;font-family:"DM Mono",monospace;font-size:13px;color:#f97316;}
+  .avatar-label{font-family:"DM Mono",monospace;font-size:8px;color:#555;letter-spacing:.08em;text-transform:uppercase;}
+  body.light .avatar-label{color:#9e9689;}
+  /* Activity scale */
+  .act-scale-wrap{margin-top:4px;}
+  .act-scale-labels{display:flex;justify-content:space-between;font-family:"DM Mono",monospace;font-size:8px;color:#444;margin-bottom:3px;letter-spacing:.03em;}
+  body.light .act-scale-labels{color:#9e9689;}
+  .act-scale-emojis{display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;padding:0 6px;}
+  .act-scale-btns{display:flex;gap:4px;}
+  .act-scale-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:"DM Mono",monospace;font-size:11px;font-weight:600;padding:8px 4px;border-radius:6px;cursor:pointer;transition:all .15s;text-align:center;}
+  .act-scale-btn.on{border-color:#f97316;color:#f97316;background:#1a0f00;}
+  body.light .act-scale-btn{border-color:#c8c1b8;color:#7a7168;}
+  body.light .act-scale-btn.on{border-color:#c8621a;color:#c8621a;background:#fff0e8;}
+  /* Meals collapsed */
+  .meals-collapsed .meal-row:nth-child(n+4){display:none;}
+  .show-more-btn{width:100%;background:none;border:1px solid #2a2a2a;border-radius:6px;color:#555;font-family:"DM Mono",monospace;font-size:10px;padding:7px;cursor:pointer;margin-top:4px;transition:all .15s;}
+  .show-more-btn:hover{color:#f97316;border-color:#f97316;}
+  /* AI suggestion card */
+  .ai-suggest-card{background:#161616;border:1px solid #2a2a2a;border-radius:10px;padding:12px 14px;margin-top:6px;}
+  .ai-suggest-total{font-family:"DM Mono",monospace;font-size:11px;color:#f97316;margin-bottom:8px;font-weight:600;}
+  .ai-suggest-items{font-family:"DM Mono",monospace;font-size:10px;color:#666;margin-bottom:10px;line-height:1.8;}
+  .ai-suggest-actions{display:flex;gap:8px;}
+  .btn-save-food{flex:1;background:#f97316;color:#000;border:none;border-radius:7px;padding:10px;font-family:"DM Mono",monospace;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.05em;}
+  .btn-save-food:hover{background:#fb923c;}
+  .btn-discuss{flex:1;background:none;border:1px solid #2a2a2a;color:#777;border-radius:7px;padding:10px;font-family:"DM Mono",monospace;font-size:11px;cursor:pointer;}
+  .btn-discuss:hover{border-color:#555;color:#aaa;}
+  .ai-suggest-msg{font-family:'DM Mono',monospace;font-size:11px;color:#aaa;line-height:1.6;margin-bottom:8px;}
+  /* Theme toggle */
+  .theme-toggle{display:flex;gap:8px;margin-top:4px;}
+  .theme-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:"DM Mono",monospace;font-size:9px;padding:8px;border-radius:6px;cursor:pointer;transition:all .15s;}
+  .theme-btn.on{border-color:#f97316;color:#f97316;}
+  /* ── LIGHT MODE ── */
+  body.light{background:#e8e2d9;color:#2c2820;}
+  body.light .header{background:#dfd9cf;border-bottom-color:#c8c1b8;}
+  body.light .tab-btn{color:#7a7168;}
+  body.light .tab-btn.on{color:#c8621a;}
+  body.light .tab-btn:hover:not(.on){color:#4a4540;}
+  body.light .insight-bar{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .insight-bar .insight-label{color:#c8621a;opacity:.7;}
+  body.light .stats-row .stat{background:#dfd9cf;border-color:#c8c1b8;}
+  body.light .stats-row .val{color:#2c2820;}
+  body.light .stats-row .lbl{color:#9e9689;}
+  body.light .pane{background:#e8e2d9;}
+  body.light .day-nav{background:#dfd9cf;border-color:#c8c1b8;}
+  body.light .day-label{color:#2c2820;}
+  body.light .nav-arrow{color:#7a7168;}
+  body.light .today-btn{border-color:#c8c1b8;color:#7a7168;}
+  body.light .chat-wrap{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .chat-msgs{background:#dbd4ca;}
+  body.light .chat-empty{color:#9e9689;}
+  body.light .bubble{background:#cfc8bf;color:#2c2820;}
+  body.light .msg-ai .ai-av{background:#dfd9cf;color:#c8621a;border-color:#c8c1b8;}
+  body.light .ai-text{color:#3a3530;}
+  body.light .ai-suggest-card{background:#d5cec5;border-color:#c0b9b0;}
+  body.light .meal-box{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .meal-row{border-bottom-color:#c8c1b8;}
+  body.light .meal-desc{color:#2c2820;}
+  body.light .meal-meta{color:#7a7168;}
+  body.light .total-row{color:#7a7168;border-top-color:#c8c1b8;}
+  body.light .show-more-btn{border-color:#c8c1b8;color:#7a7168;}
+  body.light .sec{color:#9e9689;}
+  body.light .field-lbl{color:#7a7168;}
+  body.light input[type=number],body.light input[type=text]{background:#d5cec5;border-color:#c0b9b0;color:#2c2820;}
+  body.light .meas-grid input{background:#d5cec5;}
+  body.light input[type=number].saving,body.light input[type=text].saving{background:#c5d8c8;}
+  body.light .day-act-btn{border-color:#c8c1b8;color:#7a7168;}
+  body.light .day-act-btn.on{border-color:#c8621a;color:#c8621a;}
+  body.light .day-tdee-line{color:#9e9689;}
+  body.light .day-tdee-line span{color:#c8621a;}
+  body.light .rem-box{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light #goal-lbl{color:#9e9689;}
+  body.light #rem-cal{color:#c8621a;}
+  body.light #rem-pro{color:#6e5ba0;}
+  body.light .prog-wrap{background:transparent;}
+  body.light .prog-bar-wrap{background:#cfc8bf;}
+  body.light .prog-bar-bg{background:#cfc8bf;}
+  body.light .prog-meta span{color:#7a7168;}
+  body.light .prog-val{color:#4a4540;}
+  body.light .two-col>div:first-child{background:transparent;}
+  body.light .chart-wrap{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .range-btn{border-color:#c8c1b8;color:#7a7168;}
+  body.light .range-btn.on{border-color:#c8621a;color:#c8621a;}
+  body.light .legend-item{color:#7a7168;}
+  body.light #pane-profile{background:#e8e2d9;}
+  body.light .prof-card{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .act-btn{border-color:#c8c1b8;color:#7a7168;}
+  body.light .act-btn.on{border-color:#c8621a;color:#c8621a;}
+  body.light .goal-btn{border-color:#c8c1b8;color:#7a7168;}
+  body.light .aggr-btn{border-color:#c8c1b8;color:#7a7168;}
+  body.light .aggr-btn.on{border-color:#c8621a;color:#c8621a;}
+  body.light .auth-box{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .auth-logo{color:#2c2820;}
+  body.light .auth-title{color:#2c2820;}
+  body.light .auth-sub{color:#7a7168;}
+  body.light .theme-btn{border-color:#c8c1b8;color:#7a7168;}
+  body.light .theme-btn.on{border-color:#c8621a;color:#c8621a;}
+  body.light .avatar-btn img{border-color:#c8621a;}
+  body.light .avatar-btn .av-placeholder{background:#dfd9cf;border-color:#c8621a;color:#c8621a;}
+  body.light .icon-btn{color:#7a7168;}
+  body.light .icon-btn:hover{color:#c8621a;}
+  body.light .cam-btn{color:#7a7168;border-color:#c8c1b8;}
+  body.light .send-btn{background:#c8621a;color:#fff;}
+  body.light .primary-btn{background:#c8621a;color:#fff;}
+  body.light .btn-save-food{background:#c8621a;color:#fff;}
+  body.light .btn-discuss{border-color:#c8c1b8;color:#7a7168;}
+  body.light .prof-tdee-display{color:#7a7168;}
+  body.light .no-meals{color:#9e9689;}
+  body.light .hist-insight-bar{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .history-row{border-bottom-color:#c8c1b8;color:#4a4540;}
+  body.light .toast{background:#2c2820;color:#e8e2d9;}
+  body.light .goal-btn.deficit.on{background:#3a2010;color:#c8621a;border-color:#c8621a;}
+  body.light .goal-btn.maintain.on{background:#2a2a10;color:#a09020;border-color:#a09020;}
+  body.light .goal-btn.bulk.on{background:#102a18;color:#2a8040;border-color:#2a8040;}
+  body.light .send-btn:hover{background:#b55818;}
+  body.light .char-count{color:#9e9689;}
+  .migrate-status-txt{color:#4ade80;}
+  body.light .migrate-status-txt{color:#1a6b2a;}
+  body.light .aggr-desc{color:#9e9689;}
+  body.light .day-tdee-line{color:#9e9689;}
+  /* Green text overrides — #4ade80 is unreadable on light backgrounds */
+  body.light .val.good{color:#1a6b2a!important;}
+  body.light .insight-bar.deficit-deep{color:#1a5c28;background:#d5ead8;}
+  body.light .insight-bar.deficit-mild{color:#2a5c1a;background:#daebd5;}
+  body.light .insight-bar.balanced{color:#5c4a10;background:#ede8d0;}
+  body.light .insight-bar.surplus-mild{color:#7a3510;background:#edd8c8;}
+  body.light .insight-bar.surplus-fat{color:#7a1a1a;background:#edd5d5;}
+  body.light .kc{color:#b05010!important;}
+  body.light .pr{color:#5a3a9a!important;}
+  body.light .prog-val{color:#2c2820!important;font-weight:600;}
+  body.light .prog-meta span{color:#4a4540;}
+  body.light .hist-rate-num.loss{color:#1a6b2a;}
+  body.light .hist-rate-num.gain{color:#7a1a1a;}
+  body.light .hist-rate-num.neutral{color:#4a4540;}
+  @media(max-width:500px){
+    .tab-btn{font-size:14px;padding:11px 0;flex:1;text-align:center;}
+    .tabs{width:100%;}
+  }
 
   .content{padding:16px;max-width:900px;}
   .pane{display:none;}.pane.on{display:block;}
@@ -77,17 +217,6 @@
   .prog-val{color:#ccc!important;}
   .prog-bar{height:3px;background:#181818;border-radius:2px;overflow:hidden;}
   .prog-fill{height:100%;border-radius:2px;transition:width .35s ease;}
-
-  /* Calorie zone bar */
-  .cal-zone-outer{height:3px;border-radius:2px;position:relative;overflow:visible;background:#181818;}
-  .cal-zone-bg{position:absolute;inset:0;border-radius:2px;overflow:hidden;}
-  .cal-zone-actual{position:absolute;top:0;left:0;height:100%;border-radius:2px;transition:width .35s ease;z-index:2;}
-  .cal-zone-marker{position:absolute;top:-3px;width:1px;height:9px;z-index:3;}
-  .cal-zone-lbl{position:absolute;top:8px;font-size:7px;font-family:'DM Mono',monospace;color:#2a2a2a;transform:translateX(-50%);white-space:nowrap;letter-spacing:.04em;}
-  /* Bulk insight bar variants */
-  .insight-bar.bulk-low{color:#fbbf24;background:#1a1500;}
-  .insight-bar.bulk-good{color:#4ade80;background:#0a1a0f;}
-  .insight-bar.bulk-over{color:#f87171;background:#1a0808;}
 
   /* Chat */
   .chat-wrap{background:#111;border:1px solid #2a2a2a;border-radius:8px;margin-bottom:16px;}
@@ -152,6 +281,8 @@
 
   /* Trend chart */
   .chart-wrap{background:#0b0b0b;border:1px solid #161616;border-radius:8px;padding:12px 16px 10px;margin-bottom:18px;}
+  #chart-tooltip{position:fixed;background:#0e0e0e;border:1px solid #2a2a2a;border-radius:8px;padding:10px 12px;font-family:'DM Mono',monospace;font-size:10px;color:#ccc;line-height:1.7;pointer-events:none;z-index:9999;display:none;min-width:150px;box-shadow:0 4px 20px rgba(0,0,0,.5);}
+  body.light #chart-tooltip{background:#fff;border-color:#c8c1b8;color:#2c2820;box-shadow:0 4px 20px rgba(0,0,0,.15);}
   .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
   .chart-legend{display:flex;gap:14px;}
   .legend-item{display:flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:9px;color:#555;}
@@ -175,7 +306,18 @@
   /* History AI insight */
   .hist-insight-wrap{margin-bottom:18px;}
   .hist-insight-bar{background:#111;border:1px solid #2a2a2a;border-radius:8px;padding:12px 16px;font-family:'DM Mono',monospace;font-size:11px;color:#aaa;line-height:1.6;min-height:40px;}
-  .hist-insight-bar .insight-label{font-size:8px;letter-spacing:3px;opacity:.5;margin-right:8px;text-transform:uppercase;}
+  .hist-insight-bar .insight-label{font-size:7px;letter-spacing:2px;opacity:.5;margin-right:8px;text-transform:uppercase;white-space:nowrap;}
+  .hist-chat-wrap{margin-top:10px;border-top:1px solid #1e1e1e;overflow:hidden;max-height:0;transition:max-height .3s ease;}
+  .hist-chat-wrap.open{max-height:500px;}
+  .hist-chat-msgs{max-height:200px;overflow-y:auto;padding:8px 0 4px;}
+  .hist-chat-input-row{display:flex;gap:6px;margin-top:6px;}
+  .hist-chat-input{flex:1;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:6px;color:#ccc;font-family:'DM Mono',monospace;font-size:11px;padding:7px 10px;}
+  .hist-chat-btn{background:#f97316;color:#000;border:none;border-radius:6px;font-family:'DM Mono',monospace;font-size:10px;font-weight:700;padding:7px 12px;cursor:pointer;}
+  .hist-coach-toggle{background:none;border:none;color:#444;font-family:'DM Mono',monospace;font-size:9px;cursor:pointer;padding:4px 0;letter-spacing:.05em;display:block;margin-top:4px;}
+  .hist-coach-toggle:hover{color:#f97316;}
+  body.light .hist-chat-wrap{border-top-color:#c8c1b8;}
+  body.light .hist-chat-input{background:#dbd4ca;border-color:#c8c1b8;color:#2c2820;}
+  body.light .hist-coach-toggle{color:#9e9689;}
   .hist-rate-row{display:flex;align-items:center;gap:20px;margin-bottom:10px;}
   .hist-rate-block{text-align:center;}
   .hist-rate-num{font-size:26px;font-weight:500;font-family:'DM Mono',monospace;line-height:1;letter-spacing:-0.02em;}
@@ -231,6 +373,27 @@
   .onboard-act-btn.on{border-color:#f97316;color:#f97316;}
   .onboard-tdee{font-family:'DM Mono',monospace;font-size:10px;color:#555;margin:14px 0 6px;line-height:1.8;}
   .onboard-tdee span{color:#f97316;}
+
+  .goal-btns{display:flex;gap:6px;margin-top:4px;}
+  .goal-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:'DM Mono',monospace;font-size:9px;padding:8px 4px;border-radius:6px;cursor:pointer;transition:all .15s;text-align:center;}
+  .goal-btn.on.deficit{border-color:#60a5fa;color:#60a5fa;}
+  .goal-btn.on.maintain{border-color:#fbbf24;color:#fbbf24;}
+  .goal-btn.on.bulk{border-color:#4ade80;color:#4ade80;}
+  /* Extended progress bar */
+  .prog-bar-wrap{position:relative;height:6px;background:#1a1a1a;border-radius:3px;overflow:visible;margin-top:4px;}
+  .prog-bar-bg{position:absolute;inset:0;background:#1a1a1a;border-radius:3px;overflow:hidden;}
+  .prog-fill-ext{position:absolute;top:0;left:0;height:100%;border-radius:3px;transition:width .3s;}
+  .prog-marker{position:absolute;top:-4px;width:2px;height:14px;border-radius:1px;opacity:0.6;}
+  .prog-marker-lbl{position:absolute;top:12px;font-family:'DM Mono',monospace;font-size:7px;letter-spacing:.05em;transform:translateX(-50%);white-space:nowrap;opacity:0.5;}
+
+  .day-act-btns{display:flex;gap:6px;margin-top:4px;}
+  .day-act-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:'DM Mono',monospace;font-size:9px;padding:7px 4px;border-radius:6px;cursor:pointer;transition:all .15s;text-align:center;}
+  .day-act-btn.on{border-color:#f97316;color:#f97316;}
+  .day-tdee-line{font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:6px;letter-spacing:.05em;}
+  .day-tdee-line span{color:#f97316;}
+  .aggr-btns{display:flex;gap:6px;margin-top:4px;}
+  .aggr-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:'DM Mono',monospace;font-size:9px;padding:7px 4px;border-radius:6px;cursor:pointer;transition:all .15s;text-align:center;}
+  .aggr-btn.on{border-color:#f97316;color:#f97316;}
 </style>
 </head>
 <body>
@@ -291,11 +454,16 @@
         <span class="logo-sub"></span>
       </div>
     <div class="stats-row" id="stats-row"></div>
-    <div class="insight-bar deficit-deep" id="insight-bar"><span class="insight-label">AI</span><span class="insight-spin"></span></div>
-    <div class="tabs">
-      <button class="tab-btn on" onclick="showTab('day',this)">Day</button>
-      <button class="tab-btn" onclick="showTab('history',this)">History</button>
-      <button class="tab-btn" onclick="showTab('profile',this)">Profile</button>
+    <div class="insight-bar deficit-deep" id="insight-bar"><span class="insight-label">AI COACH</span><span class="insight-spin"></span></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="tabs">
+        <button class="tab-btn on" onclick="showTab('day',this)">Day</button>
+        <button class="tab-btn" onclick="showTab('history',this)">History</button>
+      </div>
+      <button class="avatar-btn" id="avatar-btn" onclick="showTab('profile',null)" title="Profile">
+        <div id="avatar-img-wrap"></div>
+        <span class="avatar-label">Profile</span>
+      </button>
     </div>
   </div>
 
@@ -315,10 +483,12 @@
         <div>
           <div class="prog-wrap">
             <div class="prog-meta"><span>Calories</span><span class="prog-val" id="cal-txt"></span></div>
-            <div class="cal-zone-outer" id="cal-zone-outer">
-              <div class="cal-zone-bg" id="cal-zone-bg"></div>
-              <div class="cal-zone-actual" id="cal-fill" style="width:0%;background:#f97316"></div>
-              <div id="cal-zone-markers"></div>
+            <div class="prog-bar-wrap">
+              <div class="prog-bar-bg"><div class="prog-fill-ext" id="cal-fill" style="width:0%;background:#f97316"></div></div>
+              <div class="prog-marker" id="cal-marker-target" style="background:#f97316"></div>
+              <div class="prog-marker-lbl" id="cal-lbl-target" style="color:#f97316"></div>
+              <div class="prog-marker" id="cal-marker-tdee" style="background:#fbbf24"></div>
+              <div class="prog-marker-lbl" id="cal-lbl-tdee" style="color:#fbbf24"></div>
             </div>
           </div>
           <div class="prog-wrap" style="margin-bottom:16px">
@@ -335,10 +505,11 @@
               <button class="img-clear" onclick="clearImage()">✕</button>
             </div>
             <div class="chat-input-row">
-              <input type="text" id="food-input" placeholder="e.g. 2 eggs, oat milk, overnight oats…" onkeydown="if(event.key==='Enter')sendFood()">
+              <input type="text" id="food-input" maxlength="1000" placeholder="e.g. 2 eggs, oat milk, overnight oats…" onkeydown="if(event.key==='Enter')sendFood()" oninput="updateCharCount()">
               <button class="cam-btn" onclick="document.getElementById('file-input').click()" title="Photo">📷</button>
-              <button class="send-btn" id="send-btn" onclick="sendFood()">LOG →</button>
+              <button class="send-btn" id="send-btn" onclick="sendFood()">ESTIMATE →</button>
             </div>
+            <div id="char-count" style="font-family:'DM Mono',monospace;font-size:8px;color:#333;text-align:right;padding:2px 4px;display:none;"></div>
             <input type="file" id="file-input" accept="image/*" capture="environment" onchange="previewImage(event)">
           </div>
 
@@ -350,22 +521,40 @@
         <div>
           <div class="sec">Measurements</div>
           <div class="meas-grid">
-            <div><label class="field-lbl">Weight AM (lbs)</label><input type="number" id="wt-am" placeholder="169.4" step="0.1" oninput="saveMeas()"></div>
-            <div><label class="field-lbl">Weight PM (lbs)</label><input type="number" id="wt-pm" placeholder="171.0" step="0.1" oninput="saveMeas()"></div>
-            <div><label class="field-lbl">Waist @ Navel (in)</label><input type="number" id="waist-nav" placeholder="35.0" step="0.25" oninput="saveMeas()"></div>
-            <div><label class="field-lbl">Waist Smallest (in)</label><input type="number" id="waist-sml" placeholder="32.5" step="0.25" oninput="saveMeas()"></div>
+            <div><label class="field-lbl">Weight AM (lbs)</label><input type="number" id="wt-am" onblur="saveMeas('wt-am')" placeholder="169.4" step="0.1"></div>
+            <div><label class="field-lbl">Weight PM (lbs)</label><input type="number" id="wt-pm" onblur="saveMeas('wt-pm')" placeholder="171.0" step="0.1"></div>
+            <div><label class="field-lbl">Waist @ Navel (in)</label><input type="number" id="waist-nav" onblur="saveMeas('waist-nav')" placeholder="35.0" step="0.25"></div>
+            <div><label class="field-lbl">Waist Smallest (in)</label><input type="number" id="waist-sml" onblur="saveMeas('waist-sml')" placeholder="32.5" step="0.25"></div>
           </div>
           <div style="margin-bottom:12px">
             <label class="field-lbl">Notes</label>
-            <input type="text" id="day-notes" placeholder="Optional…" oninput="saveMeas()">
+            <input type="text" id="day-notes" onblur="saveMeas('day-notes')" placeholder="Optional…">
           </div>
-          <button class="primary-btn" onclick="saveDay()">SAVE DAY TO HISTORY →</button>
-
+          <div style="margin-bottom:14px">
+            <label class="field-lbl">Today's Activity</label>
+            <div class="act-scale-wrap">
+              <div class="act-scale-labels">
+                <span>Sedentary</span>
+                <span>Active</span>
+              </div>
+              <div class="act-scale-emojis">
+                <span>🪑</span><span style="opacity:.4">·</span><span>🚶</span><span style="opacity:.4">·</span><span>🏋️</span>
+              </div>
+              <div class="act-scale-btns" id="day-act-btns">
+                <button class="act-scale-btn on" onclick="setDayActivity('1',this)">1</button>
+                <button class="act-scale-btn" onclick="setDayActivity('2',this)">2</button>
+                <button class="act-scale-btn" onclick="setDayActivity('3',this)">3</button>
+                <button class="act-scale-btn" onclick="setDayActivity('4',this)">4</button>
+                <button class="act-scale-btn" onclick="setDayActivity('5',this)">5</button>
+              </div>
+            </div>
+            <div class="day-tdee-line" id="day-tdee-line">Today's TDEE: <span id="day-tdee-val">—</span></div>
+          </div>
           <div class="rem-box">
             <div class="sec" style="margin-bottom:10px">Remaining Today</div>
             <div style="display:flex;gap:24px;">
               <div>
-                <div style="font-family:'DM Mono',monospace;font-size:8px;color:#383838;letter-spacing:3px;margin-bottom:2px;">CALORIES</div>
+                <div id="goal-lbl" style="font-family:'DM Mono',monospace;font-size:8px;color:#555;letter-spacing:3px;margin-bottom:2px;">DEFICIT TARGET</div>
                 <div id="rem-cal" style="font-size:22px;font-weight:500;color:#f97316;font-family:'DM Mono',monospace;">1800</div>
               </div>
               <div>
@@ -393,17 +582,28 @@
               <button class="range-btn" onclick="setRange(7,this)">7D</button>
               <button class="range-btn" onclick="setRange(14,this)">14D</button>
               <button class="range-btn on" onclick="setRange(30,this)">30D</button>
+              <button class="range-btn" onclick="setRange(90,this)">90D</button>
+              <button class="range-btn" onclick="setRange(180,this)">6M</button>
+              <button class="range-btn" onclick="setRange(365,this)">1Y</button>
             </div>
           </div>
         </div>
-        <canvas id="trend-chart" height="140"></canvas>
+        <canvas id="trend-chart" height="155" onclick="handleChartClick(event)" onmouseleave="closeChartTooltip()" style="cursor:crosshair"></canvas>
       </div>
     </div>
     <!-- HISTORY -->
     <div id="pane-history" class="pane">
       <div class="hist-insight-wrap">
         <div class="hist-rate-row" id="hist-rate-row"></div>
-        <div class="hist-insight-bar" id="hist-insight-bar"><span class="insight-label">AI</span><span class="insight-spin"></span></div>
+        <div class="hist-insight-bar" id="hist-insight-bar"><span class="insight-label">AI COACH</span><span class="insight-spin"></span></div>
+        <button class="hist-coach-toggle" id="hist-coach-toggle" onclick="toggleHistChat()">+ Ask AI Coach a question</button>
+        <div class="hist-chat-wrap" id="hist-chat-wrap">
+          <div class="hist-chat-msgs" id="hist-chat-msgs"></div>
+          <div class="hist-chat-input-row">
+            <input type="text" class="hist-chat-input" id="hist-chat-input" placeholder="Ask about your progress…" maxlength="500" onkeydown="if(event.key==='Enter')sendHistChat()">
+            <button class="hist-chat-btn" onclick="sendHistChat()">ASK →</button>
+          </div>
+        </div>
       </div>
       <div class="sec">All Entries <span style="color:#444;font-size:8px;margin-left:8px;">CLICK ROW TO EDIT</span></div>
       <div style="overflow-x:auto">
@@ -449,22 +649,41 @@
         </div>
 
         <div style="margin-top:12px">
-          <label class="field-lbl">Tracking Goal</label>
-          <div class="activity-btns" id="goal-btns">
-            <button class="act-btn on" onclick="setGoal('deficit',this)">Deficit</button>
-            <button class="act-btn" onclick="setGoal('maintenance',this)">Maintenance</button>
-            <button class="act-btn" onclick="setGoal('bulk',this)">Bulk</button>
+          <label class="field-lbl">Goal</label>
+          <div class="goal-btns" id="goal-btns">
+            <button class="goal-btn deficit" onclick="setGoalMode('deficit',this)">🔻 Deficit</button>
+            <button class="goal-btn maintain" onclick="setGoalMode('maintain',this)">⚖️ Maintain</button>
+            <button class="goal-btn bulk" onclick="setGoalMode('bulk',this)">📈 Bulk</button>
           </div>
         </div>
+
+        <div style="margin-top:10px" id="aggr-section">
+          <label class="field-lbl" id="aggr-label">Aggressiveness</label>
+          <div class="aggr-btns" id="aggr-btns">
+            <button class="aggr-btn" onclick="setAggressiveness('mild',this)" id="aggr-mild">Mild</button>
+            <button class="aggr-btn on" onclick="setAggressiveness('moderate',this)" id="aggr-moderate">Moderate</button>
+            <button class="aggr-btn" onclick="setAggressiveness('aggressive',this)" id="aggr-aggressive">Aggressive</button>
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;" id="aggr-desc"></div>
+        </div>
+
 
         <div style="margin-top:14px;font-family:'DM Mono',monospace;font-size:10px;color:#555;line-height:1.8;">
           Estimated TDEE: <span id="prof-tdee-display" style="color:#f97316">—</span><br>
           <span style="font-size:9px;color:#333">Mifflin-St Jeor · updates automatically</span>
         </div>
+        <div style="margin-top:14px">
+          <label class="field-lbl">Appearance</label>
+          <div class="theme-toggle">
+            <button class="theme-btn on" id="theme-dark" onclick="setTheme('dark',this)">🌙 Dark</button>
+            <button class="theme-btn" id="theme-light" onclick="setTheme('light',this)">☀️ Light</button>
+          </div>
+        </div>
+
         <div id="migrate-section" style="display:none;margin-top:16px;border-top:1px solid #1e1e1e;padding-top:16px;">
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:#555;margin-bottom:8px;line-height:1.6;">Existing data found under default account.<br>Claim it as yours?</div>
           <button class="auth-btn" onclick="migrateData()" style="background:#1a1a1a;color:#f97316;border:1px solid #f97316;">CLAIM EXISTING DATA →</button>
-          <div id="migrate-status" style="font-family:'DM Mono',monospace;font-size:10px;color:#4ade80;margin-top:8px;"></div>
+          <div id="migrate-status" style="font-family:'DM Mono',monospace;font-size:10px;margin-top:8px;" class="migrate-status-txt"></div>
         </div>
       </div>
     </div>
@@ -557,6 +776,10 @@ async function loadDay(d) {
 
   // Reset chat
   document.getElementById("chat-msgs").innerHTML = '<div class="chat-empty" id="chat-empty">Describe what you ate — I\'ll estimate and log it</div>';
+  mealsExpanded = false;
+  pendingSuggestion = null;
+  chatContext = null;
+  document.getElementById('food-input').placeholder = 'e.g. 2 eggs, oat milk, overnight oats…';
 
   // Update day label
   const lbl = document.getElementById("day-label");
@@ -581,15 +804,35 @@ async function loadDay(d) {
     document.getElementById("waist-nav").value = meas.waistNavel || "";
     document.getElementById("waist-sml").value = meas.waistSmallest || "";
     document.getElementById("day-notes").value = meas.notes || "";
+    // Green tint for fields with saved data
+    [["wt-am",meas.weightAM],["wt-pm",meas.weightPM],["waist-nav",meas.waistNavel],["waist-sml",meas.waistSmallest],["day-notes",meas.notes]].forEach(([id,val]) => {
+      setFieldSaved(document.getElementById(id), !!val);
+    });
+    // Placeholder = previous available measurement
+    setPrevMeasPlaceholders(d);
+    // Load daily activity
+    // Map old 3-value to new 5-value scale
+    const actMap = { sedentary:'1', moderate:'3', heavy:'5' };
+    const rawAct = meas.dailyActivity || '1';
+    dailyActivity = actMap[rawAct] || (Object.keys(DAY_ACT_MULT).includes(rawAct) ? rawAct : '1');
+    document.querySelectorAll('#day-act-btns .act-scale-btn').forEach(b => {
+      b.classList.toggle('on', b.textContent.trim() === dailyActivity);
+    });
+    updateDayTDEE();
+  refreshInsight();
   } catch(e) {
     document.getElementById("wt-am").value = "";
     document.getElementById("wt-pm").value = "";
     document.getElementById("waist-nav").value = "";
     document.getElementById("waist-sml").value = "";
     document.getElementById("day-notes").value = "";
+    ["wt-am","wt-pm","waist-nav","waist-sml","day-notes"].forEach(id => { setFieldSaved(document.getElementById(id), false); });
+    setPrevMeasPlaceholders(d);
   }
 
   updateUI();
+  // Sync measurements to history on every day load so history stays current
+  autoSaveDay();
 }
 
 // ── Navigation ─────────────────────────────────────────────────────────────
@@ -663,25 +906,82 @@ function totals() {
 
 function updateUI() {
   const {cal, pro} = totals();
-  const calTarget = getCalTarget();
-  const remCal = calTarget - cal, remPro = PRO_T_USER - pro;
+  const TDEE = TDEE_USER || 2100;
+  const CAL_T_EFF = CAL_T_USER || CAL_T || 1800;
+  const remCal = CAL_T_EFF - cal, remPro = PRO_T - pro;
+  const over = cal > CAL_T_EFF;
+  const mode = currentGoalMode || 'deficit';
 
-  document.getElementById("cal-txt").textContent = `${cal} / ${calTarget}` + (remCal>0?` · ${remCal} left`:" · OVER");
-  document.getElementById("pro-txt").textContent = `${pro}g / ${PRO_T_USER}g` + (remPro>0?` · ${remPro}g left`:" · ✓");
-  updateCalZoneBar(cal);
-  document.getElementById("pro-fill").style.width = Math.min(100,pro/PRO_T_USER*100)+"%";
-  document.getElementById("pro-fill").style.background = pro>=PRO_T_USER?"#4ade80":"#a78bfa";
+  document.getElementById("cal-txt").textContent = `${cal} / ${CAL_T_EFF}` + (remCal>0?` · ${remCal} left`:" · OVER");
+  document.getElementById("pro-txt").textContent = `${pro}g / ${PRO_T}g` + (remPro>0?` · ${remPro}g left`:" · ✓");
+
+  // Extended bar: scale to 130% of TDEE so there's room beyond goal
+  const barMax = Math.max(TDEE * 1.3, CAL_T_EFF * 1.4, cal * 1.1);
+  const fillPct = Math.min(99, (cal / barMax) * 100);
+  const targetPct = (CAL_T_EFF / barMax) * 100;
+  const tdeePct = (TDEE / barMax) * 100;
+
+  const calFill = document.getElementById("cal-fill");
+  calFill.style.width = fillPct + "%";
+
+  // Color logic based on goal mode
+  let fillColor;
+  if (mode === 'bulk') {
+    const _il = document.body.classList.contains('light');
+    fillColor = over ? (_il?"#2a7a3a":"#4ade80") : (_il?"#c8621a":"#f97316"); // green when over = good for bulk
+  } else if (mode === 'maintain') {
+    fillColor = over ? "#fbbf24" : "#f97316"; // yellow when over
+  } else {
+    fillColor = over ? "#f87171" : "#f97316"; // red when over = bad for deficit
+  }
+  calFill.style.background = fillColor;
+
+  // Position markers
+  const targetMarker = document.getElementById("cal-marker-target");
+  const targetLbl = document.getElementById("cal-lbl-target");
+  const tdeeMarker = document.getElementById("cal-marker-tdee");
+  const tdeeLbl = document.getElementById("cal-lbl-tdee");
+
+  if (targetMarker) {
+    targetMarker.style.left = targetPct + "%";
+    targetLbl.style.left = targetPct + "%";
+    targetLbl.textContent = "GOAL";
+  }
+  if (tdeeMarker && Math.abs(tdeePct - targetPct) > 3) {
+    tdeeMarker.style.left = tdeePct + "%";
+    tdeeLbl.style.left = tdeePct + "%";
+    tdeeLbl.textContent = "TDEE";
+    tdeeMarker.style.display = "block";
+    tdeeLbl.style.display = "block";
+  } else if (tdeeMarker) {
+    tdeeMarker.style.display = "none";
+    tdeeLbl.style.display = "none";
+  }
+
+  document.getElementById("pro-fill").style.width = Math.min(100,pro/PRO_T*100)+"%";
+  const isLight = document.body.classList.contains('light');
+  document.getElementById("pro-fill").style.background = pro>=PRO_T?(isLight?"#2a7a3a":"#4ade80"):(isLight?"#6040a0":"#a78bfa");
 
   const remCalEl = document.getElementById("rem-cal");
-  remCalEl.textContent = remCal>0?remCal:"0 ✓";
-  remCalEl.style.color = remCal>0?"#f97316":"#4ade80";
+  remCalEl.textContent = remCal>0 ? remCal : (mode==='bulk' ? '✓ Surplus!' : '0 ✓');
+  remCalEl.style.color = remCal>0?"#f97316":fillColor;
   const remProEl = document.getElementById("rem-pro");
   remProEl.textContent = remPro>0?remPro+"g":"0g ✓";
-  remProEl.style.color = remPro>0?"#a78bfa":"#4ade80";
+  const _isLight = document.body.classList.contains('light');
+  remProEl.style.color = remPro>0?(_isLight?"#6040a0":"#a78bfa"):(_isLight?"#1a6b2a":"#4ade80");
 
-  // Header stats
-  const weights = historyData.filter(e=>e.weightAM).map(e=>e.weightAM);
-  const lastW = weights[weights.length-1];
+  // Update the static GOAL label under rem-cal
+  const goalLbl = document.getElementById("goal-lbl");
+  if (goalLbl) {
+    const modeLabel = mode === 'bulk' ? 'BULK TARGET' : mode === 'maintain' ? 'MAINTAIN' : 'DEFICIT TARGET';
+    goalLbl.textContent = modeLabel;
+  }
+
+  // Header stats — use today's wt-am input first, then latest history entry
+  const todayWtEl = document.getElementById('wt-am');
+  const todayWt = todayWtEl ? parseFloat(todayWtEl.value) || null : null;
+  const histWeights = historyData.filter(e=>e.weightAM).sort((a,b)=>a.date>b.date?1:-1);
+  const lastW = todayWt || (histWeights.length ? histWeights[histWeights.length-1].weightAM : null);
   const rec = historyData.filter(e=>e.calories).slice(-7);
   const avgCal = rec.length?Math.round(rec.reduce((s,e)=>s+e.calories,0)/rec.length):null;
   const avgPro = rec.length?Math.round(rec.reduce((s,e)=>s+(e.protein||0),0)/rec.length):null;
@@ -697,11 +997,19 @@ function updateUI() {
 }
 
 // ── Meals ──────────────────────────────────────────────────────────────────
+let mealsExpanded = false;
+
 function renderMeals() {
   const box = document.getElementById("meal-list");
   if (!meals.length) { box.innerHTML='<div class="no-meals">No meals logged yet</div>'; return; }
   const {cal:tc,pro:tp} = totals();
-  box.innerHTML = meals.map(m=>`
+  // Sort newest first
+  const sorted = [...meals].reverse();
+  const SHOW = 3;
+  const hasMore = sorted.length > SHOW;
+  const visible = mealsExpanded ? sorted : sorted.slice(0, SHOW);
+
+  const rows = visible.map(m=>`
     <div class="meal-row fade" id="mr-${m.id}">
       ${editId==m.id?`
         <div class="edit-wrap">
@@ -719,7 +1027,13 @@ function renderMeals() {
         <button class="icon-btn ed" onclick="startEdit('${m.id}')" title="Edit">✎</button>
         <button class="icon-btn" onclick="delMeal('${m.id}')" title="Delete">✕</button>
       `}
-    </div>`).join("") +
+    </div>`).join("");
+
+  const showMoreBtn = hasMore ? `<button class="show-more-btn" onclick="mealsExpanded=!mealsExpanded;renderMeals()">
+    ${mealsExpanded ? '▲ Show less' : `▼ Show ${sorted.length - SHOW} more`}
+  </button>` : '';
+
+  box.innerHTML = rows + showMoreBtn +
     `<div class="total-row"><span style="color:#444">TOTAL</span><span><span class="kc">${tc} kcal</span> · <span class="pr">${tp}g</span></span></div>`;
 }
 
@@ -745,8 +1059,56 @@ async function delMeal(id) {
 }
 
 // ── Measurements ───────────────────────────────────────────────────────────
-function saveMeas() {
+
+function setPrevMeasPlaceholders(currentDate) {
+  // Find most recent measurement before currentDate
+  const dk = dateKey(currentDate);
+  const all = [...(SEED_HISTORY||[]), ...historyData]
+    .filter(e => e.date < dk && (e.weightAM || e.waistNavel))
+    .sort((a,b) => b.date.localeCompare(a.date));
+  const prev = all[0];
+  if (!prev) return;
+  const fields = [
+    ['wt-am', prev.weightAM ? `prev: ${prev.weightAM}` : null],
+    ['wt-pm', prev.weightPM ? `prev: ${prev.weightPM}` : null],
+    ['waist-nav', prev.waistNavel ? `prev: ${prev.waistNavel}` : null],
+    ['waist-sml', prev.waistSmallest ? `prev: ${prev.waistSmallest}` : null],
+  ];
+  fields.forEach(([id, ph]) => {
+    const el = document.getElementById(id);
+    if (el && ph && !el.value) el.placeholder = ph;
+  });
+}
+
+function setFieldSaved(el, hasSavedValue) {
+  if (!el) return;
+  const isLight = document.body.classList.contains('light');
+  el.style.transition = 'background 0.4s';
+  el.style.background = hasSavedValue ? (isLight ? '#c8e6c9' : '#1a3a2a') : '';
+}
+
+function flashSaved(el) {
+  // Just a brief bright flash, then setFieldSaved will handle final state
+  if (!el) return;
+  const isLight = document.body.classList.contains('light');
+  el.style.transition = 'none';
+  el.style.background = isLight ? '#a5d6a7' : '#2a5a3a';
+  setTimeout(() => setFieldSaved(el, !!el.value), 250);
+}
+
+function refreshAllFieldColors() {
+  [['wt-am'], ['wt-pm'], ['waist-nav'], ['waist-sml'], ['day-notes']].forEach(([id]) => {
+    setFieldSaved(document.getElementById(id), !!(document.getElementById(id)?.value));
+  });
+}
+
+function saveMeas(triggeredBy) {
   clearTimeout(saveMeasTimer);
+  // Immediately color the field being typed into
+  if (triggeredBy) {
+    const el = document.getElementById(triggeredBy);
+    if (el) setFieldSaved(el, !!el.value);
+  }
   saveMeasTimer = setTimeout(async () => {
     await api("/meas/save",{
       date: dateKey(activeDate),
@@ -755,13 +1117,16 @@ function saveMeas() {
       waistNavel: parseFloat(document.getElementById("waist-nav").value)||null,
       waistSmallest: parseFloat(document.getElementById("waist-sml").value)||null,
       notes: document.getElementById("day-notes").value||null,
+      dailyActivity: dailyActivity || 'sedentary',
     });
-    autoSaveDay();
-  }, 800);
+    if (triggeredBy) flashSaved(document.getElementById(triggeredBy));
+    refreshAllFieldColors();
+    updateUI(); // refresh last weight display
+    await autoSaveDay();
+  }, 600);
 }
 
 async function autoSaveDay() {
-  // Silently save current day to history without toast
   const {cal,pro} = totals();
   await api("/history/save",{
     date: dateKey(activeDate),
@@ -775,6 +1140,9 @@ async function autoSaveDay() {
   });
   datesWithData.add(dateKey(activeDate));
   await loadHistory();
+  updateUI();    // refresh Last Weight stat
+  drawChart();   // refresh trend chart
+  renderHistory(); // refresh history table row
 }
 
 async function saveDay() {
@@ -798,8 +1166,18 @@ async function saveDay() {
 async function loadHistory() {
   try {
     const data = await api("/history/load",{});
-    historyData = Array.isArray(data) ? data : SEED_HISTORY;
-  } catch(e) { historyData = SEED_HISTORY; }
+    const isOwner = currentUser && currentUser.email === 'bmdahmen@gmail.com';
+    if (Array.isArray(data) && data.length > 0) {
+      historyData = data;
+    } else if (isOwner) {
+      historyData = SEED_HISTORY;
+    } else {
+      historyData = [];
+    }
+  } catch(e) {
+    const isOwner = currentUser && currentUser.email === 'bmdahmen@gmail.com';
+    historyData = isOwner ? SEED_HISTORY : [];
+  }
   datesWithData = new Set(historyData.map(e=>e.date));
 }
 
@@ -817,8 +1195,8 @@ function renderHistory() {
       <td style="color:#444">${e.weightPM??'—'}</td>
       <td style="color:#444">${e.waistNavel??'—'}</td>
       <td style="color:#444">${e.waistSmallest??'—'}</td>
-      <td style="font-weight:600;color:${e.calories?(trackingGoal==='bulk'?(e.calories>=getCalTarget()?'#4ade80':'#f87171'):(e.calories<=getCalTarget()?'#4ade80':'#f87171')):'#2a2a2a'}">${e.calories??'—'}</td>
-      <td style="font-weight:600;color:${e.protein?(e.protein>=PRO_T_USER?'#4ade80':'#f87171'):'#2a2a2a'}">${e.protein?e.protein+'g':'—'}</td>
+      <td style="font-weight:600;color:${e.calories?(e.calories>CAL_T?(document.body.classList.contains('light')?'#8b1a1a':'#f87171'):(document.body.classList.contains('light')?'#1a6b2a':'#4ade80')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.calories??'—'}</td>
+      <td style="font-weight:600;color:${e.protein?(e.protein>=PRO_T?(document.body.classList.contains('light')?'#1a6b2a':'#4ade80'):(document.body.classList.contains('light')?'#8b1a1a':'#f87171')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.protein?e.protein+'g':'—'}</td>
       <td style="color:#383838;font-size:11px">${e.notes||''}</td>
     </tr>`).join("");
 }
@@ -833,6 +1211,22 @@ function goToDate(dateStr) {
 }
 
 // ── AI food logging ────────────────────────────────────────────────────────
+function updateCharCount() {
+  const input = document.getElementById("food-input");
+  const cc = document.getElementById("char-count");
+  if (!cc) return;
+  const len = input.value.length;
+  if (len > 800) {
+    cc.style.display = 'block';
+    cc.textContent = `${len}/1000`;
+    cc.style.color = len > 950 ? '#f87171' : '#555';
+  } else {
+    cc.style.display = 'none';
+  }
+}
+
+let pendingSuggestion = null; // holds parsed AI suggestion before saving
+
 async function sendFood() {
   const input = document.getElementById("food-input");
   const text = input.value.trim();
@@ -840,6 +1234,7 @@ async function sendFood() {
   const btn = document.getElementById("send-btn");
   if (btn.disabled) return;
   input.value = "";
+  updateCharCount();
   btn.disabled = true;
   btn.textContent = "...";
 
@@ -857,51 +1252,63 @@ async function sendFood() {
   msgsEl.scrollTop = msgsEl.scrollHeight;
 
   try {
-    const sysPrompt = `You are a nutrition estimator. Return ONLY valid JSON, no markdown, no backticks: {"items":[{"description":"short name","calories":0,"protein":0}],"totalCalories":0,"totalProtein":0,"message":"One sentence with totals."}. Realistic estimates, typical servings, descriptions under 5 words.`;
+    const sysPrompt = `You are a nutrition estimator assistant. Return ONLY valid JSON, no markdown, no backticks: {"items":[{"description":"short name","calories":0,"protein":0}],"totalCalories":0,"totalProtein":0,"message":"1-2 sentences: briefly note what the meal is and any notable detail (e.g. high protein, calorie-dense, light). Be conversational and specific."}. Realistic estimates, typical servings. Descriptions under 5 words.`;
 
-    const msgContent = pendingImageB64
-      ? [
-          {type:"image", source:{type:"base64", media_type:pendingImageType, data:pendingImageB64}},
-          {type:"text", text: text ? `Analyze this food. Extra context: ${text}` : "Identify all food in this image and estimate calories and protein."}
-        ]
-      : [{type:"text", text:text}];
+    let messages;
+    if (chatContext) {
+      // Dialogue mode — include previous estimate as context
+      messages = [
+        { role: 'user', content: `Estimate nutrition for: ${chatContext.items}` },
+        { role: 'assistant', content: JSON.stringify({ items: pendingSuggestion?.items || [], totalCalories: chatContext.totalCal, totalProtein: chatContext.totalPro, message: 'Previous estimate.' }) },
+        { role: 'user', content: pendingImageB64
+          ? [{ type:"image", source:{type:"base64",media_type:pendingImageType,data:pendingImageB64}}, {type:"text",text:`Adjust the previous estimate: ${text}`}]
+          : `Adjust the previous estimate. User says: "${text}". Revise accordingly and return updated JSON.` }
+      ];
+      chatContext = null;
+    } else {
+      const msgContent = pendingImageB64
+        ? [
+            {type:"image", source:{type:"base64", media_type:pendingImageType, data:pendingImageB64}},
+            {type:"text", text: text ? `Analyze this food. Extra context: ${text}` : "Identify all food in this image and estimate calories and protein."}
+          ]
+        : [{type:"text", text:text}];
+      messages = [{role:"user", content: msgContent}];
+    }
 
-    const data = await api("/",{
-      model: pendingImageB64 ? "claude-opus-4-6" : "claude-haiku-4-5-20251001",
-      max_tokens:600,
-      system: sysPrompt,
-      messages:[{role:"user", content: msgContent}],
-    });
+    const _type = pendingImageB64 ? "image" : "food";
+    const data = await api("/", { max_tokens:600, _type, system: sysPrompt, messages });
 
-    if (data.error) throw new Error(data.error.message);
+    if (data.rate_limited) throw new Error(data.error.message);
+    if (data.error) throw new Error(data.error.type === 'overloaded_error' ? "Claude is overloaded right now — try again in a moment." : data.error.message);
     if (!data.content||!data.content.length) throw new Error("Empty response");
     const raw = (data.content||[]).map(b=>b.text||"").join("").trim();
     const j = raw.indexOf("{"), k = raw.lastIndexOf("}");
     if (j<0||k<0) throw new Error("Model said: " + raw.substring(0,100));
     const parsed = JSON.parse(raw.substring(j,k+1));
+    pendingSuggestion = parsed;
 
     document.getElementById(spId)?.remove();
 
+    const suggId = "sug-"+Date.now();
+    const msgHtml = parsed.message ? `<div class="ai-suggest-msg">${esc(parsed.message)}</div>` : '';
     msgsEl.insertAdjacentHTML("beforeend",`
-      <div class="msg-ai fade">
+      <div class="msg-ai fade" id="${suggId}">
         <div class="ai-av">AI</div>
         <div class="ai-body">
-          <div class="ai-text">${esc(parsed.message)}</div>
-          <div class="ai-items">
-            ${parsed.items.map(i=>`<div class="ai-item"><span class="ai-item-name">${esc(i.description)}</span><span class="ai-item-cals">${i.calories} kcal · ${i.protein}g</span></div>`).join("")}
-            <div class="ai-total"><span class="ai-total-lbl">TOTAL</span><span class="ai-total-val">${parsed.totalCalories} kcal · ${parsed.totalProtein}g</span></div>
+          ${msgHtml}
+          <div class="ai-suggest-card">
+            <div class="ai-suggest-total">${parsed.totalCalories} kcal · ${parsed.totalProtein}g protein</div>
+            <div class="ai-suggest-items">${parsed.items.map(i=>`${esc(i.description)} — ${i.calories} kcal, ${i.protein}g`).join('<br>')}</div>
+            <div class="ai-suggest-actions">
+              <button class="btn-save-food" onclick="saveFoodSuggestion('${suggId}')">✓ LOG THIS</button>
+              <button class="btn-discuss" onclick="adjustFoodEstimate('${suggId}')">✎ Adjust</button>
+            </div>
           </div>
         </div>
       </div>`);
 
-    const t = timeNow();
-    parsed.items.forEach(item=>{
-      meals.push({id:Date.now()+Math.random(), desc:item.description, cal:item.calories, pro:item.protein, time:t});
-    });
-    await api("/meals/save",{date:dateKey(activeDate),meals});
-    updateUI();
-    refreshInsight();
-    autoSaveDay();
+    // Update placeholder to invite refinement
+    input.placeholder = "Add details or corrections, then re-send…";
     clearImage();
 
   } catch(e) {
@@ -911,17 +1318,63 @@ async function sendFood() {
 
   msgsEl.scrollTop = msgsEl.scrollHeight;
   btn.disabled = false;
-  btn.textContent = "LOG →";
+  btn.textContent = "ESTIMATE →";
+}
+
+function adjustFoodEstimate(suggId) {
+  const input = document.getElementById('food-input');
+  const msgsEl = document.getElementById('chat-msgs');
+  if (pendingSuggestion) {
+    const items = pendingSuggestion.items.map(i => `${i.description} (${i.calories} kcal, ${i.protein}g)`).join(', ');
+    chatContext = { role: 'assistant', items, totalCal: pendingSuggestion.totalCalories, totalPro: pendingSuggestion.totalProtein, suggId };
+    // Show a prompt nudge in chat
+    const nudgeId = 'nudge-' + Date.now();
+    msgsEl.insertAdjacentHTML('beforeend', `
+      <div class="msg-ai fade" id="${nudgeId}" style="opacity:.7">
+        <div class="ai-av">AI</div>
+        <div class="ai-text" style="font-size:10px;color:#888;">Tell me what to change — e.g. <em>"I only ate half"</em>, <em>"skip the cheese"</em>, or <em>"add a side of rice"</em>. Then hit Send.</div>
+      </div>`);
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+    input.placeholder = 'e.g. "I only ate half" or "add a side salad"…';
+    input.style.outline = '2px solid #f97316';
+    setTimeout(() => { input.style.outline = ''; }, 2500);
+  }
+  input.focus();
+}
+
+let chatContext = null; // holds previous AI estimate for dialogue
+
+async function saveFoodSuggestion(suggId) {
+  if (!pendingSuggestion) return;
+  const t = timeNow();
+  pendingSuggestion.items.forEach(item=>{
+    meals.push({id:Date.now()+Math.random(), desc:item.description, cal:item.calories, pro:item.protein, time:t});
+  });
+  pendingSuggestion = null;
+  await api("/meals/save",{date:dateKey(activeDate),meals});
+  updateUI();
+  refreshInsight();
+  autoSaveDay();
+  // Replace suggestion card with logged confirmation
+  const card = document.getElementById(suggId);
+  if (card) {
+    const _lc = document.body.classList.contains('light');
+    card.querySelector('.ai-suggest-card').innerHTML = '<span style="color:'+(_lc?'#1a6b2a':'#4ade80')+';font-family:DM Mono,monospace;font-size:11px;">✓ Logged!</span>';
+  }
+  // Reset placeholder
+  document.getElementById('food-input').placeholder = 'e.g. 2 eggs, oat milk, overnight oats…';
 }
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 function showTab(name, btn) {
   document.querySelectorAll(".pane").forEach(p=>p.classList.remove("on"));
   document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("on"));
-  document.getElementById("pane-"+name).classList.add("on");
+  const pane = document.getElementById("pane-"+name);
+  if (pane) pane.classList.add("on");
   if (btn) btn.classList.add("on");
-  if (name==="history") { renderHistory(); setTimeout(() => { drawChart(); refreshHistInsight(); }, 50); }
+  if (name==="history") { renderHistory(); setTimeout(() => { drawChart(); refreshHistInsight(); }, 50); histChatOpen=false; histChatHistory=[]; const w=document.getElementById('hist-chat-wrap'); if(w)w.classList.remove('open'); const t=document.getElementById('hist-coach-toggle'); if(t)t.textContent='+ Ask AI Coach a question'; }
   if (name==="profile") loadProfilePane();
+  if (name==="day") refreshInsight();
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
@@ -932,6 +1385,73 @@ function toast(msg) {
 }
 
 
+
+// ── History AI Chat ────────────────────────────────────────────────────────
+let histChatOpen = false;
+let histChatHistory = []; // conversation history
+
+function toggleHistChat() {
+  histChatOpen = !histChatOpen;
+  const wrap = document.getElementById('hist-chat-wrap');
+  const toggle = document.getElementById('hist-coach-toggle');
+  if (wrap) wrap.classList.toggle('open', histChatOpen);
+  if (toggle) toggle.textContent = histChatOpen ? '− Close chat' : '+ Ask AI Coach a question';
+  if (histChatOpen) setTimeout(() => document.getElementById('hist-chat-input')?.focus(), 300);
+}
+
+async function sendHistChat() {
+  const input = document.getElementById('hist-chat-input');
+  const msgs = document.getElementById('hist-chat-msgs');
+  if (!input || !msgs) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  // Build context from historyData
+  const isOwner = currentUser && currentUser.email === 'bmdahmen@gmail.com';
+  const seedData = isOwner ? SEED_HISTORY : [];
+  const allData = [...seedData, ...historyData].sort((a,b)=>a.date>b.date?1:-1);
+  const recent = allData.slice(-30);
+  const ctx = recent.map(e => {
+    const p = [e.date];
+    if (e.weightAM) p.push(e.weightAM + 'lbs');
+    if (e.waistNavel) p.push('waist=' + e.waistNavel + 'in');
+    if (e.calories) p.push(e.calories + 'kcal');
+    if (e.protein) p.push(e.protein + 'g prot');
+    return p.join(' ');
+  }).join(', ');
+
+  msgs.insertAdjacentHTML('beforeend', `<div class="msg-user fade" style="justify-content:flex-end;display:flex;margin-bottom:6px;"><div class="bubble" style="background:#1a1a1a;padding:6px 10px;border-radius:8px 8px 2px 8px;font-size:11px;color:#ccc;max-width:85%;">${esc(text)}</div></div>`);
+  const spId = 'hsp-'+Date.now();
+  msgs.insertAdjacentHTML('beforeend', `<div id="${spId}" style="display:flex;gap:8px;margin-bottom:6px;align-items:flex-start;"><div class="ai-av" style="flex-shrink:0;">AI</div><div class="spinner"></div></div>`);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  histChatHistory.push({ role: 'user', content: text });
+
+  try {
+    const sysPrompt = `You are a personal fitness and nutrition coach. The user's recent data (last 30 entries):
+${ctx}
+
+Goal mode: ${currentGoalMode}. TDEE: ${TDEE_USER} kcal. Target: ${CAL_T_USER} kcal. Protein target: ${PRO_T_USER}g.
+
+Answer the user's question specifically and practically, referencing their actual numbers. Keep responses under 3 sentences. Be direct.`;
+    const data = await api('/', {
+      max_tokens: 200, _type: 'ai_coach',
+      system: sysPrompt,
+      messages: histChatHistory,
+    });
+    if (data.error) throw new Error(data.error.message);
+    const reply = (data.content||[]).map(b=>b.text||'').join('').trim();
+    histChatHistory.push({ role: 'assistant', content: reply });
+    document.getElementById(spId)?.remove();
+    msgs.insertAdjacentHTML('beforeend', `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;"><div class="ai-av" style="flex-shrink:0;">AI</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:#aaa;line-height:1.6;">${esc(reply)}</div></div>`);
+  } catch(e) {
+    document.getElementById(spId)?.remove();
+    msgs.insertAdjacentHTML('beforeend', `<div style="color:#f87171;font-family:'DM Mono',monospace;font-size:10px;margin-bottom:6px;">Error: ${esc(e.message)}</div>`);
+  }
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
 // ── Trend Chart ────────────────────────────────────────────────────────────
 let chartRange = 30;
 
@@ -940,64 +1460,71 @@ function setRange(days, btn) {
   document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
   drawChart();
-  refreshHistInsight();
+  refreshHistInsight(); // histFP includes data fingerprint — cache handles dedup
 }
+
+let chartPoints = []; // global so click handler can use them
 
 function drawChart() {
   const canvas = document.getElementById('trend-chart');
   if (!canvas) return;
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.offsetWidth;
-  const H = 140;
+  const H = 155;
   canvas.width = W * dpr;
   canvas.height = H * dpr;
   canvas.style.height = H + 'px';
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
+  const isLight = document.body.classList.contains('light');
 
-  // Filter to last N days with data
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - chartRange);
+  const rangeEnd = new Date();
+  const rangeMs = rangeEnd - cutoff;
 
-  // Use historyData + SEED_HISTORY merged
-  const all = [...SEED_HISTORY, ...historyData].reduce((acc, e) => {
+  const isOwner = currentUser && currentUser.email === 'bmdahmen@gmail.com';
+  const seedData = isOwner ? SEED_HISTORY : [];
+  const all = [...seedData, ...historyData].reduce((acc, e) => {
     acc[e.date] = {...(acc[e.date]||{}), ...e};
     return acc;
   }, {});
 
+  // All points with at least some data in range — for X positioning use DATE not index
   const points = Object.values(all)
-    .filter(e => {
-      try { return new Date(e.date) >= cutoff; } catch(x) { return false; }
-    })
+    .filter(e => { try { const d = new Date(e.date); return d >= cutoff && d <= rangeEnd; } catch(x) { return false; } })
     .filter(e => e.weightAM || e.waistNavel)
     .sort((a,b) => new Date(a.date) - new Date(b.date));
 
-  if (points.length < 2) {
-    ctx.fillStyle = '#1e1e1e';
-    ctx.font = "11px 'DM Mono', monospace";
-    ctx.textAlign = 'center';
-    ctx.fillText('Not enough data for this range', W/2, H/2);
-    return;
-  }
+  chartPoints = points;
 
-  const PAD_L = 42, PAD_R = 38, PAD_T = 8, PAD_B = 28;
+  const PAD_L = 42, PAD_R = 38, PAD_T = 10, PAD_B = 30;
   const plotW = W - PAD_L - PAD_R;
   const plotH = H - PAD_T - PAD_B;
 
+  // X position by actual date (not index)
+  const xByDate = d => PAD_L + ((new Date(d) - cutoff) / rangeMs) * plotW;
+
+  if (points.length < 1) {
+    ctx.fillStyle = isLight ? '#9e9689' : '#444';
+    ctx.font = "11px 'DM Mono', monospace";
+    ctx.textAlign = 'center';
+    ctx.fillText('No data for this range', W/2, H/2);
+    return;
+  }
+
   const weights = points.map(p=>p.weightAM).filter(Boolean);
   const waists  = points.map(p=>p.waistNavel).filter(Boolean);
+  const wMin = weights.length ? Math.floor(Math.min(...weights) - 1) : 0;
+  const wMax = weights.length ? Math.ceil(Math.max(...weights) + 1) : 10;
+  const vMin = waists.length ? Math.floor(Math.min(...waists)*4)/4 - 0.25 : 0;
+  const vMax = waists.length ? Math.ceil(Math.max(...waists)*4)/4 + 0.25 : 10;
 
-  const wMin = Math.floor(Math.min(...weights) - 1);
-  const wMax = Math.ceil(Math.max(...weights) + 1);
-  const vMin = Math.floor(Math.min(...waists) * 4) / 4 - 0.25;
-  const vMax = Math.ceil(Math.max(...waists) * 4) / 4 + 0.25;
+  const yScaleW = v => PAD_T + plotH - ((v - wMin) / (wMax - wMin || 1)) * plotH;
+  const yScaleV = v => PAD_T + plotH - ((v - vMin) / (vMax - vMin || 1)) * plotH;
 
-  const xScale = i => PAD_L + (i / (points.length - 1)) * plotW;
-  const yScaleW = v => PAD_T + plotH - ((v - wMin) / (wMax - wMin)) * plotH;
-  const yScaleV = v => PAD_T + plotH - ((v - vMin) / (vMax - vMin)) * plotH;
-
-  // Grid lines
-  ctx.strokeStyle = '#141414';
+  // Grid
+  ctx.strokeStyle = isLight ? '#e0d9d0' : '#1a1a1a';
   ctx.lineWidth = 1;
   const ticks = 4;
   for (let i = 0; i <= ticks; i++) {
@@ -1005,54 +1532,56 @@ function drawChart() {
     ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
   }
 
-  // Left Y axis labels (weight)
-  ctx.fillStyle = '#60a5fa';
+  // Y axis labels
   ctx.font = "9px 'DM Mono', monospace";
-  ctx.textAlign = 'right';
-  for (let i = 0; i <= ticks; i++) {
-    const v = wMin + (i / ticks) * (wMax - wMin);
-    const y = PAD_T + plotH - (i / ticks) * plotH;
-    ctx.fillText(v.toFixed(0), PAD_L - 5, y + 3);
-  }
-
-  // Right Y axis labels (waist)
-  ctx.fillStyle = '#34d399';
-  ctx.textAlign = 'left';
-  for (let i = 0; i <= ticks; i++) {
-    const v = vMin + (i / ticks) * (vMax - vMin);
-    const y = PAD_T + plotH - (i / ticks) * plotH;
-    ctx.fillText(v.toFixed(1), W - PAD_R + 5, y + 3);
-  }
-
-  // X axis date labels
-  ctx.fillStyle = '#2a2a2a';
-  ctx.textAlign = 'center';
-  const labelEvery = Math.ceil(points.length / 6);
-  points.forEach((p, i) => {
-    if (i % labelEvery === 0 || i === points.length - 1) {
-      const d = new Date(p.date);
-      const lbl = isNaN(d) ? p.date.slice(0,6) : (d.getMonth()+1)+'/'+(d.getDate());
-      ctx.fillText(lbl, xScale(i), H - 6);
+  if (weights.length) {
+    ctx.fillStyle = isLight ? '#4a80c8' : '#60a5fa';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= ticks; i++) {
+      const v = wMin + (i / ticks) * (wMax - wMin);
+      ctx.fillText(v.toFixed(0), PAD_L - 5, PAD_T + plotH - (i/ticks)*plotH + 3);
     }
-  });
+  }
+  if (waists.length) {
+    ctx.fillStyle = isLight ? '#1a7a50' : '#34d399';
+    ctx.textAlign = 'left';
+    for (let i = 0; i <= ticks; i++) {
+      const v = vMin + (i / ticks) * (vMax - vMin);
+      ctx.fillText(v.toFixed(1), W - PAD_R + 5, PAD_T + plotH - (i/ticks)*plotH + 3);
+    }
+  }
 
-  // Draw weight line — only plot points that have data, connect across gaps
-  const weightPts = points.map((p,i) => p.weightAM ? {x:xScale(i), y:yScaleW(p.weightAM)} : null).filter(Boolean);
-  drawLine(ctx, weightPts, '#60a5fa');
+  // X axis: evenly spaced date labels across the range
+  ctx.fillStyle = isLight ? '#7a7168' : '#444';
+  ctx.textAlign = 'center';
+  const numLabels = Math.min(7, Math.ceil(chartRange / 5));
+  for (let i = 0; i <= numLabels; i++) {
+    const t = new Date(cutoff.getTime() + (i / numLabels) * rangeMs);
+    const x = PAD_L + (i / numLabels) * plotW;
+    const lbl = (t.getMonth()+1) + '/' + t.getDate();
+    ctx.fillText(lbl, x, H - 8);
+  }
 
-  // Draw waist line — connect across days with no measurement
-  const waistPts = points.map((p,i) => p.waistNavel ? {x:xScale(i), y:yScaleV(p.waistNavel)} : null).filter(Boolean);
-  drawLine(ctx, waistPts, '#34d399');
+  // Weight line (connect dots, no dot on days without measurement)
+  const weightSegs = points.filter(p => p.weightAM).map(p => ({ x: xByDate(p.date), y: yScaleW(p.weightAM), p }));
+  drawLine(ctx, weightSegs, isLight ? '#4a80c8' : '#60a5fa');
 
-  // Dots
-  points.forEach((p,i) => {
+  // Waist line
+  const waistSegs = points.filter(p => p.waistNavel).map(p => ({ x: xByDate(p.date), y: yScaleV(p.waistNavel), p }));
+  drawLine(ctx, waistSegs, isLight ? '#1a7a50' : '#34d399');
+
+  // Dots with stored screen coords for click detection
+  points.forEach(p => {
+    p._sx = xByDate(p.date);
     if (p.weightAM) {
-      ctx.beginPath(); ctx.arc(xScale(i), yScaleW(p.weightAM), 3, 0, Math.PI*2);
-      ctx.fillStyle='#60a5fa'; ctx.fill();
+      p._sy_w = yScaleW(p.weightAM);
+      ctx.beginPath(); ctx.arc(p._sx, p._sy_w, 4, 0, Math.PI*2);
+      ctx.fillStyle = isLight ? '#4a80c8' : '#60a5fa'; ctx.fill();
     }
     if (p.waistNavel) {
-      ctx.beginPath(); ctx.arc(xScale(i), yScaleV(p.waistNavel), 3, 0, Math.PI*2);
-      ctx.fillStyle='#34d399'; ctx.fill();
+      p._sy_v = yScaleV(p.waistNavel);
+      ctx.beginPath(); ctx.arc(p._sx, p._sy_v, 4, 0, Math.PI*2);
+      ctx.fillStyle = isLight ? '#1a7a50' : '#34d399'; ctx.fill();
     }
   });
 }
@@ -1066,6 +1595,57 @@ function drawLine(ctx, pts, color) {
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
+}
+
+function handleChartClick(e) {
+  const canvas = document.getElementById('trend-chart');
+  if (!canvas || !chartPoints.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const mx = (e.clientX - rect.left);
+  const my = (e.clientY - rect.top);
+  // Find nearest point within 18px
+  let best = null, bestDist = 18;
+  chartPoints.forEach(p => {
+    const dx = mx - p._sx, dy_w = my - (p._sy_w||9999), dy_v = my - (p._sy_v||9999);
+    const dw = Math.hypot(dx, dy_w), dv = Math.hypot(dx, dy_v);
+    const d = Math.min(dw, dv);
+    if (d < bestDist) { bestDist = d; best = p; }
+  });
+  if (!best) { closeChartTooltip(); return; }
+  showChartTooltip(best, e.clientX, e.clientY);
+}
+
+function showChartTooltip(p, cx, cy) {
+  let tip = document.getElementById('chart-tooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.id = 'chart-tooltip';
+    document.body.appendChild(tip);
+  }
+  const d = new Date(p.date + 'T00:00:00');
+  const dateStr = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  const rows = [];
+  if (p.weightAM) rows.push(`<div>⚖️ <b>${p.weightAM}</b> lbs AM</div>`);
+  if (p.weightPM) rows.push(`<div>⚖️ <b>${p.weightPM}</b> lbs PM</div>`);
+  if (p.waistNavel) rows.push(`<div>📏 <b>${p.waistNavel}"</b> navel</div>`);
+  if (p.waistSmallest) rows.push(`<div>📏 <b>${p.waistSmallest}"</b> smallest</div>`);
+  if (p.calories) rows.push(`<div>🔥 <b>${p.calories}</b> kcal</div>`);
+  if (p.protein) rows.push(`<div>💪 <b>${p.protein}g</b> protein</div>`);
+  if (p.notes) rows.push(`<div style="color:#888;font-style:italic;margin-top:3px">${p.notes}</div>`);
+  tip.innerHTML = `<div style="font-family:'DM Mono',monospace;font-size:9px;color:#f97316;letter-spacing:.05em;margin-bottom:5px">${dateStr.toUpperCase()}</div>${rows.join('')}`;
+  tip.style.display = 'block';
+  const tw = 170, th = 20 + rows.length * 18;
+  let left = cx + 12, top = cy - 20;
+  if (left + tw > window.innerWidth - 10) left = cx - tw - 12;
+  if (top + th > window.innerHeight - 10) top = cy - th;
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+
+function closeChartTooltip() {
+  const tip = document.getElementById('chart-tooltip');
+  if (tip) tip.style.display = 'none';
 }
 
 
@@ -1103,6 +1683,14 @@ async function refreshInsight() {
   const bar = document.getElementById('insight-bar');
   if (!bar) return;
 
+  // Only show AI coach for today — past days show a quiet indicator
+  if (!isToday(activeDate)) {
+    bar.className = 'insight-bar balanced';
+    const dk = dateKey(activeDate);
+    bar.innerHTML = `<span class="insight-label">AI COACH</span><span style="opacity:.4">Browsing ${dk} — coach only active on today</span>`;
+    return;
+  }
+
   const {cal, pro} = totals();
   const pstHour = getPSTHour();
   const h = Math.floor(pstHour);
@@ -1110,45 +1698,39 @@ async function refreshInsight() {
 
   if (cal === 0) {
     bar.className = 'insight-bar deficit-deep';
-    bar.innerHTML = '<span class="insight-label">AI</span>What\'s the first meal looking like today?';
+    bar.innerHTML = '<span class="insight-label">AI COACH</span>What\'s the first meal looking like today?';
     return;
   }
 
   // Fingerprint: calories + protein + current hour
-  const fp = `${cal}:${pro}:${h}`;
+  const fp = `${cal}:${pro}:${h}:${currentGoalMode}:${CAL_T_USER}`;
   const cacheKey = 'insight-day-' + dateKey(activeDate);
 
   // Check DB cache first
-  bar.innerHTML = '<span class="insight-label">AI</span><span class="insight-spin"></span>';
+  bar.innerHTML = '<span class="insight-label">AI COACH</span><span class="insight-spin"></span>';
   try {
     const cached = await api('/cache/get', {key: cacheKey});
     if (cached && cached.fingerprint === fp) {
       bar.className = 'insight-bar ' + (cached.value.startsWith('cls:') ? cached.value.split('|')[0].replace('cls:','') : 'deficit-deep');
       const txt = cached.value.includes('|') ? cached.value.split('|').slice(1).join('|') : cached.value;
-      bar.innerHTML = '<span class="insight-label">AI</span>' + txt;
+      bar.innerHTML = '<span class="insight-label">AI COACH</span>' + txt;
       return;
     }
   } catch(e) {}
 
   // Determine color class
   const TDEE = TDEE_USER || 2100;
-  const proRemaining = PRO_T_USER - pro;
-  const calTarget = getCalTarget();
-  const calToTarget = calTarget - cal;
-  const delta = cal - TDEE;
+  const CAL_TARGET = CAL_T_USER || TDEE;  // user's actual goal (deficit/maintain/bulk adjusted)
+  const PRO_T = PRO_T_USER || 120;
+  const proRemaining = PRO_T - pro;
+  const calRemaining = CAL_TARGET - cal;  // remaining to goal, not TDEE
+  const delta = cal - TDEE;               // vs maintenance for color coding
   bar.className = 'insight-bar';
-  if (trackingGoal === 'bulk') {
-    const bulkDelta = cal - calTarget;
-    if (bulkDelta < -200) bar.classList.add('bulk-low');
-    else if (bulkDelta < 200) bar.classList.add('bulk-good');
-    else bar.classList.add('bulk-over');
-  } else {
-    if (delta < -400) bar.classList.add('deficit-deep');
-    else if (delta < -100) bar.classList.add('deficit-mild');
-    else if (delta < 100) bar.classList.add('balanced');
-    else if (delta < 400) bar.classList.add('surplus-mild');
-    else bar.classList.add('surplus-fat');
-  }
+  if (delta < -400) bar.classList.add('deficit-deep');
+  else if (delta < -100) bar.classList.add('deficit-mild');
+  else if (delta < 100) bar.classList.add('balanced');
+  else if (delta < 400) bar.classList.add('surplus-mild');
+  else bar.classList.add('surplus-fat');
   const cls = bar.className.replace('insight-bar ','').trim();
 
   // Meal context
@@ -1160,24 +1742,19 @@ async function refreshInsight() {
   else if (h < 20) mealContext = 'dinner time';
   else mealContext = 'evening, likely last meal of the day';
 
-  const goalLabel = trackingGoal === 'bulk' ? 'muscle gain (bulk)' : trackingGoal === 'maintenance' ? 'weight maintenance' : 'fat loss (calorie deficit)';
-  let goalDirective;
-  if (cal >= calTarget) {
-    if (trackingGoal === 'bulk') {
-      goalDirective = `They have hit their bulk calorie target of ${calTarget} kcal. Encourage them — hitting a consistent calorie surplus is key for muscle gain. Great work!`;
-    } else {
-      goalDirective = `They have hit or exceeded their calorie limit of ${calTarget} kcal. Their goal is ${goalLabel}. Firmly but kindly tell them to settle down and avoid eating more today.`;
-    }
-  } else {
-    goalDirective = `Their goal is ${goalLabel}. They have ${calToTarget} kcal and ${proRemaining}g protein remaining toward their target.`;
-  }
+  const mode = currentGoalMode || 'deficit';
+  const modeDesc = mode === 'bulk' ? 'trying to bulk (caloric surplus is the goal)' : mode === 'maintain' ? 'trying to maintain weight' : 'trying to lose weight (caloric deficit is the goal)';
+  let goalContext = '';
+  if (cal > TDEE && mode === 'deficit') goalContext = 'They have exceeded their calorie limit — encourage them to stop eating for the day.';
+  else if (cal > TDEE && mode === 'maintain') goalContext = 'They have exceeded their maintenance calories — encourage them to settle down and not eat more.';
+  else if (cal > TDEE && mode === 'bulk') goalContext = 'They are in a surplus which is good for their bulk goal — encourage them positively.';
+  else if (calRemaining < 200 && mode === 'bulk') goalContext = 'They are close to their calorie target but bulking requires more — encourage them to eat more.';
 
-  const prompt = `It is ${hStr} (${mealContext}). The user has eaten ${cal} kcal and ${pro}g protein today. Their daily calorie target is ${calTarget} kcal and protein target is ${PRO_T_USER}g. ${goalDirective} Write ONE direct sentence (max 20 words). No emoji. No fluff.`;
+  const prompt = `It is ${hStr} (${mealContext}). The user is ${modeDesc}. Stats so far today: ${cal} kcal eaten, ${pro}g protein eaten. Their goal: ${CAL_TARGET} kcal and ${PRO_T}g protein minimum. TDEE (maintenance): ${TDEE} kcal. Calories remaining to goal: ${calRemaining} kcal. Protein remaining: ${proRemaining}g. ${goalContext} Important rules: protein can ALWAYS go higher — never suggest a zero-protein food unless calories are truly maxed and protein goal is met. If calories are low but protein goal is unmet, suggest high-protein foods. Write ONE direct sentence (max 20 words) advising what to eat next. Be precise about remaining numbers. No emoji. No fluff.`;
 
   try {
     const data = await api('/', {
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 80,
+      max_tokens: 80, _type: 'ai_coach',
       messages: [{role: 'user', content: prompt}],
     });
     if (data.error) throw new Error(data.error.message);
@@ -1185,9 +1762,9 @@ async function refreshInsight() {
     const escaped = esc(text);
     // Store cls and text together
     await api('/cache/set', {key: cacheKey, value: `cls:${cls}|${escaped}`, fingerprint: fp});
-    bar.innerHTML = '<span class="insight-label">AI</span>' + escaped;
+    bar.innerHTML = '<span class="insight-label">AI COACH</span>' + escaped;
   } catch(e) {
-    bar.innerHTML = '<span class="insight-label">AI</span><span style="opacity:.3">—</span>';
+    bar.innerHTML = '<span class="insight-label">AI COACH</span><span style="opacity:.3">—</span>';
   }
 }
 
@@ -1198,14 +1775,16 @@ async function refreshHistInsight() {
   const rateRow = document.getElementById('hist-rate-row');
   if (!bar || !rateRow) return;
 
-  bar.innerHTML = '<span class="insight-label">AI</span><span class="insight-spin"></span>';
+  bar.innerHTML = '<span class="insight-label">AI COACH</span><span class="insight-spin"></span>';
   rateRow.innerHTML = '';
 
   // Filter history to chart range
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - chartRange);
 
-  const all = [...SEED_HISTORY, ...historyData].reduce((acc, e) => {
+  const isOwner = currentUser && currentUser.email === 'bmdahmen@gmail.com';
+  const seedData = isOwner ? SEED_HISTORY : [];
+  const all = [...seedData, ...historyData].reduce((acc, e) => {
     acc[e.date] = {...(acc[e.date]||{}), ...e};
     return acc;
   }, {});
@@ -1224,6 +1803,7 @@ async function refreshHistInsight() {
     weightPts.length ? weightPts[weightPts.length-1].date + weightPts[weightPts.length-1].weightAM : '',
     waistPts.length ? waistPts[0].waistNavel : '',
     waistPts.length ? waistPts[waistPts.length-1].waistNavel : '',
+    currentGoalMode || 'deficit',
   ].join(':');
   const histCacheKey = 'insight-hist-' + chartRange;
 
@@ -1233,13 +1813,13 @@ async function refreshHistInsight() {
     if (cached && cached.fingerprint === histFP) {
       const parts = cached.value.split('||');
       rateRow.innerHTML = parts[0] || '';
-      bar.innerHTML = '<span class="insight-label">AI</span>' + (parts[1] || '');
+      bar.innerHTML = '<span class="insight-label">AI COACH</span>' + (parts[1] || '');
       return;
     }
   } catch(e) {}
 
   if (weightPts.length < 2) {
-    bar.innerHTML = '<span class="insight-label">AI</span>Not enough data in this range to evaluate trends.';
+    bar.innerHTML = '<span class="insight-label">AI COACH</span>Not enough data in this range to evaluate trends.';
     return;
   }
 
@@ -1262,8 +1842,15 @@ async function refreshHistInsight() {
 
   // Rate block color
   const wStr = (weightPerWeek > 0 ? '+' : '') + weightPerWeek.toFixed(2);
-  const wClass = weightPerWeek < -0.1 ? 'loss' : weightPerWeek > 0.1 ? 'gain' : 'neutral';
-  const wLabel = weightPerWeek < -0.1 ? 'lbs/week loss' : weightPerWeek > 0.1 ? 'lbs/week gain' : 'lbs/week';
+  // Color: green = good for current goal. Deficit=losing good, Bulk=gaining good
+  let wClass, wLabel;
+  if (currentGoalMode === 'bulk') {
+    wClass = weightPerWeek > 0.1 ? 'loss' : weightPerWeek < -0.1 ? 'gain' : 'neutral'; // loss=green=gaining, gain=red=losing
+    wLabel = weightPerWeek > 0.1 ? 'lbs/week gain' : weightPerWeek < -0.1 ? 'lbs/week loss' : 'lbs/week';
+  } else {
+    wClass = weightPerWeek < -0.1 ? 'loss' : weightPerWeek > 0.1 ? 'gain' : 'neutral'; // loss=green=losing
+    wLabel = weightPerWeek < -0.1 ? 'lbs/week loss' : weightPerWeek > 0.1 ? 'lbs/week gain' : 'lbs/week';
+  }
 
   rateRow.innerHTML = `
     <div class="hist-rate-block">
@@ -1282,27 +1869,32 @@ async function refreshHistInsight() {
     </div>`;
 
   // Build AI prompt
-  const histGoalLabel = trackingGoal === 'bulk' ? 'muscle gain (bulk)' : trackingGoal === 'maintenance' ? 'weight maintenance' : 'fat loss (calorie deficit)';
+  const goalCtx = currentGoalMode === 'bulk'
+    ? 'The user is bulking (trying to gain muscle/weight). Weight gain is expected and desired. Celebrate surplus and muscle gain signals.'
+    : currentGoalMode === 'maintain'
+    ? 'The user is trying to maintain their current weight. Stable weight is the goal.'
+    : 'The user is trying to lose fat (caloric deficit). Weight loss is the goal.';
+
   const prompt = `Over the last ${chartRange} days:
 - Weight went from ${firstW.weightAM} lbs to ${lastW.weightAM} lbs (${weightChangeLbs > 0 ? '+' : ''}${weightChangeLbs.toFixed(1)} lbs, ${wStr} lbs/week).
 ${waistSummary ? '- ' + waistSummary : '- No waist data available.'}
-- Goal is ${histGoalLabel}.
+- ${goalCtx}
 
-Write 2-3 encouraging but factual sentences evaluating this progress in the context of their goal. Comment on the rate of weight change (is it healthy, too fast, too slow for their goal?), what the waist trend suggests about body composition, and whether they should stay the course or adjust. Be specific with numbers. No emoji.`;
+Write 2-3 encouraging but factual sentences evaluating this progress given their goal. Comment on whether the rate of change is appropriate for their goal, what the waist trend suggests, and whether they should stay the course or adjust. Be specific with numbers. No emoji.`;
 
   try {
     const data = await api('/', {
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 150,
+      max_tokens: 150, _type: 'ai_coach',
       messages: [{ role: 'user', content: prompt }],
     });
+    if (data.rate_limited) throw new Error(data.error.message);
     if (data.error) throw new Error(data.error.message);
     const text = (data.content||[]).map(b=>b.text||'').join('').trim();
     const escaped = esc(text);
     await api('/cache/set', {key: histCacheKey, value: rateRow.innerHTML + '||' + escaped, fingerprint: histFP});
-    bar.innerHTML = '<span class="insight-label">AI</span>' + escaped;
+    bar.innerHTML = '<span class="insight-label">AI COACH</span>' + escaped;
   } catch(e) {
-    bar.innerHTML = '<span class="insight-label">AI</span><span style="opacity:.4">—</span>';
+    bar.innerHTML = '<span class="insight-label">AI COACH</span><span style="opacity:.4">—</span>';
   }
 }
 
@@ -1384,13 +1976,14 @@ function obCalc() {
   const cm  = heightIn * 2.54;
   const bmr = (10 * kg) + (6.25 * cm) - (5 * age) + 5;
   const tdee = Math.round(bmr * (ACT_MULT[obActivity] || 1.2));
-  const calTarget = Math.round(tdee * 0.85); // 15% deficit as starting point
-  const proTarget = Math.round(weight * 0.7); // ~0.7g per lb bodyweight
+  const calTarget = Math.round(tdee * 0.85); // deficit starting point, user can change in profile
+  const proTarget = Math.round(weight * 0.7);
 
   document.getElementById('ob-tdee-display').innerHTML =
     `TDEE: <span>${tdee} kcal/day</span><br>` +
-    `Cal target (15% deficit): <span>${calTarget} kcal</span><br>` +
-    `Protein target: <span>${proTarget}g</span>`;
+    `Starting cal target (deficit): <span>${calTarget} kcal</span><br>` +
+    `Protein target: <span>${proTarget}g</span><br>` +
+    `<span style="opacity:.5">You can adjust your goal in Profile after sign-in.</span>`;
 }
 
 async function obSubmit() {
@@ -1421,7 +2014,7 @@ async function obSubmit() {
     });
 
     // Update stored user with new stats
-    const updated = { ...currentUser, tdee, pro_target: proTarget, age, weight_lbs: weight, height_in: heightIn, activity: obActivity };
+    const updated = { ...currentUser, tdee, pro_target: proTarget, age, weight_lbs: weight, height_in: heightIn, activity: obActivity, goal_mode: 'deficit' };
     localStorage.setItem('bl_user', JSON.stringify(updated));
 
     TDEE_USER = tdee;
@@ -1431,6 +2024,136 @@ async function obSubmit() {
     loginSuccess(updated);
   } catch(e) {
     errEl.textContent = 'Error saving: ' + e.message;
+  }
+}
+
+
+// ── Daily Activity & Aggressiveness ────────────────────────────────────────
+let dailyActivity = 'sedentary'; // per-day, resets each day load
+let currentAggressiveness = 'moderate'; // profile-level
+
+const DAY_ACT_MULT = { '1': 1.2, '2': 1.35, '3': 1.55, '4': 1.65, '5': 1.725 };
+const ACT_DESCRIPTIONS = { '1':'Desk job, no exercise','2':'Light activity / short walks','3':'Moderate exercise 3-4x/week','4':'Active job or daily training','5':'Heavy training / physical labor' };
+
+const AGGR_CONFIG = {
+  deficit: {
+    mild:       { mult: 0.90, label: '−10% · Slow & steady (~0.5 lb/week)' },
+    moderate:   { mult: 0.80, label: '−20% · Solid progress (~1 lb/week)' },
+    aggressive: { mult: 0.75, label: '−25% · Fast cut (max safe limit)' },
+  },
+  bulk: {
+    mild:       { mult: 1.05, label: '+5% · Lean bulk (minimal fat gain)' },
+    moderate:   { mult: 1.10, label: '+10% · Standard bulk' },
+    aggressive: { mult: 1.15, label: '+15% · Aggressive bulk' },
+  },
+  maintain: {
+    mild:       { mult: 1.00, label: 'Maintenance calories' },
+    moderate:   { mult: 1.00, label: 'Maintenance calories' },
+    aggressive: { mult: 1.00, label: 'Maintenance calories' },
+  },
+};
+
+function getDailyTDEE() {
+  // Use today's activity level + base BMR from profile
+  const user = JSON.parse(localStorage.getItem('bl_user') || '{}');
+  const age    = user.age    || 35;
+  const weight = user.weight_lbs || 170;
+  const height = user.height_in  || 66;
+  const kg = weight * 0.453592;
+  const cm = height * 2.54;
+  const bmr = (10 * kg) + (6.25 * cm) - (5 * age) + 5;
+  return Math.round(bmr * (DAY_ACT_MULT[dailyActivity] || DAY_ACT_MULT['1']));
+}
+
+function goalCalTargetFull(tdee, mode, aggr) {
+  const cfg = (AGGR_CONFIG[mode] || AGGR_CONFIG.deficit)[aggr || 'moderate'];
+  return Math.round(tdee * cfg.mult);
+}
+
+function setDayActivity(act, btn) {
+  dailyActivity = act;
+  document.querySelectorAll('#day-act-btns .act-scale-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  updateDayTDEE();
+  saveMeas();
+}
+
+function updateDayTDEE() {
+  const tdee = getDailyTDEE();
+  const calTarget = goalCalTargetFull(tdee, currentGoalMode, currentAggressiveness);
+  TDEE_USER  = tdee;
+  CAL_T_USER = calTarget;
+  const el = document.getElementById('day-tdee-val');
+  if (el) el.textContent = `${tdee} kcal (target: ${calTarget} kcal)`;
+  updateUI();
+  // Invalidate day insight cache since TDEE changed
+  if (currentUser) {
+    api('/cache/set', { key: 'insight-day-' + dateKey(activeDate), value: '', fingerprint: 'invalidated' }).catch(() => {});
+  }
+}
+
+function setAggressiveness(level, btn) {
+  currentAggressiveness = level;
+  document.querySelectorAll('#aggr-btns .aggr-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  updateAggrDesc();
+  updateDayTDEE();
+  scheduleProfileSave();
+}
+
+function updateAggrDesc() {
+  const mode = currentGoalMode || 'deficit';
+  const cfg = (AGGR_CONFIG[mode] || AGGR_CONFIG.deficit)[currentAggressiveness || 'moderate'];
+  const el = document.getElementById('aggr-desc');
+  if (el) {
+    const tdee = TDEE_USER || 2100;
+    const target = goalCalTargetFull(tdee, mode, currentAggressiveness || 'moderate');
+    const pct = Math.round((cfg.mult - 1) * 100);
+    const pctStr = pct === 0 ? 'maintenance' : (pct > 0 ? `+${pct}%` : `${pct}%`);
+    el.innerHTML = cfg ? `${cfg.label}<br><span style="color:#f97316;font-size:10px;">→ ${target} kcal/day (${pctStr} of ${tdee} TDEE)</span>` : '';
+  }
+  const section = document.getElementById('aggr-section');
+  if (section) section.style.display = mode === 'maintain' ? 'none' : 'block';
+  const lbl = document.getElementById('aggr-label');
+  if (lbl) lbl.textContent = mode === 'deficit' ? 'Deficit Aggressiveness' : 'Bulk Aggressiveness';
+}
+
+
+// ── Theme ──────────────────────────────────────────────────────────────────
+function setTheme(theme, btn) {
+  currentTheme = theme;
+  document.body.classList.toggle('light', theme === 'light');
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  else {
+    const el = document.getElementById('theme-' + theme);
+    if (el) el.classList.add('on');
+  }
+  // Save to profile
+  if (currentUser) {
+    const stored = JSON.parse(localStorage.getItem('bl_user') || '{}');
+    stored.theme = theme;
+    localStorage.setItem('bl_user', JSON.stringify(stored));
+    scheduleProfileSave();
+  }
+}
+
+function loadTheme(theme) {
+  currentTheme = theme || 'dark';
+  document.body.classList.toggle('light', currentTheme === 'light');
+  const el = document.getElementById('theme-' + currentTheme);
+  if (el) { document.querySelectorAll('.theme-btn').forEach(b=>b.classList.remove('on')); el.classList.add('on'); }
+}
+
+function updateAvatarBtn() {
+  const wrap = document.getElementById('avatar-img-wrap');
+  if (!wrap) return;
+  if (currentUser && currentUser.avatar) {
+    wrap.innerHTML = `<img src="${currentUser.avatar}" alt="">`;
+  } else if (currentUser) {
+    wrap.innerHTML = `<div class="av-placeholder">${currentUser.name[0].toUpperCase()}</div>`;
+  } else {
+    wrap.innerHTML = `<div class="av-placeholder">?</div>`;
   }
 }
 
@@ -1463,10 +2186,15 @@ function loginSuccess(user) {
   currentUser = user;
   if (user.pro_target) PRO_T_USER = user.pro_target;
   if (user.tdee) TDEE_USER = user.tdee;
-  if (user.goal) trackingGoal = user.goal;
+  if (user.goal_mode) currentGoalMode = user.goal_mode;
+  if (user.aggressiveness) currentAggressiveness = user.aggressiveness;
+  if (user.tdee && user.goal_mode) CAL_T_USER = goalCalTarget(user.tdee, user.goal_mode);
+  else if (user.cal_target) CAL_T_USER = user.cal_target;
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   const sub = document.querySelector('.logo-sub'); if(sub) sub.textContent = user.name.split(' ')[0].toUpperCase();
+  loadTheme(user.theme || 'dark');
+  updateAvatarBtn();
   boot();
 }
 
@@ -1514,20 +2242,14 @@ window.onGoogleLibraryLoad = initGoogleAuth;
 
 // stored login checked at bottom of script
 
-// ── Profile ────────────────────────────────────────────────────────────────
+// ── Profile ────────────────────────────────────────────────────────────// ── Profile ────────────────────────────────────────────────────────────────
 let currentActivity = 'sedentary';
-let trackingGoal = 'deficit'; // 'deficit' | 'maintenance' | 'bulk'
+let currentGoalMode = 'deficit';
+let CAL_T_USER = 1800; // 'deficit' | 'maintain' | 'bulk'
 let PRO_T_USER = 120;
 let TDEE_USER = 2100;
 
 const ACTIVITY_MULTIPLIERS = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725 };
-
-function getCalTarget() {
-  const tdee = TDEE_USER || 2100;
-  if (trackingGoal === 'maintenance') return tdee;
-  if (trackingGoal === 'bulk') return Math.round(tdee + 300);
-  return Math.round(tdee * 0.85); // deficit
-}
 
 function calcTDEE(age, weightLbs, heightIn, activity) {
   const kg = weightLbs * 0.453592;
@@ -1544,73 +2266,42 @@ function setActivity(act, btn) {
   scheduleProfileSave();
 }
 
-function setGoal(goal, btn) {
-  trackingGoal = goal;
-  document.querySelectorAll('#goal-btns .act-btn').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
+function setGoalMode(mode, btn) {
+  currentGoalMode = mode;
+  document.querySelectorAll('#goal-btns .goal-btn').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  updateAggrDesc();
   updateTDEEDisplay();
   scheduleProfileSave();
   updateUI();
+  if (currentUser) {
+    api('/cache/set', { key: 'insight-day-' + dateKey(activeDate), value: '', fingerprint: 'invalidated' }).catch(() => {});
+    api('/cache/set', { key: 'insight-hist-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
+  }
+  refreshInsight();
 }
 
-function updateCalZoneBar(cal) {
-  const tdee = TDEE_USER || 2100;
-  const calTarget = getCalTarget();
-  const maxCal = Math.round(Math.max(tdee * 1.35, cal * 1.08, calTarget * 1.25, tdee + 500));
-
-  const bgEl = document.getElementById('cal-zone-bg');
-  const markersEl = document.getElementById('cal-zone-markers');
-  const fillEl = document.getElementById('cal-fill');
-  if (!bgEl || !markersEl || !fillEl) return;
-
-  // Zone sections based on TDEE thresholds
-  const zones = [
-    [0,               Math.max(tdee - 400, 0), '#0d1f14'],   // deep deficit
-    [Math.max(tdee - 400, 0), Math.max(tdee - 100, 0), '#0f1a10'], // mild deficit
-    [Math.max(tdee - 100, 0), tdee + 100,  '#1a1500'],       // maintenance
-    [tdee + 100,      tdee + 400,           '#1a0e00'],       // mild surplus
-    [tdee + 400,      maxCal,               '#1a0808'],       // heavy surplus
-  ];
-  bgEl.innerHTML = zones.map(([s, e, c]) => {
-    if (s >= maxCal || e <= s) return '';
-    const l = (s / maxCal * 100).toFixed(2);
-    const w = ((Math.min(e, maxCal) - s) / maxCal * 100).toFixed(2);
-    return `<div style="position:absolute;left:${l}%;width:${w}%;height:100%;background:${c}"></div>`;
-  }).join('');
-
-  // Fill bar color & width
-  fillEl.style.width = Math.min(99.5, cal / maxCal * 100).toFixed(2) + '%';
-  if (cal > calTarget) {
-    if (trackingGoal === 'bulk') fillEl.style.background = '#4ade80';
-    else if (cal > tdee + 100) fillEl.style.background = '#f87171';
-    else fillEl.style.background = '#fbbf24';
-  } else {
-    fillEl.style.background = '#f97316';
-  }
-
-  // Threshold markers
-  const addM = (val, lbl, color) => {
-    const pct = val / maxCal * 100;
-    if (pct < 3 || pct > 97) return '';
-    return `<div class="cal-zone-marker" style="left:${pct.toFixed(2)}%;background:${color}"></div>` +
-           `<div class="cal-zone-lbl" style="left:${pct.toFixed(2)}%">${lbl}</div>`;
-  };
-  let mHtml = '';
-  if (Math.abs(calTarget - tdee) > 80) mHtml += addM(calTarget, 'GOAL', '#f9731699');
-  mHtml += addM(tdee, 'TDEE', '#555');
-  markersEl.innerHTML = mHtml;
+function goalCalTarget(tdee, mode) {
+  return goalCalTargetFull(tdee, mode, currentAggressiveness || 'moderate');
 }
 
 function updateTDEEDisplay() {
-  const age = parseInt(document.getElementById('prof-age').value) || 35;
+  const age    = parseInt(document.getElementById('prof-age').value) || 35;
   const weight = parseFloat(document.getElementById('prof-weight').value) || 170;
   const height = parseFloat(document.getElementById('prof-height').value) || 66;
-  const tdee = calcTDEE(age, weight, height, currentActivity);
-  TDEE_USER = tdee;
-  PRO_T_USER = parseInt(document.getElementById('prof-protein').value) || 120;
-  const calTarget = getCalTarget();
-  const goalSuffix = trackingGoal === 'bulk' ? '+300 surplus' : trackingGoal === 'maintenance' ? 'maintenance' : '15% deficit';
-  document.getElementById('prof-tdee-display').innerHTML = `${tdee} kcal/day &nbsp;·&nbsp; <span style="color:#ccc">target ${calTarget} kcal</span> <span style="color:#555;font-size:9px">(${goalSuffix})</span>`;
+  const tdee   = calcTDEE(age, weight, height, currentActivity);
+  const mode   = currentGoalMode || 'deficit';
+  const calTarget = goalCalTarget(tdee, mode);
+
+  TDEE_USER    = tdee;
+  CAL_T_USER   = calTarget;
+  PRO_T_USER   = parseInt(document.getElementById('prof-protein').value) || 120;
+
+  const cfg = (AGGR_CONFIG[mode] || AGGR_CONFIG.deficit)[currentAggressiveness || 'moderate'];
+  const pct = Math.round((cfg.mult - 1) * 100);
+  const pctStr = pct === 0 ? 'maintenance' : (pct > 0 ? `+${pct}%` : `${pct}%`);
+  document.getElementById('prof-tdee-display').innerHTML =
+    `TDEE ${tdee} kcal &nbsp;·&nbsp; <span style="color:#fff">Target ${calTarget} kcal</span> <span style="opacity:.4">(${pctStr})</span>`;
 }
 
 function scheduleProfileSave() {
@@ -1646,18 +2337,23 @@ async function saveProfile() {
   const tdee = calcTDEE(age, weight, height, currentActivity);
   TDEE_USER = tdee;
   PRO_T_USER = protein;
+  const calTarget = goalCalTarget(tdee, currentGoalMode);
+  CAL_T_USER = calTarget;
   await api('/auth/profile', {
     user_id: currentUser.id,
-    privacy: 'private',
-    tdee, cal_target: tdee, pro_target: protein,
-    age, weight_lbs: weight, height_in: height, activity: currentActivity,
-    goal: trackingGoal
+    tdee, cal_target: calTarget, pro_target: protein,
+    age, weight_lbs: weight, height_in: height,
+    activity: currentActivity, goal_mode: currentGoalMode,
+    aggressiveness: currentAggressiveness
   });
   // Update stored user
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
-  stored.tdee = tdee; stored.pro_target = protein; stored.privacy = currentPrivacy;
-  stored.goal = trackingGoal;
+  stored.tdee = tdee; stored.pro_target = protein;
+  stored.goal_mode = currentGoalMode; stored.cal_target = calTarget;
+  stored.age = age; stored.weight_lbs = weight; stored.height_in = height;
+  stored.activity = currentActivity;
   localStorage.setItem('bl_user', JSON.stringify(stored));
+  updateUI();
 }
 
 function loadProfilePane() {
@@ -1677,15 +2373,27 @@ function loadProfilePane() {
   if (stored.height_in) document.getElementById('prof-height').value = stored.height_in;
   if (stored.pro_target) document.getElementById('prof-protein').value = stored.pro_target;
   currentActivity = stored.activity || 'sedentary';
+  currentGoalMode = stored.goal_mode || 'deficit';
+  currentAggressiveness = stored.aggressiveness || 'moderate';
   // Set activity button
   document.querySelectorAll('#activity-btns .act-btn').forEach(b => {
     b.classList.toggle('on', b.textContent.toLowerCase() === currentActivity);
   });
-  trackingGoal = stored.goal || 'deficit';
-  // Set goal button
-  document.querySelectorAll('#goal-btns .act-btn').forEach(b => {
-    b.classList.toggle('on', b.textContent.toLowerCase() === trackingGoal);
+  // Load theme
+  const storedTheme = stored.theme || 'dark';
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('on'));
+  const themeBtn = document.getElementById('theme-' + storedTheme);
+  if (themeBtn) themeBtn.classList.add('on');
+
+  ['deficit','maintain','bulk'].forEach(mode => {
+    const btn = document.querySelector(`#goal-btns .goal-btn.${mode}`);
+    if (btn) btn.classList.toggle('on', mode === currentGoalMode);
   });
+  ['mild','moderate','aggressive'].forEach(lvl => {
+    const btn = document.getElementById(`aggr-${lvl}`);
+    if (btn) btn.classList.toggle('on', lvl === currentAggressiveness);
+  });
+  updateAggrDesc();
   updateTDEEDisplay();
   // Show migrate section if there's no history data yet for this user
   // (suggests they might want to claim the default data)
