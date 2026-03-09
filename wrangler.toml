@@ -1,3 +1,8 @@
 name = "calorie"
 main = "worker.js"
 compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "calorie"
+database_id = "ce1b81ad-050f-4ea2-9b66-974881099f89"
