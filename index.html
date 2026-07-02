@@ -582,6 +582,7 @@
               <div class="legend-item" id="legend-waistNavel" onclick="toggleChartSeries('waistNavel',this)"><div class="legend-dot" style="background:#34d399"></div>Waist (in)</div>
               <div class="legend-item off" id="legend-weightAvg" onclick="toggleChartSeries('weightAvg',this)"><div class="legend-dot dashed" style="border-color:#60a5fa"></div>Wt 7D Avg</div>
               <div class="legend-item off" id="legend-waistAvg" onclick="toggleChartSeries('waistAvg',this)"><div class="legend-dot dashed" style="border-color:#34d399"></div>Waist 7D Avg</div>
+              <div class="legend-item off" id="legend-bodyFat" onclick="toggleChartSeries('bodyFat',this)"><div class="legend-dot" style="background:#fbbf24"></div>Body Fat %</div>
             </div>
             <div class="chart-range">
               <button class="range-btn" onclick="setRange(7,this)">7D</button>
@@ -640,8 +641,9 @@
           <div><label class="field-lbl">Age</label><input type="number" id="prof-age" placeholder="35" oninput="scheduleProfileSave()"></div>
           <div><label class="field-lbl">Weight (lbs)</label><input type="number" id="prof-weight" placeholder="170" step="0.1" oninput="scheduleProfileSave()"></div>
           <div><label class="field-lbl">Height (in)</label><input type="number" id="prof-height" placeholder="66" step="0.5" oninput="scheduleProfileSave()"></div>
-          <div><label class="field-lbl">Protein Target (g)</label><input type="number" id="prof-protein" placeholder="120" oninput="scheduleProfileSave()"></div>
+          <div><label class="field-lbl">Protein Ratio (g/lb)</label><input type="number" id="prof-protein-ratio" placeholder="1.0" step="0.05" min="0" oninput="scheduleProfileSave()"></div>
         </div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;" id="protein-ratio-desc"></div>
 
         <div style="margin-top:12px">
           <label class="field-lbl">Activity Level</label>
@@ -1007,8 +1009,10 @@ function updateUI() {
   const rec = historyData.filter(e=>e.calories).slice(-7);
   const avgCal = rec.length?Math.round(rec.reduce((s,e)=>s+e.calories,0)/rec.length):null;
   const avgPro = rec.length?Math.round(rec.reduce((s,e)=>s+(e.protein||0),0)/rec.length):null;
+  const bodyCompNow = lastW ? estimateBodyComp(lastW) : null;
   document.getElementById("stats-row").innerHTML = [
     {l:"LAST WEIGHT",v:lastW?lastW+" lbs":"—",c:""},
+    bodyCompNow && bodyCompNow.bfPctNow!=null ? {l:"BODY FAT %",v:bodyCompNow.bfPctNow.toFixed(1)+"%",c:""} : null,
     {l:"DAY CALS",v:`${cal} kcal`,c:""},
     {l:"DAY PROTEIN",v:`${pro}g protein`,c:""},
     avgCal?{l:"7D AVG CALS",v:avgCal,c:""}:null,
@@ -1503,8 +1507,8 @@ Answer the user's question specifically and practically, referencing their actua
 // ── Trend Chart ────────────────────────────────────────────────────────────
 let chartRange = 30;
 
-// Which series are currently drawn. Raw weight/waist default on; 7D averages default off.
-let chartSeriesOn = { weightAM: true, waistNavel: true, weightAvg: false, waistAvg: false };
+// Which series are currently drawn. Raw weight/waist default on; 7D averages and body fat % default off.
+let chartSeriesOn = { weightAM: true, waistNavel: true, weightAvg: false, waistAvg: false, bodyFat: false };
 
 function toggleChartSeries(key, el) {
   chartSeriesOn[key] = !chartSeriesOn[key];
@@ -1579,6 +1583,14 @@ function drawChart() {
   const inRange = e => { try { const d = new Date(e.date); return d >= cutoff && d <= rangeEnd; } catch(x) { return false; } };
   const weightAvgPts = weightAvgFull.filter(inRange);
   const waistAvgPts  = waistAvgFull.filter(inRange);
+
+  // Estimated body fat % per day, derived from that day's weightAM vs. the DEXA baseline.
+  // Independent of the weight/waist axes — it has its own scale, drawn without dedicated
+  // axis labels (a floating end-label shows the latest value instead).
+  const dexaBaseline = getDexaBaseline();
+  const bfPts = dexaBaseline
+    ? points.filter(p => p.weightAM).map(p => ({ date: p.date, value: estimateBodyComp(p.weightAM).bfPctNow, p }))
+    : [];
 
   const PAD_L = 42, PAD_R = 38, PAD_T = 10, PAD_B = 30;
   const plotW = W - PAD_L - PAD_R;
@@ -1674,6 +1686,30 @@ function drawChart() {
     drawLine(ctx, segs, isLight ? '#1a7a50' : '#34d399', true);
   }
 
+  // Estimated body fat % line — independent scale, own color, no dedicated axis
+  const bfColor = isLight ? '#b8860b' : '#fbbf24';
+  if (chartSeriesOn.bodyFat && bfPts.length) {
+    const bfVals = bfPts.map(p => p.value);
+    const bfMin = Math.floor(Math.min(...bfVals) - 1);
+    const bfMax = Math.ceil(Math.max(...bfVals) + 1);
+    const yScaleBF = v => PAD_T + plotH - ((v - bfMin) / (bfMax - bfMin || 1)) * plotH;
+    const segs = bfPts.map(p => ({ x: xByDate(p.date), y: yScaleBF(p.value) }));
+    drawLine(ctx, segs, bfColor);
+    bfPts.forEach(p => {
+      p.p._bf = p.value;
+      p.p._sy_bf = yScaleBF(p.value);
+      ctx.beginPath(); ctx.arc(xByDate(p.date), yScaleBF(p.value), 3.5, 0, Math.PI*2);
+      ctx.fillStyle = bfColor; ctx.fill();
+    });
+    // Floating label with the latest value, next to the last point
+    const last = bfPts[bfPts.length - 1];
+    ctx.font = "10px 'DM Mono', monospace";
+    ctx.fillStyle = bfColor;
+    ctx.textAlign = xByDate(last.date) > W - PAD_R - 40 ? 'right' : 'left';
+    const lx = xByDate(last.date) + (ctx.textAlign === 'right' ? -8 : 8);
+    ctx.fillText(`${last.value.toFixed(1)}%`, lx, yScaleBF(last.value) + 3);
+  }
+
   // Dots with stored screen coords for click detection
   points.forEach(p => {
     p._sx = xByDate(p.date);
@@ -1714,9 +1750,8 @@ function handleChartClick(e) {
   // Find nearest point within 18px
   let best = null, bestDist = 18;
   chartPoints.forEach(p => {
-    const dx = mx - p._sx, dy_w = my - (p._sy_w||9999), dy_v = my - (p._sy_v||9999);
-    const dw = Math.hypot(dx, dy_w), dv = Math.hypot(dx, dy_v);
-    const d = Math.min(dw, dv);
+    const dx = mx - p._sx, dy_w = my - (p._sy_w??9999), dy_v = my - (p._sy_v??9999), dy_bf = my - (p._sy_bf??9999);
+    const d = Math.min(Math.hypot(dx, dy_w), Math.hypot(dx, dy_v), Math.hypot(dx, dy_bf));
     if (d < bestDist) { bestDist = d; best = p; }
   });
   if (!best) { closeChartTooltip(); return; }
@@ -1735,6 +1770,7 @@ function showChartTooltip(p, cx, cy) {
   const rows = [];
   if (p.weightAM) rows.push(`<div>⚖️ <b>${p.weightAM}</b> lbs AM</div>`);
   if (p.weightPM) rows.push(`<div>⚖️ <b>${p.weightPM}</b> lbs PM</div>`);
+  if (p._bf != null) rows.push(`<div>📊 <b>${p._bf.toFixed(1)}%</b> body fat (est.)</div>`);
   if (p.waistNavel) rows.push(`<div>📏 <b>${p.waistNavel}"</b> navel</div>`);
   if (p.waistSmallest) rows.push(`<div>📏 <b>${p.waistSmallest}"</b> smallest</div>`);
   if (p.calories) rows.push(`<div>🔥 <b>${p.calories}</b> kcal</div>`);
@@ -2416,7 +2452,10 @@ function updateTDEEDisplay() {
 
   TDEE_USER    = tdee;
   CAL_T_USER   = calTarget;
-  PRO_T_USER   = parseInt(document.getElementById('prof-protein').value) || 120;
+  const proteinRatio = parseFloat(document.getElementById('prof-protein-ratio').value) || 1.0;
+  PRO_T_USER   = Math.round(proteinRatio * weight);
+  const ratioDesc = document.getElementById('protein-ratio-desc');
+  if (ratioDesc) ratioDesc.textContent = `= ${PRO_T_USER}g at ${weight} lbs`;
 
   const cfg = (AGGR_CONFIG[mode] || AGGR_CONFIG.deficit)[currentAggressiveness || 'moderate'];
   const pct = Math.round((cfg.mult - 1) * 100);
@@ -2455,7 +2494,8 @@ async function saveProfile() {
   const age = parseInt(document.getElementById('prof-age').value) || 35;
   const weight = parseFloat(document.getElementById('prof-weight').value) || 170;
   const height = parseFloat(document.getElementById('prof-height').value) || 66;
-  const protein = parseInt(document.getElementById('prof-protein').value) || 120;
+  const proteinRatio = parseFloat(document.getElementById('prof-protein-ratio').value) || 1.0;
+  const protein = Math.round(proteinRatio * weight);
   const tdee = calcTDEE(age, weight, height, currentActivity);
   TDEE_USER = tdee;
   PRO_T_USER = protein;
@@ -2502,7 +2542,7 @@ function loadProfilePane() {
   if (stored.age) document.getElementById('prof-age').value = stored.age;
   if (stored.weight_lbs) document.getElementById('prof-weight').value = stored.weight_lbs;
   if (stored.height_in) document.getElementById('prof-height').value = stored.height_in;
-  if (stored.pro_target) document.getElementById('prof-protein').value = stored.pro_target;
+  if (stored.pro_target && stored.weight_lbs) document.getElementById('prof-protein-ratio').value = (stored.pro_target / stored.weight_lbs).toFixed(2);
   if (stored.dexa_date) document.getElementById('prof-dexa-date').value = stored.dexa_date;
   if (stored.dexa_weight) document.getElementById('prof-dexa-weight').value = stored.dexa_weight;
   if (stored.dexa_bf_pct) document.getElementById('prof-dexa-bf').value = stored.dexa_bf_pct;
