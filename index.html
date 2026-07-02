@@ -927,11 +927,35 @@ function totals() {
   };
 }
 
+// Most recent recorded morning weight at or before `atDate` (YYYY-MM-DD),
+// searching seed + saved history — used so a day's protein target reflects
+// the last known bodyweight even if that day itself has no weigh-in yet.
+function mostRecentWeightAsOf(atDate) {
+  const isOwner = currentUser && currentUser.email === 'bmdahmen@gmail.com';
+  const seedData = isOwner ? SEED_HISTORY : [];
+  const merged = [...seedData, ...historyData].reduce((acc, e) => {
+    if (e.weightAM) acc[e.date] = e.weightAM;
+    return acc;
+  }, {});
+  const dates = Object.keys(merged).filter(d => d <= atDate).sort();
+  return dates.length ? merged[dates[dates.length - 1]] : null;
+}
+
+// Protein target for a given day: ratio × that day's weight (its own weigh-in
+// if given, else the most recent prior one), falling back to the flat target
+// if no ratio/weight is known at all.
+function proteinTargetFor(atDate, liveWeight) {
+  const weight = liveWeight || mostRecentWeightAsOf(atDate);
+  return (PRO_RATIO_USER && weight) ? Math.round(PRO_RATIO_USER * weight) : (PRO_T_USER || PRO_T || 120);
+}
+
 function updateUI() {
   const {cal, pro} = totals();
   const TDEE = TDEE_USER || 2100;
   const CAL_T_EFF = CAL_T_USER || CAL_T || 1800;
-  const PRO_T_EFF = PRO_T_USER || PRO_T || 120;
+  const todayWtEl0 = document.getElementById('wt-am');
+  const todayWt0 = todayWtEl0 ? parseFloat(todayWtEl0.value) || null : null;
+  const PRO_T_EFF = proteinTargetFor(dateKey(activeDate), todayWt0);
   const remCal = CAL_T_EFF - cal, remPro = PRO_T_EFF - pro;
   const over = cal > CAL_T_EFF;
   const mode = currentGoalMode || 'deficit';
@@ -1002,10 +1026,8 @@ function updateUI() {
   }
 
   // Header stats — use today's wt-am input first, then latest history entry
-  const todayWtEl = document.getElementById('wt-am');
-  const todayWt = todayWtEl ? parseFloat(todayWtEl.value) || null : null;
   const histWeights = historyData.filter(e=>e.weightAM).sort((a,b)=>a.date>b.date?1:-1);
-  const lastW = todayWt || (histWeights.length ? histWeights[histWeights.length-1].weightAM : null);
+  const lastW = todayWt0 || (histWeights.length ? histWeights[histWeights.length-1].weightAM : null);
   const rec = historyData.filter(e=>e.calories).slice(-7);
   const avgCal = rec.length?Math.round(rec.reduce((s,e)=>s+e.calories,0)/rec.length):null;
   const avgPro = rec.length?Math.round(rec.reduce((s,e)=>s+(e.protein||0),0)/rec.length):null;
@@ -1228,7 +1250,7 @@ function renderHistory() {
       <td style="color:#444">${e.waistNavel??'—'}</td>
       <td style="color:#444">${e.waistSmallest??'—'}</td>
       <td style="font-weight:600;color:${e.calories?(e.calories>CAL_T?(document.body.classList.contains('light')?'#8b1a1a':'#f87171'):(document.body.classList.contains('light')?'#1a6b2a':'#4ade80')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.calories??'—'}</td>
-      <td style="font-weight:600;color:${e.protein?(e.protein>=(PRO_T_USER||PRO_T||120)?(document.body.classList.contains('light')?'#1a6b2a':'#4ade80'):(document.body.classList.contains('light')?'#8b1a1a':'#f87171')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.protein?e.protein+'g':'—'}</td>
+      <td style="font-weight:600;color:${e.protein?(e.protein>=proteinTargetFor(e.date,e.weightAM)?(document.body.classList.contains('light')?'#1a6b2a':'#4ade80'):(document.body.classList.contains('light')?'#8b1a1a':'#f87171')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.protein?e.protein+'g':'—'}</td>
       <td style="color:#383838;font-size:11px">${e.notes||''}</td>
     </tr>`).join("");
   const toggleRow = document.getElementById("hist-toggle-row");
@@ -1848,8 +1870,12 @@ async function refreshInsight() {
     return;
   }
 
+  const todayWtEl = document.getElementById('wt-am');
+  const todayWt = todayWtEl ? parseFloat(todayWtEl.value) || null : null;
+  const PRO_T_TODAY = proteinTargetFor(dateKey(activeDate), todayWt);
+
   // Fingerprint: calories + protein + current hour
-  const fp = `${cal}:${pro}:${h}:${currentGoalMode}:${CAL_T_USER}`;
+  const fp = `${cal}:${pro}:${h}:${currentGoalMode}:${CAL_T_USER}:${PRO_T_TODAY}`;
   const cacheKey = 'insight-day-' + dateKey(activeDate);
 
   // Check DB cache first
@@ -1867,7 +1893,7 @@ async function refreshInsight() {
   // Determine color class
   const TDEE = TDEE_USER || 2100;
   const CAL_TARGET = CAL_T_USER || TDEE;  // user's actual goal (deficit/maintain/bulk adjusted)
-  const PRO_T = PRO_T_USER || 120;
+  const PRO_T = PRO_T_TODAY;
   const proRemaining = PRO_T - pro;
   const calRemaining = CAL_TARGET - cal;  // remaining to goal, not TDEE
   const delta = cal - TDEE;               // vs maintenance for color coding
@@ -2345,6 +2371,7 @@ async function handleGoogleCredential(response) {
 function loginSuccess(user) {
   currentUser = user;
   if (user.pro_target) PRO_T_USER = user.pro_target;
+  if (user.pro_target && user.weight_lbs) PRO_RATIO_USER = user.pro_target / user.weight_lbs;
   if (user.tdee) TDEE_USER = user.tdee;
   if (user.goal_mode) currentGoalMode = user.goal_mode;
   if (user.aggressiveness) currentAggressiveness = user.aggressiveness;
@@ -2407,6 +2434,7 @@ let currentActivity = 'sedentary';
 let currentGoalMode = 'deficit';
 let CAL_T_USER = 1800; // 'deficit' | 'maintain' | 'bulk'
 let PRO_T_USER = 120;
+let PRO_RATIO_USER = 1.0; // g protein per lb bodyweight — used to recompute each day's target off that day's weight
 let TDEE_USER = 2100;
 
 const ACTIVITY_MULTIPLIERS = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725 };
@@ -2457,6 +2485,7 @@ function updateTDEEDisplay() {
   CAL_T_USER   = calTarget;
   const proteinRatio = parseFloat(document.getElementById('prof-protein-ratio').value) || 1.0;
   PRO_T_USER   = Math.round(proteinRatio * weight);
+  PRO_RATIO_USER = proteinRatio;
   const ratioDesc = document.getElementById('protein-ratio-desc');
   if (ratioDesc) ratioDesc.textContent = `= ${PRO_T_USER}g at ${weight} lbs`;
 
@@ -2502,6 +2531,7 @@ async function saveProfile() {
   const tdee = calcTDEE(age, weight, height, currentActivity);
   TDEE_USER = tdee;
   PRO_T_USER = protein;
+  PRO_RATIO_USER = proteinRatio;
   const calTarget = goalCalTarget(tdee, currentGoalMode);
   CAL_T_USER = calTarget;
   const dexaDate = document.getElementById('prof-dexa-date').value || null;
@@ -2545,7 +2575,10 @@ function loadProfilePane() {
   if (stored.age) document.getElementById('prof-age').value = stored.age;
   if (stored.weight_lbs) document.getElementById('prof-weight').value = stored.weight_lbs;
   if (stored.height_in) document.getElementById('prof-height').value = stored.height_in;
-  if (stored.pro_target && stored.weight_lbs) document.getElementById('prof-protein-ratio').value = (stored.pro_target / stored.weight_lbs).toFixed(2);
+  if (stored.pro_target && stored.weight_lbs) {
+    PRO_RATIO_USER = stored.pro_target / stored.weight_lbs;
+    document.getElementById('prof-protein-ratio').value = PRO_RATIO_USER.toFixed(2);
+  }
   if (stored.dexa_date) document.getElementById('prof-dexa-date').value = stored.dexa_date;
   if (stored.dexa_weight) document.getElementById('prof-dexa-weight').value = stored.dexa_weight;
   if (stored.dexa_bf_pct) document.getElementById('prof-dexa-bf').value = stored.dexa_bf_pct;
