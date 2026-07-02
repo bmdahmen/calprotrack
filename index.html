@@ -283,10 +283,13 @@
   .chart-wrap{background:#0b0b0b;border:1px solid #161616;border-radius:8px;padding:12px 16px 10px;margin-bottom:18px;}
   #chart-tooltip{position:fixed;background:#0e0e0e;border:1px solid #2a2a2a;border-radius:8px;padding:10px 12px;font-family:'DM Mono',monospace;font-size:10px;color:#ccc;line-height:1.7;pointer-events:none;z-index:9999;display:none;min-width:150px;box-shadow:0 4px 20px rgba(0,0,0,.5);}
   body.light #chart-tooltip{background:#fff;border-color:#c8c1b8;color:#2c2820;box-shadow:0 4px 20px rgba(0,0,0,.15);}
-  .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
-  .chart-legend{display:flex;gap:14px;}
-  .legend-item{display:flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:9px;color:#555;}
+  .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+  .chart-legend{display:flex;gap:14px;flex-wrap:wrap;}
+  .legend-item{display:flex;align-items:center;gap:5px;font-family:'DM Mono',monospace;font-size:9px;color:#555;cursor:pointer;user-select:none;transition:opacity .15s;}
+  .legend-item:hover{color:#aaa;}
+  .legend-item.off{opacity:.35;}
   .legend-dot{width:8px;height:8px;border-radius:50%;}
+  .legend-dot.dashed{background:none!important;border-top:2px dashed;width:12px;height:0;border-radius:0;}
   .chart-range{display:flex;gap:4px;}
   .range-btn{background:none;border:1px solid #1e1e1e;color:#444;font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;border-radius:4px;cursor:pointer;transition:all .15s;}
   .range-btn.on{border-color:#f97316;color:#f97316;}
@@ -510,7 +513,7 @@
               <button class="send-btn" id="send-btn" onclick="sendFood()">ESTIMATE →</button>
             </div>
             <div id="char-count" style="font-family:'DM Mono',monospace;font-size:8px;color:#333;text-align:right;padding:2px 4px;display:none;"></div>
-            <input type="file" id="file-input" accept="image/*" capture="environment" onchange="previewImage(event)">
+            <input type="file" id="file-input" accept="image/*" onchange="previewImage(event)">
           </div>
 
           <div class="sec">Meals</div>
@@ -574,9 +577,11 @@
         <div class="chart-header">
           <div class="sec" style="margin-bottom:0">TREND</div>
           <div style="display:flex;align-items:center;gap:12px;">
-            <div class="chart-legend">
-              <div class="legend-item"><div class="legend-dot" style="background:#60a5fa"></div>Weight (lbs)</div>
-              <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>Waist (in)</div>
+            <div class="chart-legend" id="chart-legend">
+              <div class="legend-item" id="legend-weightAM" onclick="toggleChartSeries('weightAM',this)"><div class="legend-dot" style="background:#60a5fa"></div>Weight (lbs)</div>
+              <div class="legend-item" id="legend-waistNavel" onclick="toggleChartSeries('waistNavel',this)"><div class="legend-dot" style="background:#34d399"></div>Waist (in)</div>
+              <div class="legend-item off" id="legend-weightAvg" onclick="toggleChartSeries('weightAvg',this)"><div class="legend-dot dashed" style="border-color:#60a5fa"></div>Wt 7D Avg</div>
+              <div class="legend-item off" id="legend-waistAvg" onclick="toggleChartSeries('waistAvg',this)"><div class="legend-dot dashed" style="border-color:#34d399"></div>Waist 7D Avg</div>
             </div>
             <div class="chart-range">
               <button class="range-btn" onclick="setRange(7,this)">7D</button>
@@ -588,7 +593,7 @@
             </div>
           </div>
         </div>
-        <canvas id="trend-chart" height="155" onclick="handleChartClick(event)" onmouseleave="closeChartTooltip()" style="cursor:crosshair"></canvas>
+        <canvas id="trend-chart" height="240" onclick="handleChartClick(event)" onmouseleave="closeChartTooltip()" style="cursor:crosshair"></canvas>
       </div>
     </div>
     <!-- HISTORY -->
@@ -672,6 +677,22 @@
           Estimated TDEE: <span id="prof-tdee-display" style="color:#f97316">—</span><br>
           <span style="font-size:9px;color:#333">Mifflin-St Jeor · updates automatically</span>
         </div>
+
+        <div class="sec" style="margin-top:18px;margin-bottom:10px">Body Composition (DEXA)</div>
+        <div class="settings-grid">
+          <div><label class="field-lbl">Scan Date</label><input type="date" id="prof-dexa-date" oninput="scheduleDexaSave()"></div>
+          <div><label class="field-lbl">Scan Weight (lbs)</label><input type="number" id="prof-dexa-weight" placeholder="160" step="0.1" oninput="scheduleDexaSave()"></div>
+          <div style="grid-column:span 2"><label class="field-lbl">Scan Body Fat %</label><input type="number" id="prof-dexa-bf" placeholder="15" step="0.1" min="0" max="80" oninput="scheduleDexaSave()"></div>
+        </div>
+        <div style="margin-top:10px" id="muscle-split-section">
+          <label class="field-lbl">Assumed Muscle Share of Weight Change (Deficit)</label>
+          <input type="number" id="prof-muscle-pct" placeholder="20" min="0" max="100" step="1" oninput="scheduleDexaSave()">
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;" id="muscle-split-desc"></div>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:#333;margin-top:6px;line-height:1.5;">
+          Used to estimate current body fat % in History as your weight moves away from your DEXA baseline.
+        </div>
+
         <div style="margin-top:14px">
           <label class="field-lbl">Appearance</label>
           <div class="theme-toggle">
@@ -908,12 +929,13 @@ function updateUI() {
   const {cal, pro} = totals();
   const TDEE = TDEE_USER || 2100;
   const CAL_T_EFF = CAL_T_USER || CAL_T || 1800;
-  const remCal = CAL_T_EFF - cal, remPro = PRO_T - pro;
+  const PRO_T_EFF = PRO_T_USER || PRO_T || 120;
+  const remCal = CAL_T_EFF - cal, remPro = PRO_T_EFF - pro;
   const over = cal > CAL_T_EFF;
   const mode = currentGoalMode || 'deficit';
 
   document.getElementById("cal-txt").textContent = `${cal} / ${CAL_T_EFF}` + (remCal>0?` · ${remCal} left`:" · OVER");
-  document.getElementById("pro-txt").textContent = `${pro}g / ${PRO_T}g` + (remPro>0?` · ${remPro}g left`:" · ✓");
+  document.getElementById("pro-txt").textContent = `${pro}g / ${PRO_T_EFF}g` + (remPro>0?` · ${remPro}g left`:" · ✓");
 
   // Extended bar: scale to 130% of TDEE so there's room beyond goal
   const barMax = Math.max(TDEE * 1.3, CAL_T_EFF * 1.4, cal * 1.1);
@@ -958,9 +980,9 @@ function updateUI() {
     tdeeLbl.style.display = "none";
   }
 
-  document.getElementById("pro-fill").style.width = Math.min(100,pro/PRO_T*100)+"%";
+  document.getElementById("pro-fill").style.width = Math.min(100,pro/PRO_T_EFF*100)+"%";
   const isLight = document.body.classList.contains('light');
-  document.getElementById("pro-fill").style.background = pro>=PRO_T?(isLight?"#2a7a3a":"#4ade80"):(isLight?"#6040a0":"#a78bfa");
+  document.getElementById("pro-fill").style.background = pro>=PRO_T_EFF?(isLight?"#2a7a3a":"#4ade80"):(isLight?"#6040a0":"#a78bfa");
 
   const remCalEl = document.getElementById("rem-cal");
   remCalEl.textContent = remCal>0 ? remCal : (mode==='bulk' ? '✓ Surplus!' : '0 ✓');
@@ -1061,22 +1083,23 @@ async function delMeal(id) {
 // ── Measurements ───────────────────────────────────────────────────────────
 
 function setPrevMeasPlaceholders(currentDate) {
-  // Find most recent measurement before currentDate
+  // For each field, find the most recent prior entry that actually has that field
+  // (e.g. weightPM is logged less often than weightAM, so they can come from different days)
   const dk = dateKey(currentDate);
   const all = [...(SEED_HISTORY||[]), ...historyData]
-    .filter(e => e.date < dk && (e.weightAM || e.waistNavel))
+    .filter(e => e.date < dk)
     .sort((a,b) => b.date.localeCompare(a.date));
-  const prev = all[0];
-  if (!prev) return;
   const fields = [
-    ['wt-am', prev.weightAM ?? null],
-    ['wt-pm', prev.weightPM ?? null],
-    ['waist-nav', prev.waistNavel ?? null],
-    ['waist-sml', prev.waistSmallest ?? null],
+    ['wt-am', 'weightAM'],
+    ['wt-pm', 'weightPM'],
+    ['waist-nav', 'waistNavel'],
+    ['waist-sml', 'waistSmallest'],
   ];
-  fields.forEach(([id, ph]) => {
+  fields.forEach(([id, key]) => {
     const el = document.getElementById(id);
-    if (el && ph && !el.value) el.placeholder = ph;
+    if (!el || el.value) return;
+    const rec = all.find(e => e[key] != null);
+    if (rec) el.placeholder = rec[key];
   });
 }
 
@@ -1201,7 +1224,7 @@ function renderHistory() {
       <td style="color:#444">${e.waistNavel??'—'}</td>
       <td style="color:#444">${e.waistSmallest??'—'}</td>
       <td style="font-weight:600;color:${e.calories?(e.calories>CAL_T?(document.body.classList.contains('light')?'#8b1a1a':'#f87171'):(document.body.classList.contains('light')?'#1a6b2a':'#4ade80')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.calories??'—'}</td>
-      <td style="font-weight:600;color:${e.protein?(e.protein>=PRO_T?(document.body.classList.contains('light')?'#1a6b2a':'#4ade80'):(document.body.classList.contains('light')?'#8b1a1a':'#f87171')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.protein?e.protein+'g':'—'}</td>
+      <td style="font-weight:600;color:${e.protein?(e.protein>=(PRO_T_USER||PRO_T||120)?(document.body.classList.contains('light')?'#1a6b2a':'#4ade80'):(document.body.classList.contains('light')?'#8b1a1a':'#f87171')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.protein?e.protein+'g':'—'}</td>
       <td style="color:#383838;font-size:11px">${e.notes||''}</td>
     </tr>`).join("");
   const toggleRow = document.getElementById("hist-toggle-row");
@@ -1480,12 +1503,37 @@ Answer the user's question specifically and practically, referencing their actua
 // ── Trend Chart ────────────────────────────────────────────────────────────
 let chartRange = 30;
 
+// Which series are currently drawn. Raw weight/waist default on; 7D averages default off.
+let chartSeriesOn = { weightAM: true, waistNavel: true, weightAvg: false, waistAvg: false };
+
+function toggleChartSeries(key, el) {
+  chartSeriesOn[key] = !chartSeriesOn[key];
+  if (el) el.classList.toggle('off', !chartSeriesOn[key]);
+  drawChart();
+}
+
 function setRange(days, btn) {
   chartRange = days;
   document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
   drawChart();
   refreshHistInsight(); // histFP includes data fingerprint — cache handles dedup
+}
+
+// Trailing N-day moving average over whatever date/value pairs are supplied.
+// Averages only the values actually present within each trailing window, so gaps in logging don't skew it.
+function movingAverage(entries, windowDays) {
+  const sorted = [...entries].sort((a,b) => new Date(a.date) - new Date(b.date));
+  return sorted.map((e, i) => {
+    const windowStart = new Date(e.date);
+    windowStart.setDate(windowStart.getDate() - (windowDays - 1));
+    const inWindow = sorted.filter(x => {
+      const xd = new Date(x.date);
+      return xd >= windowStart && xd <= new Date(e.date);
+    });
+    const avg = inWindow.reduce((s,x)=>s+x.value,0) / inWindow.length;
+    return { date: e.date, value: avg };
+  });
 }
 
 let chartPoints = []; // global so click handler can use them
@@ -1495,7 +1543,7 @@ function drawChart() {
   if (!canvas) return;
   const dpr = window.devicePixelRatio || 1;
   const W = canvas.offsetWidth;
-  const H = 155;
+  const H = 240;
   canvas.width = W * dpr;
   canvas.height = H * dpr;
   canvas.style.height = H + 'px';
@@ -1514,6 +1562,7 @@ function drawChart() {
     acc[e.date] = {...(acc[e.date]||{}), ...e};
     return acc;
   }, {});
+  const allSorted = Object.values(all).sort((a,b) => new Date(a.date) - new Date(b.date));
 
   // All points with at least some data in range — for X positioning use DATE not index
   const points = Object.values(all)
@@ -1522,6 +1571,14 @@ function drawChart() {
     .sort((a,b) => new Date(a.date) - new Date(b.date));
 
   chartPoints = points;
+
+  // 7-day moving averages, computed over full history (so early points in range have proper context),
+  // then clipped to the visible range.
+  const weightAvgFull = movingAverage(allSorted.filter(e=>e.weightAM).map(e=>({date:e.date,value:e.weightAM})), 7);
+  const waistAvgFull  = movingAverage(allSorted.filter(e=>e.waistNavel).map(e=>({date:e.date,value:e.waistNavel})), 7);
+  const inRange = e => { try { const d = new Date(e.date); return d >= cutoff && d <= rangeEnd; } catch(x) { return false; } };
+  const weightAvgPts = weightAvgFull.filter(inRange);
+  const waistAvgPts  = waistAvgFull.filter(inRange);
 
   const PAD_L = 42, PAD_R = 38, PAD_T = 10, PAD_B = 30;
   const plotW = W - PAD_L - PAD_R;
@@ -1540,10 +1597,18 @@ function drawChart() {
 
   const weights = points.map(p=>p.weightAM).filter(Boolean);
   const waists  = points.map(p=>p.waistNavel).filter(Boolean);
-  const wMin = weights.length ? Math.floor(Math.min(...weights) - 1) : 0;
-  const wMax = weights.length ? Math.ceil(Math.max(...weights) + 1) : 10;
-  const vMin = waists.length ? Math.floor(Math.min(...waists)*4)/4 - 0.25 : 0;
-  const vMax = waists.length ? Math.ceil(Math.max(...waists)*4)/4 + 0.25 : 10;
+  const weightExtremes = [
+    ...(chartSeriesOn.weightAM ? weights : []),
+    ...(chartSeriesOn.weightAvg ? weightAvgPts.map(p=>p.value) : []),
+  ];
+  const waistExtremes = [
+    ...(chartSeriesOn.waistNavel ? waists : []),
+    ...(chartSeriesOn.waistAvg ? waistAvgPts.map(p=>p.value) : []),
+  ];
+  const wMin = weightExtremes.length ? Math.floor(Math.min(...weightExtremes) - 1) : 0;
+  const wMax = weightExtremes.length ? Math.ceil(Math.max(...weightExtremes) + 1) : 10;
+  const vMin = waistExtremes.length ? Math.floor(Math.min(...waistExtremes)*4)/4 - 0.25 : 0;
+  const vMax = waistExtremes.length ? Math.ceil(Math.max(...waistExtremes)*4)/4 + 0.25 : 10;
 
   const yScaleW = v => PAD_T + plotH - ((v - wMin) / (wMax - wMin || 1)) * plotH;
   const yScaleV = v => PAD_T + plotH - ((v - vMin) / (vMax - vMin || 1)) * plotH;
@@ -1559,7 +1624,7 @@ function drawChart() {
 
   // Y axis labels
   ctx.font = "9px 'DM Mono', monospace";
-  if (weights.length) {
+  if (weightExtremes.length) {
     ctx.fillStyle = isLight ? '#4a80c8' : '#60a5fa';
     ctx.textAlign = 'right';
     for (let i = 0; i <= ticks; i++) {
@@ -1567,7 +1632,7 @@ function drawChart() {
       ctx.fillText(v.toFixed(0), PAD_L - 5, PAD_T + plotH - (i/ticks)*plotH + 3);
     }
   }
-  if (waists.length) {
+  if (waistExtremes.length) {
     ctx.fillStyle = isLight ? '#1a7a50' : '#34d399';
     ctx.textAlign = 'left';
     for (let i = 0; i <= ticks; i++) {
@@ -1588,22 +1653,36 @@ function drawChart() {
   }
 
   // Weight line (connect dots, no dot on days without measurement)
-  const weightSegs = points.filter(p => p.weightAM).map(p => ({ x: xByDate(p.date), y: yScaleW(p.weightAM), p }));
-  drawLine(ctx, weightSegs, isLight ? '#4a80c8' : '#60a5fa');
+  if (chartSeriesOn.weightAM) {
+    const weightSegs = points.filter(p => p.weightAM).map(p => ({ x: xByDate(p.date), y: yScaleW(p.weightAM), p }));
+    drawLine(ctx, weightSegs, isLight ? '#4a80c8' : '#60a5fa');
+  }
 
   // Waist line
-  const waistSegs = points.filter(p => p.waistNavel).map(p => ({ x: xByDate(p.date), y: yScaleV(p.waistNavel), p }));
-  drawLine(ctx, waistSegs, isLight ? '#1a7a50' : '#34d399');
+  if (chartSeriesOn.waistNavel) {
+    const waistSegs = points.filter(p => p.waistNavel).map(p => ({ x: xByDate(p.date), y: yScaleV(p.waistNavel), p }));
+    drawLine(ctx, waistSegs, isLight ? '#1a7a50' : '#34d399');
+  }
+
+  // 7-day moving average lines (dashed, no dots)
+  if (chartSeriesOn.weightAvg) {
+    const segs = weightAvgPts.map(p => ({ x: xByDate(p.date), y: yScaleW(p.value) }));
+    drawLine(ctx, segs, isLight ? '#4a80c8' : '#60a5fa', true);
+  }
+  if (chartSeriesOn.waistAvg) {
+    const segs = waistAvgPts.map(p => ({ x: xByDate(p.date), y: yScaleV(p.value) }));
+    drawLine(ctx, segs, isLight ? '#1a7a50' : '#34d399', true);
+  }
 
   // Dots with stored screen coords for click detection
   points.forEach(p => {
     p._sx = xByDate(p.date);
-    if (p.weightAM) {
+    if (chartSeriesOn.weightAM && p.weightAM) {
       p._sy_w = yScaleW(p.weightAM);
       ctx.beginPath(); ctx.arc(p._sx, p._sy_w, 4, 0, Math.PI*2);
       ctx.fillStyle = isLight ? '#4a80c8' : '#60a5fa'; ctx.fill();
     }
-    if (p.waistNavel) {
+    if (chartSeriesOn.waistNavel && p.waistNavel) {
       p._sy_v = yScaleV(p.waistNavel);
       ctx.beginPath(); ctx.arc(p._sx, p._sy_v, 4, 0, Math.PI*2);
       ctx.fillStyle = isLight ? '#1a7a50' : '#34d399'; ctx.fill();
@@ -1611,15 +1690,18 @@ function drawChart() {
   });
 }
 
-function drawLine(ctx, pts, color) {
+function drawLine(ctx, pts, color, dashed) {
   if (pts.length < 2) return;
+  ctx.save();
   ctx.beginPath();
   ctx.strokeStyle = color;
   ctx.lineWidth = 1.5;
   ctx.lineJoin = 'round';
+  if (dashed) ctx.setLineDash([5, 4]);
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.stroke();
+  ctx.restore();
 }
 
 function handleChartClick(e) {
@@ -1821,7 +1903,8 @@ async function refreshHistInsight() {
   const weightPts = pts.filter(e => e.weightAM);
   const waistPts  = pts.filter(e => e.waistNavel);
 
-  // Fingerprint: range + first/last weight + first/last waist
+  // Fingerprint: range + first/last weight + first/last waist + DEXA baseline
+  const dexaFP = JSON.stringify(getDexaBaseline());
   const histFP = [
     chartRange,
     weightPts.length ? weightPts[0].date + weightPts[0].weightAM : '',
@@ -1829,6 +1912,7 @@ async function refreshHistInsight() {
     waistPts.length ? waistPts[0].waistNavel : '',
     waistPts.length ? waistPts[waistPts.length-1].waistNavel : '',
     currentGoalMode || 'deficit',
+    dexaFP,
   ].join(':');
   const histCacheKey = 'insight-hist-' + chartRange;
 
@@ -1877,6 +1961,14 @@ async function refreshHistInsight() {
     wLabel = weightPerWeek < -0.1 ? 'lbs/week loss' : weightPerWeek > 0.1 ? 'lbs/week gain' : 'lbs/week';
   }
 
+  // Estimated body fat % vs. DEXA baseline, if one is set
+  const bodyComp = estimateBodyComp(lastW.weightAM);
+  const bfBlock = bodyComp && bodyComp.bfPctNow != null ? `
+    <div class="hist-rate-block">
+      <div class="hist-rate-num ${bodyComp.deltaWeight < 0 ? 'loss' : bodyComp.deltaWeight > 0 ? 'gain' : 'neutral'}">${bodyComp.bfPctNow.toFixed(1)}%</div>
+      <div class="hist-rate-lbl">EST. BODY FAT</div>
+    </div>` : '';
+
   rateRow.innerHTML = `
     <div class="hist-rate-block">
       <div class="hist-rate-num ${wClass}">${wStr}</div>
@@ -1887,10 +1979,12 @@ async function refreshHistInsight() {
       <div class="hist-rate-num ${waistChangePer < -0.05 ? 'loss' : waistChangePer > 0.05 ? 'gain' : 'neutral'}">${waistChangePer > 0 ? '+' : ''}${waistChangePer.toFixed(2)}"</div>
       <div class="hist-rate-lbl">WAIST/WEEK</div>
     </div>` : ''}
+    ${bfBlock}
     <div class="hist-rate-block" style="flex:1;text-align:right;font-family:'DM Mono',monospace;font-size:9px;color:#555;">
       <div>${chartRange}D WINDOW</div>
       <div>${firstW.weightAM} → ${lastW.weightAM} lbs</div>
       ${waistPts.length>=2?`<div>${waistPts[0].waistNavel}" → ${waistPts[waistPts.length-1].waistNavel}"</div>`:''}
+      ${bodyComp && bodyComp.bfPctNow != null ? `<div>${bodyComp.dexa.bfPct}% → ${bodyComp.bfPctNow.toFixed(1)}% BF (DEXA)</div>` : ''}
     </div>`;
 
   // Build AI prompt
@@ -2057,7 +2151,7 @@ async function obSubmit() {
 let dailyActivity = 'sedentary'; // per-day, resets each day load
 let currentAggressiveness = 'moderate'; // profile-level
 
-const DAY_ACT_MULT = { '1': 1.2, '2': 1.35, '3': 1.55, '4': 1.65, '5': 1.725 };
+const DAY_ACT_MULT = { '1': 1.2, '2': 1.35, '3': 1.45, '4': 1.5, '5': 1.55 };
 const ACT_DESCRIPTIONS = { '1':'Desk job, no exercise','2':'Light activity / short walks','3':'Moderate exercise 3-4x/week','4':'Active job or daily training','5':'Heavy training / physical labor' };
 
 const AGGR_CONFIG = {
@@ -2141,6 +2235,8 @@ function updateAggrDesc() {
   if (section) section.style.display = mode === 'maintain' ? 'none' : 'block';
   const lbl = document.getElementById('aggr-label');
   if (lbl) lbl.textContent = mode === 'deficit' ? 'Deficit Aggressiveness' : 'Bulk Aggressiveness';
+  const muscleSection = document.getElementById('muscle-split-section');
+  if (muscleSection) muscleSection.style.display = mode === 'deficit' ? 'block' : 'none';
 }
 
 
@@ -2327,6 +2423,7 @@ function updateTDEEDisplay() {
   const pctStr = pct === 0 ? 'maintenance' : (pct > 0 ? `+${pct}%` : `${pct}%`);
   document.getElementById('prof-tdee-display').innerHTML =
     `TDEE ${tdee} kcal &nbsp;·&nbsp; <span style="color:#fff">Target ${calTarget} kcal</span> <span style="opacity:.4">(${pctStr})</span>`;
+  updateUI();
 }
 
 function scheduleProfileSave() {
@@ -2364,12 +2461,18 @@ async function saveProfile() {
   PRO_T_USER = protein;
   const calTarget = goalCalTarget(tdee, currentGoalMode);
   CAL_T_USER = calTarget;
+  const dexaDate = document.getElementById('prof-dexa-date').value || null;
+  const dexaWeight = parseFloat(document.getElementById('prof-dexa-weight').value) || null;
+  const dexaBF = parseFloat(document.getElementById('prof-dexa-bf').value) || null;
+  const muscleRaw = parseFloat(document.getElementById('prof-muscle-pct').value);
+  const musclePct = isNaN(muscleRaw) ? 20 : Math.min(100, Math.max(0, muscleRaw));
   await api('/auth/profile', {
     user_id: currentUser.id,
     tdee, cal_target: calTarget, pro_target: protein,
     age, weight_lbs: weight, height_in: height,
     activity: currentActivity, goal_mode: currentGoalMode,
-    aggressiveness: currentAggressiveness
+    aggressiveness: currentAggressiveness,
+    dexa_date: dexaDate, dexa_weight: dexaWeight, dexa_bf_pct: dexaBF, muscle_loss_pct: musclePct
   });
   // Update stored user
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
@@ -2377,8 +2480,11 @@ async function saveProfile() {
   stored.goal_mode = currentGoalMode; stored.cal_target = calTarget;
   stored.age = age; stored.weight_lbs = weight; stored.height_in = height;
   stored.activity = currentActivity;
+  stored.dexa_date = dexaDate; stored.dexa_weight = dexaWeight;
+  stored.dexa_bf_pct = dexaBF; stored.muscle_loss_pct = musclePct;
   localStorage.setItem('bl_user', JSON.stringify(stored));
   updateUI();
+  refreshHistInsight();
 }
 
 function loadProfilePane() {
@@ -2397,6 +2503,11 @@ function loadProfilePane() {
   if (stored.weight_lbs) document.getElementById('prof-weight').value = stored.weight_lbs;
   if (stored.height_in) document.getElementById('prof-height').value = stored.height_in;
   if (stored.pro_target) document.getElementById('prof-protein').value = stored.pro_target;
+  if (stored.dexa_date) document.getElementById('prof-dexa-date').value = stored.dexa_date;
+  if (stored.dexa_weight) document.getElementById('prof-dexa-weight').value = stored.dexa_weight;
+  if (stored.dexa_bf_pct) document.getElementById('prof-dexa-bf').value = stored.dexa_bf_pct;
+  document.getElementById('prof-muscle-pct').value = stored.muscle_loss_pct != null ? stored.muscle_loss_pct : 20;
+  updateMuscleSplitDesc();
   currentActivity = stored.activity || 'sedentary';
   currentGoalMode = stored.goal_mode || 'deficit';
   currentAggressiveness = stored.aggressiveness || 'moderate';
@@ -2425,6 +2536,49 @@ function loadProfilePane() {
   const hasData = historyData && historyData.length > 0;
   const migrateSection = document.getElementById('migrate-section');
   if (migrateSection) migrateSection.style.display = hasData ? 'none' : 'block';
+}
+
+// ── Body Composition (DEXA baseline) ────────────────────────────────────────
+// Stored locally (in bl_user, alongside other cached profile fields) rather than
+// synced server-side via /auth/profile (dexa_date, dexa_weight, dexa_bf_pct, muscle_loss_pct
+// columns on users) — same debounced save pipeline as the rest of the profile fields.
+function updateMuscleSplitDesc() {
+  const el = document.getElementById('muscle-split-desc');
+  if (!el) return;
+  const raw = parseFloat(document.getElementById('prof-muscle-pct')?.value);
+  const m = isNaN(raw) ? 20 : Math.min(100, Math.max(0, raw));
+  el.textContent = `Assumes ${m}% of any weight change vs. your DEXA baseline is muscle, ${100 - m}% is fat.`;
+}
+
+function scheduleDexaSave() {
+  updateMuscleSplitDesc();
+  scheduleProfileSave();
+}
+
+function getDexaBaseline() {
+  const stored = JSON.parse(localStorage.getItem('bl_user') || '{}');
+  if (!stored.dexa_weight || !stored.dexa_bf_pct) return null;
+  return {
+    date: stored.dexa_date || null,
+    weight: stored.dexa_weight,
+    bfPct: stored.dexa_bf_pct,
+    muscleLossPct: stored.muscle_loss_pct != null ? stored.muscle_loss_pct : 20,
+  };
+}
+
+// Estimates current body fat % by assuming a user-set split of any weight change
+// (since the DEXA scan) between lean/muscle mass and fat mass.
+function estimateBodyComp(currentWeight) {
+  const dexa = getDexaBaseline();
+  if (!dexa || !currentWeight) return null;
+  const fatMassDexa = dexa.weight * (dexa.bfPct / 100);
+  const leanMassDexa = dexa.weight - fatMassDexa;
+  const deltaWeight = currentWeight - dexa.weight;
+  const muscleFrac = dexa.muscleLossPct / 100;
+  const leanMassNow = Math.max(0, leanMassDexa + deltaWeight * muscleFrac);
+  const fatMassNow = Math.max(0, fatMassDexa + deltaWeight * (1 - muscleFrac));
+  const bfPctNow = currentWeight > 0 ? (fatMassNow / currentWeight) * 100 : null;
+  return { dexa, deltaWeight, leanMassDexa, fatMassDexa, leanMassNow, fatMassNow, bfPctNow };
 }
 
 // ── Leaderboard ────────────────────────────────────────────────────────────
