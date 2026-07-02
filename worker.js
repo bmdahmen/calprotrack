@@ -1,5 +1,30 @@
 const GOOGLE_CLIENT_ID = '156334413688-usb68f1fldmrhic94mn925l75hnk82pk.apps.googleusercontent.com';
 
+// Default models, used only if the corresponding env var isn't set.
+// To roll to new models with no code change/redeploy, set these in your
+// Cloudflare Worker environment instead: MODEL_OPUS, MODEL_SONNET.
+const DEFAULT_MODELS = {
+  opus: 'claude-opus-4-8',
+  sonnet: 'claude-sonnet-5',
+};
+
+function getModels(env) {
+  return {
+    opus: env.MODEL_OPUS || DEFAULT_MODELS.opus,
+    sonnet: env.MODEL_SONNET || DEFAULT_MODELS.sonnet,
+  };
+}
+
+function buildModelCascade(env) {
+  const m = getModels(env);
+  return {
+    image: [m.opus, m.sonnet],
+    food: [m.sonnet, m.opus],
+    ai_coach: [m.sonnet, m.opus],
+    default: [m.sonnet, m.opus],
+  };
+}
+
 async function verifyGoogleToken(token) {
   const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
   if (!res.ok) throw new Error('Invalid token');
@@ -96,12 +121,7 @@ export default {
       }
 
       // Model cascade per request type — worker picks model, not client
-      const modelCascade = {
-        image:    ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
-        food:     ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6'],
-        ai_coach: ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6'],
-        default:  ['claude-haiku-4-5-20251001', 'claude-sonnet-4-6'],
-      };
+      const modelCascade = buildModelCascade(env);
       const models = modelCascade[_type] || modelCascade.default;
 
       const aiBody = { ...body };
