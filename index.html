@@ -779,14 +779,17 @@ function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").rep
 
 // ── API ────────────────────────────────────────────────────────────────────
 async function api(path, body) {
-  // Auto-inject user_id for data endpoints
+  // Auto-inject user_id for data endpoints (kept for back-compat/debugging;
+  // the worker authorizes off the session token below, never off this field)
   const dataEndpoints = ['/meals/', '/meas/', '/history/', '/cache/'];
   if (currentUser && dataEndpoints.some(e => path.startsWith(e))) {
     body = { ...body, user_id: currentUser.id };
   }
+  const headers = {"Content-Type":"application/json"};
+  if (sessionToken) headers['Authorization'] = `Bearer ${sessionToken}`;
   const res = await fetch(WORKER + path, {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers,
     body: JSON.stringify(body)
   });
   return res.json();
@@ -2317,6 +2320,7 @@ function updateAvatarBtn() {
 // ── Auth (Google Sign-In) ─────────────────────────────────────────────────
 const GOOGLE_CLIENT_ID = '156334413688-usb68f1fldmrhic94mn925l75hnk82pk.apps.googleusercontent.com';
 let currentUser = null;
+let sessionToken = null; // bearer token proving currentUser's identity to the worker
 let profileSaveTimer = null;
 
 
@@ -2327,6 +2331,8 @@ async function handleGoogleCredential(response) {
     const data = await api('/auth/google', { token: response.credential });
     if (data.error) { errEl.textContent = data.error; return; }
     localStorage.setItem('bl_user', JSON.stringify(data.user));
+    sessionToken = data.session_token;
+    localStorage.setItem('bl_session', sessionToken);
     if (data.is_new) {
       // New user — show onboarding
       document.getElementById('auth-screen').style.display = 'none';
@@ -2357,8 +2363,11 @@ function loginSuccess(user) {
 
 function logout() {
   google.accounts.id.disableAutoSelect();
+  if (sessionToken) api('/auth/logout', {}).catch(() => {});
   localStorage.removeItem('bl_user');
+  localStorage.removeItem('bl_session');
   currentUser = null;
+  sessionToken = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('auth-error').textContent = '';
@@ -2367,9 +2376,12 @@ function logout() {
 function checkStoredLogin() {
   try {
     const stored = localStorage.getItem('bl_user');
-    if (stored) {
+    const storedSession = localStorage.getItem('bl_session');
+    // Require both — a cached user with no session token predates session auth
+    // (or was cleared by logout) and must sign in again via Google to get one.
+    if (stored && storedSession) {
       const user = JSON.parse(stored);
-      if (user && user.id) { loginSuccess(user); return true; }
+      if (user && user.id) { sessionToken = storedSession; loginSuccess(user); return true; }
     }
   } catch(e) {}
   return false;
