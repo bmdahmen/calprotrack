@@ -127,6 +127,22 @@ export default {
       const aiBody = { ...body };
       delete aiBody._type; delete aiBody.user_id;
 
+      // Prompt caching: mark the system prompt, and (for multi-turn requests like
+      // the AI coach chat) everything before the newest turn, as cacheable. Below
+      // each model's minimum cacheable size this is a no-op, so it's safe to leave
+      // on for every request rather than special-casing which _type benefits.
+      if (typeof aiBody.system === 'string' && aiBody.system) {
+        aiBody.system = [{ type: 'text', text: aiBody.system, cache_control: { type: 'ephemeral' } }];
+      }
+      if (Array.isArray(aiBody.messages) && aiBody.messages.length > 1) {
+        const prior = aiBody.messages[aiBody.messages.length - 2];
+        if (prior && typeof prior.content === 'string') {
+          prior.content = [{ type: 'text', text: prior.content, cache_control: { type: 'ephemeral' } }];
+        } else if (Array.isArray(prior?.content) && prior.content.length) {
+          prior.content[prior.content.length - 1].cache_control = { type: 'ephemeral' };
+        }
+      }
+
       // Try each model with exponential backoff on overload
       let lastResult = null;
       for (let mi = 0; mi < models.length; mi++) {
