@@ -779,17 +779,14 @@ function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").rep
 
 // ── API ────────────────────────────────────────────────────────────────────
 async function api(path, body) {
-  // Auto-inject user_id for data endpoints (kept for back-compat/debugging;
-  // the worker authorizes off the session token below, never off this field)
+  // Auto-inject user_id for data endpoints
   const dataEndpoints = ['/meals/', '/meas/', '/history/', '/cache/'];
   if (currentUser && dataEndpoints.some(e => path.startsWith(e))) {
     body = { ...body, user_id: currentUser.id };
   }
-  const headers = {"Content-Type":"application/json"};
-  if (sessionToken) headers['Authorization'] = `Bearer ${sessionToken}`;
   const res = await fetch(WORKER + path, {
     method: "POST",
-    headers,
+    headers: {"Content-Type":"application/json"},
     body: JSON.stringify(body)
   });
   return res.json();
@@ -1588,14 +1585,15 @@ function drawChart() {
   const waistAvgPts  = waistAvgFull.filter(inRange);
 
   // Estimated body fat % per day, derived from that day's weightAM vs. the DEXA baseline.
-  // Independent of the weight/waist axes — it has its own scale, drawn without dedicated
-  // axis labels (a floating end-label shows the latest value instead).
+  // Independent of the weight/waist axes — gets its own scale and, when toggled on,
+  // its own axis column to the left of the weight axis.
   const dexaBaseline = getDexaBaseline();
   const bfPts = dexaBaseline
     ? points.filter(p => p.weightAM).map(p => ({ date: p.date, value: estimateBodyComp(p.weightAM).bfPctNow, p }))
     : [];
+  const bfActive = chartSeriesOn.bodyFat && bfPts.length > 0;
 
-  const PAD_L = 42, PAD_R = 38, PAD_T = 10, PAD_B = 30;
+  const PAD_L = bfActive ? 74 : 42, PAD_R = 38, PAD_T = 10, PAD_B = 30;
   const plotW = W - PAD_L - PAD_R;
   const plotH = H - PAD_T - PAD_B;
 
@@ -1628,6 +1626,11 @@ function drawChart() {
   const yScaleW = v => PAD_T + plotH - ((v - wMin) / (wMax - wMin || 1)) * plotH;
   const yScaleV = v => PAD_T + plotH - ((v - vMin) / (vMax - vMin || 1)) * plotH;
 
+  const bfVals = bfActive ? bfPts.map(p => p.value) : [];
+  const bfMin = bfVals.length ? Math.floor(Math.min(...bfVals) - 1) : 0;
+  const bfMax = bfVals.length ? Math.ceil(Math.max(...bfVals) + 1) : 10;
+  const yScaleBF = v => PAD_T + plotH - ((v - bfMin) / (bfMax - bfMin || 1)) * plotH;
+
   // Grid
   ctx.strokeStyle = isLight ? '#e0d9d0' : '#1a1a1a';
   ctx.lineWidth = 1;
@@ -1638,7 +1641,16 @@ function drawChart() {
   }
 
   // Y axis labels
+  const bfColor = isLight ? '#b8860b' : '#fbbf24';
   ctx.font = "9px 'DM Mono', monospace";
+  if (bfActive) {
+    ctx.fillStyle = bfColor;
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= ticks; i++) {
+      const v = bfMin + (i / ticks) * (bfMax - bfMin);
+      ctx.fillText(v.toFixed(0) + '%', PAD_L - 32, PAD_T + plotH - (i/ticks)*plotH + 3);
+    }
+  }
   if (weightExtremes.length) {
     ctx.fillStyle = isLight ? '#4a80c8' : '#60a5fa';
     ctx.textAlign = 'right';
@@ -1689,13 +1701,8 @@ function drawChart() {
     drawLine(ctx, segs, isLight ? '#1a7a50' : '#34d399', true);
   }
 
-  // Estimated body fat % line — independent scale, own color, no dedicated axis
-  const bfColor = isLight ? '#b8860b' : '#fbbf24';
-  if (chartSeriesOn.bodyFat && bfPts.length) {
-    const bfVals = bfPts.map(p => p.value);
-    const bfMin = Math.floor(Math.min(...bfVals) - 1);
-    const bfMax = Math.ceil(Math.max(...bfVals) + 1);
-    const yScaleBF = v => PAD_T + plotH - ((v - bfMin) / (bfMax - bfMin || 1)) * plotH;
+  // Estimated body fat % line — uses the axis/scale computed above
+  if (bfActive) {
     const segs = bfPts.map(p => ({ x: xByDate(p.date), y: yScaleBF(p.value) }));
     drawLine(ctx, segs, bfColor);
     bfPts.forEach(p => {
@@ -1704,13 +1711,6 @@ function drawChart() {
       ctx.beginPath(); ctx.arc(xByDate(p.date), yScaleBF(p.value), 3.5, 0, Math.PI*2);
       ctx.fillStyle = bfColor; ctx.fill();
     });
-    // Floating label with the latest value, next to the last point
-    const last = bfPts[bfPts.length - 1];
-    ctx.font = "10px 'DM Mono', monospace";
-    ctx.fillStyle = bfColor;
-    ctx.textAlign = xByDate(last.date) > W - PAD_R - 40 ? 'right' : 'left';
-    const lx = xByDate(last.date) + (ctx.textAlign === 'right' ? -8 : 8);
-    ctx.fillText(`${last.value.toFixed(1)}%`, lx, yScaleBF(last.value) + 3);
   }
 
   // Dots with stored screen coords for click detection
@@ -2320,7 +2320,6 @@ function updateAvatarBtn() {
 // ── Auth (Google Sign-In) ─────────────────────────────────────────────────
 const GOOGLE_CLIENT_ID = '156334413688-usb68f1fldmrhic94mn925l75hnk82pk.apps.googleusercontent.com';
 let currentUser = null;
-let sessionToken = null; // bearer token proving currentUser's identity to the worker
 let profileSaveTimer = null;
 
 
@@ -2331,8 +2330,6 @@ async function handleGoogleCredential(response) {
     const data = await api('/auth/google', { token: response.credential });
     if (data.error) { errEl.textContent = data.error; return; }
     localStorage.setItem('bl_user', JSON.stringify(data.user));
-    sessionToken = data.session_token;
-    localStorage.setItem('bl_session', sessionToken);
     if (data.is_new) {
       // New user — show onboarding
       document.getElementById('auth-screen').style.display = 'none';
@@ -2363,11 +2360,8 @@ function loginSuccess(user) {
 
 function logout() {
   google.accounts.id.disableAutoSelect();
-  if (sessionToken) api('/auth/logout', {}).catch(() => {});
   localStorage.removeItem('bl_user');
-  localStorage.removeItem('bl_session');
   currentUser = null;
-  sessionToken = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('auth-error').textContent = '';
@@ -2376,12 +2370,9 @@ function logout() {
 function checkStoredLogin() {
   try {
     const stored = localStorage.getItem('bl_user');
-    const storedSession = localStorage.getItem('bl_session');
-    // Require both — a cached user with no session token predates session auth
-    // (or was cleared by logout) and must sign in again via Google to get one.
-    if (stored && storedSession) {
+    if (stored) {
       const user = JSON.parse(stored);
-      if (user && user.id) { sessionToken = storedSession; loginSuccess(user); return true; }
+      if (user && user.id) { loginSuccess(user); return true; }
     }
   } catch(e) {}
   return false;

@@ -36,35 +36,6 @@ async function verifyGoogleToken(token) {
 
 function uid() { return crypto.randomUUID().replace(/-/g, '').substring(0, 16); }
 
-const SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
-
-async function createSession(env, user_id) {
-  const token = crypto.randomUUID();
-  const now = new Date();
-  const expires = new Date(now.getTime() + SESSION_TTL_MS);
-  await env.DB.prepare(
-    'INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?,?,?,?)'
-  ).bind(token, user_id, now.toISOString(), expires.toISOString()).run();
-  return token;
-}
-
-function getBearerToken(request, body) {
-  const header = request.headers.get('Authorization') || '';
-  if (header.startsWith('Bearer ')) return header.slice(7);
-  return body?.session_token || null;
-}
-
-// Resolves a request's authenticated user_id from its session token — never
-// from a client-supplied user_id, which anyone could forge to read/write
-// another account's data. Returns null if no valid, unexpired session.
-async function resolveSessionUserId(env, token) {
-  if (!token) return null;
-  const session = await env.DB.prepare('SELECT user_id, expires_at FROM sessions WHERE token=?').bind(token).first();
-  if (!session) return null;
-  if (new Date(session.expires_at) < new Date()) return null;
-  return session.user_id;
-}
-
 async function checkRateLimit(env, user_id, field, limit) {
   const today = new Date().toISOString().slice(0, 10);
   const row = await env.DB.prepare(
@@ -95,12 +66,6 @@ export default {
       status, headers: { 'Content-Type': 'application/json', ...cors }
     });
 
-    // Session token, if any, resolved to the account it was issued for. This — not
-    // anything the client claims in the body — is the source of truth for "who is
-    // making this request." Endpoints below use sessionUserId, never body.user_id.
-    const bearerToken = getBearerToken(request, body);
-    const sessionUserId = await resolveSessionUserId(env, bearerToken);
-
     if (path === '/auth/google') {
       try {
         const { token } = body;
@@ -118,39 +83,31 @@ export default {
           }
           user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
         }
-        const session_token = await createSession(env, user.id);
-        return json({ ok: true, is_new, user, session_token });
+        return json({ ok: true, is_new, user });
       } catch(e) {
         return json({ error: e.message }, 401);
       }
     }
 
-    if (path === '/auth/logout') {
-      if (bearerToken) await env.DB.prepare('DELETE FROM sessions WHERE token=?').bind(bearerToken).run();
-      return json({ ok: true });
-    }
-
     if (path === '/auth/profile') {
-      if (!sessionUserId) return json({ error: 'Unauthorized' }, 401);
-      const { tdee, pro_target, age, weight_lbs, height_in, activity, goal_mode, aggressiveness, theme, dexa_date, dexa_weight, dexa_bf_pct, muscle_loss_pct } = body;
+      const { user_id, tdee, pro_target, age, weight_lbs, height_in, activity, goal_mode, aggressiveness, theme, dexa_date, dexa_weight, dexa_bf_pct, muscle_loss_pct } = body;
       await env.DB.prepare(
         'UPDATE users SET tdee=?, pro_target=?, age=?, weight_lbs=?, height_in=?, activity=?, goal_mode=?, aggressiveness=?, theme=?, dexa_date=?, dexa_weight=?, dexa_bf_pct=?, muscle_loss_pct=? WHERE id=?'
-      ).bind(tdee||2100, pro_target||120, age||35, weight_lbs||170, height_in||66, activity||'sedentary', goal_mode||'deficit', aggressiveness||'moderate', theme||'dark', dexa_date||null, dexa_weight||null, dexa_bf_pct||null, muscle_loss_pct!=null?muscle_loss_pct:20, sessionUserId).run();
+      ).bind(tdee||2100, pro_target||120, age||35, weight_lbs||170, height_in||66, activity||'sedentary', goal_mode||'deficit', aggressiveness||'moderate', theme||'dark', dexa_date||null, dexa_weight||null, dexa_bf_pct||null, muscle_loss_pct!=null?muscle_loss_pct:20, user_id).run();
       return json({ ok: true });
     }
 
     if (path === '/auth/migrate') {
-      if (!sessionUserId) return json({ error: 'Unauthorized' }, 401);
-      await env.DB.prepare("UPDATE meals SET user_id=? WHERE user_id='default'").bind(sessionUserId).run();
-      await env.DB.prepare("UPDATE measurements SET user_id=? WHERE user_id='default'").bind(sessionUserId).run();
-      await env.DB.prepare("UPDATE history SET user_id=? WHERE user_id='default'").bind(sessionUserId).run();
-      await env.DB.prepare("UPDATE cache SET user_id=? WHERE user_id='default'").bind(sessionUserId).run();
+      const { user_id } = body;
+      await env.DB.prepare("UPDATE meals SET user_id=? WHERE user_id='default'").bind(user_id).run();
+      await env.DB.prepare("UPDATE measurements SET user_id=? WHERE user_id='default'").bind(user_id).run();
+      await env.DB.prepare("UPDATE history SET user_id=? WHERE user_id='default'").bind(user_id).run();
+      await env.DB.prepare("UPDATE cache SET user_id=? WHERE user_id='default'").bind(user_id).run();
       return json({ ok: true });
     }
 
     if (path === '/' || path === '/ai') {
-      const user_id = sessionUserId || 'default';
-      const { _type } = body;
+      const { user_id = 'default', _type } = body;
       if (user_id !== 'default') {
         const user = await env.DB.prepare('SELECT lim_ai_coach, lim_images, lim_food_prompts FROM users WHERE id=?').bind(user_id).first();
         if (user && _type) {
@@ -210,7 +167,7 @@ export default {
     }
 
     if (path === '/usage/today') {
-      const user_id = sessionUserId || 'default';
+      const { user_id = 'default' } = body;
       const today = new Date().toISOString().slice(0, 10);
       const row = await env.DB.prepare('SELECT * FROM rate_limits WHERE user_id=? AND date=?').bind(user_id, today).first();
       const user = await env.DB.prepare('SELECT lim_ai_coach, lim_images, lim_food_prompts FROM users WHERE id=?').bind(user_id).first();
@@ -218,14 +175,12 @@ export default {
     }
 
     if (path === '/cache/get') {
-      const { key } = body;
-      const user_id = sessionUserId || 'default';
+      const { key, user_id = 'default' } = body;
       const row = await env.DB.prepare('SELECT * FROM cache WHERE key=? AND user_id=?').bind(key, user_id).first();
       return json(row || null);
     }
     if (path === '/cache/set') {
-      const { key, value, fingerprint } = body;
-      const user_id = sessionUserId || 'default';
+      const { key, value, fingerprint, user_id = 'default' } = body;
       await env.DB.prepare(
         'INSERT INTO cache (key,value,fingerprint,updated_at,user_id) VALUES (?,?,?,?,?) ON CONFLICT(key,user_id) DO UPDATE SET value=excluded.value,fingerprint=excluded.fingerprint,updated_at=excluded.updated_at'
       ).bind(key, value, fingerprint, new Date().toISOString(), user_id).run();
@@ -233,8 +188,7 @@ export default {
     }
 
     if (path === '/meals/save') {
-      const { meals, date } = body;
-      const user_id = sessionUserId || 'default';
+      const { meals, date, user_id = 'default' } = body;
       await env.DB.prepare('DELETE FROM meals WHERE date=? AND user_id=?').bind(date, user_id).run();
       for (const m of meals) {
         await env.DB.prepare('INSERT INTO meals (id,date,desc,cal,pro,time,user_id) VALUES (?,?,?,?,?,?,?)')
@@ -243,37 +197,33 @@ export default {
       return json({ ok: true });
     }
     if (path === '/meals/load') {
-      const { date } = body;
-      const user_id = sessionUserId || 'default';
+      const { date, user_id = 'default' } = body;
       const { results } = await env.DB.prepare('SELECT * FROM meals WHERE date=? AND user_id=? ORDER BY rowid').bind(date, user_id).all();
       return json(results);
     }
 
     if (path === '/meas/save') {
-      const { date, weightAM, weightPM, waistNavel, waistSmallest, notes, dailyActivity } = body;
-      const user_id = sessionUserId || 'default';
+      const { date, user_id = 'default', weightAM, weightPM, waistNavel, waistSmallest, notes, dailyActivity } = body;
       await env.DB.prepare(
         'INSERT INTO measurements (date,weightAM,weightPM,waistNavel,waistSmallest,notes,user_id,dailyActivity) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,notes=excluded.notes,dailyActivity=excluded.dailyActivity'
       ).bind(date, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, notes||null, user_id, dailyActivity||'sedentary').run();
       return json({ ok: true });
     }
     if (path === '/meas/load') {
-      const { date } = body;
-      const user_id = sessionUserId || 'default';
+      const { date, user_id = 'default' } = body;
       const result = await env.DB.prepare('SELECT * FROM measurements WHERE date=? AND user_id=?').bind(date, user_id).first();
       return json(result || {});
     }
 
     if (path === '/history/save') {
-      const { date, calories, protein, weightAM, weightPM, waistNavel, waistSmallest, notes } = body;
-      const user_id = sessionUserId || 'default';
+      const { date, calories, protein, weightAM, weightPM, waistNavel, waistSmallest, notes, user_id = 'default' } = body;
       await env.DB.prepare(
         'INSERT INTO history (date,calories,protein,weightAM,weightPM,waistNavel,waistSmallest,notes,user_id) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET calories=excluded.calories,protein=excluded.protein,weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,notes=excluded.notes'
       ).bind(date, calories||null, protein||null, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, notes||null, user_id).run();
       return json({ ok: true });
     }
     if (path === '/history/load') {
-      const user_id = sessionUserId || 'default';
+      const { user_id = 'default' } = body;
       const { results } = await env.DB.prepare('SELECT * FROM history WHERE user_id=? ORDER BY date ASC').bind(user_id).all();
       return json(results);
     }
