@@ -692,13 +692,18 @@
           <input type="number" id="prof-muscle-pct" placeholder="20" min="0" max="100" step="1" oninput="scheduleDexaSave()">
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;" id="muscle-split-desc"></div>
         </div>
+        <div style="margin-top:10px" id="muscle-maintain-split-section">
+          <label class="field-lbl">Assumed Muscle Share of Weight Change (Maintain)</label>
+          <input type="number" id="prof-muscle-maintain-pct" placeholder="20" min="0" max="100" step="1" oninput="scheduleDexaSave()">
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;" id="muscle-maintain-split-desc"></div>
+        </div>
         <div style="margin-top:10px" id="muscle-gain-split-section">
           <label class="field-lbl">Assumed Muscle Share of Weight Change (Bulk)</label>
           <input type="number" id="prof-muscle-gain-pct" placeholder="20" min="0" max="100" step="1" oninput="scheduleDexaSave()">
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;" id="muscle-gain-split-desc"></div>
         </div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:#333;margin-top:6px;line-height:1.5;">
-          Used to estimate current body fat % in History as your weight moves away from your DEXA baseline — the deficit split applies when you're below your DEXA weight, the bulk split when above.
+          Used to estimate current body fat % in History as your weight moves away from your DEXA baseline — the deficit split applies when you're clearly below your DEXA weight, the bulk split when clearly above, and the maintain split when you're within a pound of it either way.
         </div>
 
         <div style="margin-top:14px">
@@ -2579,6 +2584,8 @@ async function saveProfile() {
   const musclePct = isNaN(muscleRaw) ? 20 : Math.min(100, Math.max(0, muscleRaw));
   const muscleGainRaw = parseFloat(document.getElementById('prof-muscle-gain-pct').value);
   const muscleGainPct = isNaN(muscleGainRaw) ? 20 : Math.min(100, Math.max(0, muscleGainRaw));
+  const muscleMaintainRaw = parseFloat(document.getElementById('prof-muscle-maintain-pct').value);
+  const muscleMaintainPct = isNaN(muscleMaintainRaw) ? 20 : Math.min(100, Math.max(0, muscleMaintainRaw));
   await api('/auth/profile', {
     user_id: currentUser.id,
     tdee, cal_target: calTarget, pro_target: protein,
@@ -2586,7 +2593,7 @@ async function saveProfile() {
     activity: currentActivity, goal_mode: currentGoalMode,
     aggressiveness: currentAggressiveness,
     dexa_date: dexaDate, dexa_weight: dexaWeight, dexa_bf_pct: dexaBF,
-    muscle_loss_pct: musclePct, muscle_gain_pct: muscleGainPct
+    muscle_loss_pct: musclePct, muscle_gain_pct: muscleGainPct, muscle_maintain_pct: muscleMaintainPct
   });
   // Update stored user
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
@@ -2597,6 +2604,7 @@ async function saveProfile() {
   stored.dexa_date = dexaDate; stored.dexa_weight = dexaWeight;
   stored.dexa_bf_pct = dexaBF; stored.muscle_loss_pct = musclePct;
   stored.muscle_gain_pct = muscleGainPct;
+  stored.muscle_maintain_pct = muscleMaintainPct;
   localStorage.setItem('bl_user', JSON.stringify(stored));
   updateUI();
   refreshHistInsight();
@@ -2626,6 +2634,7 @@ function loadProfilePane() {
   if (stored.dexa_bf_pct) document.getElementById('prof-dexa-bf').value = stored.dexa_bf_pct;
   document.getElementById('prof-muscle-pct').value = stored.muscle_loss_pct != null ? stored.muscle_loss_pct : 20;
   document.getElementById('prof-muscle-gain-pct').value = stored.muscle_gain_pct != null ? stored.muscle_gain_pct : 20;
+  document.getElementById('prof-muscle-maintain-pct').value = stored.muscle_maintain_pct != null ? stored.muscle_maintain_pct : 20;
   updateMuscleSplitDesc();
   currentActivity = stored.activity || 'sedentary';
   currentGoalMode = stored.goal_mode || 'deficit';
@@ -2668,6 +2677,12 @@ function updateMuscleSplitDesc() {
     const m = isNaN(raw) ? 20 : Math.min(100, Math.max(0, raw));
     el.textContent = `Assumes ${m}% of any weight below your DEXA baseline is muscle, ${100 - m}% is fat.`;
   }
+  const maintainEl = document.getElementById('muscle-maintain-split-desc');
+  if (maintainEl) {
+    const rawMaintain = parseFloat(document.getElementById('prof-muscle-maintain-pct')?.value);
+    const mm = isNaN(rawMaintain) ? 20 : Math.min(100, Math.max(0, rawMaintain));
+    maintainEl.textContent = `Assumes ${mm}% of any small change within a pound of your DEXA baseline is muscle, ${100 - mm}% is fat.`;
+  }
   const gainEl = document.getElementById('muscle-gain-split-desc');
   if (gainEl) {
     const rawGain = parseFloat(document.getElementById('prof-muscle-gain-pct')?.value);
@@ -2690,19 +2705,27 @@ function getDexaBaseline() {
     bfPct: stored.dexa_bf_pct,
     muscleLossPct: stored.muscle_loss_pct != null ? stored.muscle_loss_pct : 20,
     muscleGainPct: stored.muscle_gain_pct != null ? stored.muscle_gain_pct : 20,
+    muscleMaintainPct: stored.muscle_maintain_pct != null ? stored.muscle_maintain_pct : 20,
   };
 }
 
+// Within this many lbs of the DEXA baseline, weight is treated as "maintaining"
+// rather than clearly bulking/cutting, and uses the maintain split instead.
+const MAINTAIN_BAND_LBS = 1;
+
 // Estimates current body fat % by assuming a user-set split of any weight change
 // (since the DEXA scan) between lean/muscle mass and fat mass — using the
-// deficit split below the DEXA baseline weight, the bulk split above it.
+// deficit split clearly below the DEXA baseline weight, the bulk split
+// clearly above it, and the maintain split within MAINTAIN_BAND_LBS of it.
 function estimateBodyComp(currentWeight) {
   const dexa = getDexaBaseline();
   if (!dexa || !currentWeight) return null;
   const fatMassDexa = dexa.weight * (dexa.bfPct / 100);
   const leanMassDexa = dexa.weight - fatMassDexa;
   const deltaWeight = currentWeight - dexa.weight;
-  const muscleFrac = (deltaWeight >= 0 ? dexa.muscleGainPct : dexa.muscleLossPct) / 100;
+  const muscleFrac = (Math.abs(deltaWeight) < MAINTAIN_BAND_LBS
+    ? dexa.muscleMaintainPct
+    : (deltaWeight >= 0 ? dexa.muscleGainPct : dexa.muscleLossPct)) / 100;
   const leanMassNow = Math.max(0, leanMassDexa + deltaWeight * muscleFrac);
   const fatMassNow = Math.max(0, fatMassDexa + deltaWeight * (1 - muscleFrac));
   const bfPctNow = currentWeight > 0 ? (fatMassNow / currentWeight) * 100 : null;
