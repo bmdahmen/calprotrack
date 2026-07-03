@@ -203,10 +203,10 @@ export default {
     }
 
     if (path === '/meas/save') {
-      const { date, user_id = 'default', weightAM, weightPM, waistNavel, waistSmallest, notes, dailyActivity } = body;
+      const { date, user_id = 'default', weightAM, weightPM, waistNavel, waistSmallest, chest, neck, thigh, bicep, dailyActivity } = body;
       await env.DB.prepare(
-        'INSERT INTO measurements (date,weightAM,weightPM,waistNavel,waistSmallest,notes,user_id,dailyActivity) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,notes=excluded.notes,dailyActivity=excluded.dailyActivity'
-      ).bind(date, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, notes||null, user_id, dailyActivity||'sedentary').run();
+        'INSERT INTO measurements (date,weightAM,weightPM,waistNavel,waistSmallest,chest,neck,thigh,bicep,user_id,dailyActivity) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,chest=excluded.chest,neck=excluded.neck,thigh=excluded.thigh,bicep=excluded.bicep,dailyActivity=excluded.dailyActivity'
+      ).bind(date, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, chest||null, neck||null, thigh||null, bicep||null, user_id, dailyActivity||'sedentary').run();
       return json({ ok: true });
     }
     if (path === '/meas/load') {
@@ -216,10 +216,10 @@ export default {
     }
 
     if (path === '/history/save') {
-      const { date, calories, protein, weightAM, weightPM, waistNavel, waistSmallest, notes, user_id = 'default' } = body;
+      const { date, calories, protein, weightAM, weightPM, waistNavel, waistSmallest, chest, neck, thigh, bicep, user_id = 'default' } = body;
       await env.DB.prepare(
-        'INSERT INTO history (date,calories,protein,weightAM,weightPM,waistNavel,waistSmallest,notes,user_id) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET calories=excluded.calories,protein=excluded.protein,weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,notes=excluded.notes'
-      ).bind(date, calories||null, protein||null, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, notes||null, user_id).run();
+        'INSERT INTO history (date,calories,protein,weightAM,weightPM,waistNavel,waistSmallest,chest,neck,thigh,bicep,user_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET calories=excluded.calories,protein=excluded.protein,weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,chest=excluded.chest,neck=excluded.neck,thigh=excluded.thigh,bicep=excluded.bicep'
+      ).bind(date, calories||null, protein||null, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, chest||null, neck||null, thigh||null, bicep||null, user_id).run();
       return json({ ok: true });
     }
     if (path === '/history/load') {
