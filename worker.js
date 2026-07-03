@@ -39,13 +39,14 @@ function uid() { return crypto.randomUUID().replace(/-/g, '').substring(0, 16); 
 // ── Sessions ─────────────────────────────────────────────────────────────
 const SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
-// While false (and env.REQUIRE_SESSIONS isn't 'true'), endpoints still fall
-// back to trusting body.user_id so clients without a session token keep
-// working. Flipped to true in a separate deploy once all active clients hold
-// tokens — at that point a missing/invalid session is a hard 401, never a
-// silent read of the wrong account. Emergency rollback without a code deploy:
-// set REQUIRE_SESSIONS=false in the Worker's environment variables.
-const REQUIRE_SESSIONS_DEFAULT = false;
+// ENFORCEMENT ON (Phase 3, enabled 2026-07-03). A request that presents no
+// valid session token is rejected with 401 AUTH_REQUIRED — endpoints no longer
+// fall back to trusting body.user_id, so no client can act as another user by
+// claiming an id. The frontend catches AUTH_REQUIRED and routes to re-login.
+// Emergency rollback WITHOUT a code deploy: set REQUIRE_SESSIONS=false in the
+// Worker's environment variables (that env var overrides this default in
+// either direction). Reverting this commit is the equivalent code-side rollback.
+const REQUIRE_SESSIONS_DEFAULT = true;
 
 async function sha256Hex(s) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
