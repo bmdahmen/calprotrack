@@ -289,12 +289,12 @@ export default {
     }
 
     if (path === '/meas/save') {
-      const { date, weightAM, weightPM, waistNavel, waistSmallest, chest, neck, thigh, bicep, dailyActivity } = body;
+      const { date, weightAM, weightPM, waistNavel, waistSmallest, chest, neck, thigh, bicep, restingHR, dailyActivity } = body;
       const user_id = resolveUser(body.user_id);
       if (!user_id) return authError();
       await env.DB.prepare(
-        'INSERT INTO measurements (date,weightAM,weightPM,waistNavel,waistSmallest,chest,neck,thigh,bicep,user_id,dailyActivity) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,chest=excluded.chest,neck=excluded.neck,thigh=excluded.thigh,bicep=excluded.bicep,dailyActivity=excluded.dailyActivity'
-      ).bind(date, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, chest||null, neck||null, thigh||null, bicep||null, user_id, dailyActivity||'sedentary').run();
+        'INSERT INTO measurements (date,weightAM,weightPM,waistNavel,waistSmallest,chest,neck,thigh,bicep,restingHR,user_id,dailyActivity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,chest=excluded.chest,neck=excluded.neck,thigh=excluded.thigh,bicep=excluded.bicep,restingHR=excluded.restingHR,dailyActivity=excluded.dailyActivity'
+      ).bind(date, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, chest||null, neck||null, thigh||null, bicep||null, restingHR||null, user_id, dailyActivity||'sedentary').run();
       return json({ ok: true });
     }
     if (path === '/meas/load') {
@@ -306,12 +306,12 @@ export default {
     }
 
     if (path === '/history/save') {
-      const { date, calories, protein, weightAM, weightPM, waistNavel, waistSmallest, chest, neck, thigh, bicep } = body;
+      const { date, calories, protein, weightAM, weightPM, waistNavel, waistSmallest, chest, neck, thigh, bicep, restingHR } = body;
       const user_id = resolveUser(body.user_id);
       if (!user_id) return authError();
       await env.DB.prepare(
-        'INSERT INTO history (date,calories,protein,weightAM,weightPM,waistNavel,waistSmallest,chest,neck,thigh,bicep,user_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET calories=excluded.calories,protein=excluded.protein,weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,chest=excluded.chest,neck=excluded.neck,thigh=excluded.thigh,bicep=excluded.bicep'
-      ).bind(date, calories||null, protein||null, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, chest||null, neck||null, thigh||null, bicep||null, user_id).run();
+        'INSERT INTO history (date,calories,protein,weightAM,weightPM,waistNavel,waistSmallest,chest,neck,thigh,bicep,restingHR,user_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET calories=excluded.calories,protein=excluded.protein,weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,chest=excluded.chest,neck=excluded.neck,thigh=excluded.thigh,bicep=excluded.bicep,restingHR=excluded.restingHR'
+      ).bind(date, calories||null, protein||null, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, chest||null, neck||null, thigh||null, bicep||null, restingHR||null, user_id).run();
       return json({ ok: true });
     }
     if (path === '/history/load') {
