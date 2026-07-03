@@ -36,6 +36,54 @@ async function verifyGoogleToken(token) {
 
 function uid() { return crypto.randomUUID().replace(/-/g, '').substring(0, 16); }
 
+// ── Sessions ─────────────────────────────────────────────────────────────
+const SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+
+// While false (and env.REQUIRE_SESSIONS isn't 'true'), endpoints still fall
+// back to trusting body.user_id so clients without a session token keep
+// working. Flipped to true in a separate deploy once all active clients hold
+// tokens — at that point a missing/invalid session is a hard 401, never a
+// silent read of the wrong account. Emergency rollback without a code deploy:
+// set REQUIRE_SESSIONS=false in the Worker's environment variables.
+const REQUIRE_SESSIONS_DEFAULT = false;
+
+async function sha256Hex(s) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Only the SHA-256 of the token is stored, so a leaked sessions table can't
+// be replayed as live credentials.
+async function createSession(env, user_id) {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const token = [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+  const now = new Date();
+  const expires = new Date(now.getTime() + SESSION_TTL_MS);
+  await env.DB.prepare(
+    'INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?,?,?,?)'
+  ).bind(await sha256Hex(token), user_id, now.toISOString(), expires.toISOString()).run();
+  return token;
+}
+
+// The client sends the token both as an Authorization header and in the JSON
+// body — the header is standard, the body copy survives anything that strips
+// or blocks custom headers (the CORS failure mode that broke the first
+// rollout of sessions).
+function getBearerToken(request, body) {
+  const header = request.headers.get('Authorization') || '';
+  if (header.startsWith('Bearer ')) return header.slice(7);
+  return (typeof body?.session_token === 'string' && body.session_token) || null;
+}
+
+async function resolveSessionUserId(env, token) {
+  if (!token) return null;
+  const session = await env.DB.prepare(
+    'SELECT user_id, expires_at FROM sessions WHERE token=?'
+  ).bind(await sha256Hex(token)).first();
+  if (!session || new Date(session.expires_at) < new Date()) return null;
+  return session.user_id;
+}
+
 async function checkRateLimit(env, user_id, field, limit) {
   const today = new Date().toISOString().slice(0, 10);
   const row = await env.DB.prepare(
@@ -55,6 +103,7 @@ export default {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
     };
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
     if (request.method !== 'POST') return new Response('Not allowed', { status: 405 });
@@ -65,6 +114,18 @@ export default {
     const json = (data, status = 200) => new Response(JSON.stringify(data), {
       status, headers: { 'Content-Type': 'application/json', ...cors }
     });
+
+    const requireAuth = env.REQUIRE_SESSIONS != null
+      ? env.REQUIRE_SESSIONS === 'true'
+      : REQUIRE_SESSIONS_DEFAULT;
+    const sessionUserId = await resolveSessionUserId(env, getBearerToken(request, body));
+    // A valid session always wins over anything the client claims in the
+    // body; the body fallback exists only until enforcement flips on.
+    const resolveUser = (bodyUserId) =>
+      sessionUserId || (!requireAuth ? (bodyUserId || 'default') : null);
+    // The code field lets the client distinguish "sign in again" from other
+    // 401s (e.g. a bad Google credential on /auth/google).
+    const authError = () => json({ error: 'Please sign in again.', code: 'AUTH_REQUIRED' }, 401);
 
     if (path === '/auth/google') {
       try {
@@ -83,14 +144,24 @@ export default {
           }
           user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
         }
-        return json({ ok: true, is_new, user });
+        const session_token = await createSession(env, user.id);
+        await env.DB.prepare('DELETE FROM sessions WHERE expires_at < ?').bind(new Date().toISOString()).run();
+        return json({ ok: true, is_new, user, session_token });
       } catch(e) {
         return json({ error: e.message }, 401);
       }
     }
 
+    if (path === '/auth/logout') {
+      const token = getBearerToken(request, body);
+      if (token) await env.DB.prepare('DELETE FROM sessions WHERE token=?').bind(await sha256Hex(token)).run();
+      return json({ ok: true });
+    }
+
     if (path === '/auth/profile') {
-      const { user_id, tdee, pro_target, age, weight_lbs, height_in, activity, goal_mode, aggressiveness, theme, dexa_date, dexa_weight, dexa_bf_pct, muscle_loss_pct, muscle_gain_pct, muscle_maintain_pct } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
+      const { tdee, pro_target, age, weight_lbs, height_in, activity, goal_mode, aggressiveness, theme, dexa_date, dexa_weight, dexa_bf_pct, muscle_loss_pct, muscle_gain_pct, muscle_maintain_pct } = body;
       await env.DB.prepare(
         'UPDATE users SET tdee=?, pro_target=?, age=?, weight_lbs=?, height_in=?, activity=?, goal_mode=?, aggressiveness=?, theme=?, dexa_date=?, dexa_weight=?, dexa_bf_pct=?, muscle_loss_pct=?, muscle_gain_pct=?, muscle_maintain_pct=? WHERE id=?'
       ).bind(tdee||2100, pro_target||120, age||35, weight_lbs||170, height_in||66, activity||'sedentary', goal_mode||'deficit', aggressiveness||'moderate', theme||'dark', dexa_date||null, dexa_weight||null, dexa_bf_pct||null, muscle_loss_pct!=null?muscle_loss_pct:20, muscle_gain_pct!=null?muscle_gain_pct:20, muscle_maintain_pct!=null?muscle_maintain_pct:20, user_id).run();
@@ -98,7 +169,8 @@ export default {
     }
 
     if (path === '/auth/migrate') {
-      const { user_id } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
       await env.DB.prepare("UPDATE meals SET user_id=? WHERE user_id='default'").bind(user_id).run();
       await env.DB.prepare("UPDATE measurements SET user_id=? WHERE user_id='default'").bind(user_id).run();
       await env.DB.prepare("UPDATE history SET user_id=? WHERE user_id='default'").bind(user_id).run();
@@ -107,7 +179,9 @@ export default {
     }
 
     if (path === '/' || path === '/ai') {
-      const { user_id = 'default', _type } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
+      const { _type } = body;
       if (user_id !== 'default') {
         const user = await env.DB.prepare('SELECT lim_ai_coach, lim_images, lim_food_prompts FROM users WHERE id=?').bind(user_id).first();
         if (user && _type) {
@@ -125,7 +199,9 @@ export default {
       const models = modelCascade[_type] || modelCascade.default;
 
       const aiBody = { ...body };
-      delete aiBody._type; delete aiBody.user_id;
+      delete aiBody._type; delete aiBody.user_id; delete aiBody.session_token;
+      // Server-side ceiling so a tampered client can't request unbounded output
+      aiBody.max_tokens = Math.min(parseInt(aiBody.max_tokens) || 1024, 4096);
 
       // Prompt caching: mark the system prompt, and (for multi-turn requests like
       // the AI coach chat) everything before the newest turn, as cacheable. Below
@@ -167,7 +243,8 @@ export default {
     }
 
     if (path === '/usage/today') {
-      const { user_id = 'default' } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
       const today = new Date().toISOString().slice(0, 10);
       const row = await env.DB.prepare('SELECT * FROM rate_limits WHERE user_id=? AND date=?').bind(user_id, today).first();
       const user = await env.DB.prepare('SELECT lim_ai_coach, lim_images, lim_food_prompts FROM users WHERE id=?').bind(user_id).first();
@@ -175,12 +252,16 @@ export default {
     }
 
     if (path === '/cache/get') {
-      const { key, user_id = 'default' } = body;
+      const { key } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
       const row = await env.DB.prepare('SELECT * FROM cache WHERE key=? AND user_id=?').bind(key, user_id).first();
       return json(row || null);
     }
     if (path === '/cache/set') {
-      const { key, value, fingerprint, user_id = 'default' } = body;
+      const { key, value, fingerprint } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
       await env.DB.prepare(
         'INSERT INTO cache (key,value,fingerprint,updated_at,user_id) VALUES (?,?,?,?,?) ON CONFLICT(key,user_id) DO UPDATE SET value=excluded.value,fingerprint=excluded.fingerprint,updated_at=excluded.updated_at'
       ).bind(key, value, fingerprint, new Date().toISOString(), user_id).run();
@@ -188,7 +269,9 @@ export default {
     }
 
     if (path === '/meals/save') {
-      const { meals, date, user_id = 'default' } = body;
+      const { meals, date } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
       await env.DB.prepare('DELETE FROM meals WHERE date=? AND user_id=?').bind(date, user_id).run();
       for (const m of meals) {
         await env.DB.prepare('INSERT INTO meals (id,date,desc,cal,pro,time,user_id) VALUES (?,?,?,?,?,?,?)')
@@ -197,33 +280,42 @@ export default {
       return json({ ok: true });
     }
     if (path === '/meals/load') {
-      const { date, user_id = 'default' } = body;
+      const { date } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
       const { results } = await env.DB.prepare('SELECT * FROM meals WHERE date=? AND user_id=? ORDER BY rowid').bind(date, user_id).all();
       return json(results);
     }
 
     if (path === '/meas/save') {
-      const { date, user_id = 'default', weightAM, weightPM, waistNavel, waistSmallest, chest, neck, thigh, bicep, dailyActivity } = body;
+      const { date, weightAM, weightPM, waistNavel, waistSmallest, chest, neck, thigh, bicep, dailyActivity } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
       await env.DB.prepare(
         'INSERT INTO measurements (date,weightAM,weightPM,waistNavel,waistSmallest,chest,neck,thigh,bicep,user_id,dailyActivity) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,chest=excluded.chest,neck=excluded.neck,thigh=excluded.thigh,bicep=excluded.bicep,dailyActivity=excluded.dailyActivity'
       ).bind(date, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, chest||null, neck||null, thigh||null, bicep||null, user_id, dailyActivity||'sedentary').run();
       return json({ ok: true });
     }
     if (path === '/meas/load') {
-      const { date, user_id = 'default' } = body;
+      const { date } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
       const result = await env.DB.prepare('SELECT * FROM measurements WHERE date=? AND user_id=?').bind(date, user_id).first();
       return json(result || {});
     }
 
     if (path === '/history/save') {
-      const { date, calories, protein, weightAM, weightPM, waistNavel, waistSmallest, chest, neck, thigh, bicep, user_id = 'default' } = body;
+      const { date, calories, protein, weightAM, weightPM, waistNavel, waistSmallest, chest, neck, thigh, bicep } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
       await env.DB.prepare(
         'INSERT INTO history (date,calories,protein,weightAM,weightPM,waistNavel,waistSmallest,chest,neck,thigh,bicep,user_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET calories=excluded.calories,protein=excluded.protein,weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,chest=excluded.chest,neck=excluded.neck,thigh=excluded.thigh,bicep=excluded.bicep'
       ).bind(date, calories||null, protein||null, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, chest||null, neck||null, thigh||null, bicep||null, user_id).run();
       return json({ ok: true });
     }
     if (path === '/history/load') {
-      const { user_id = 'default' } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
       const { results } = await env.DB.prepare('SELECT * FROM history WHERE user_id=? ORDER BY date ASC').bind(user_id).all();
       return json(results);
     }

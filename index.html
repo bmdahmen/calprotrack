@@ -793,17 +793,44 @@ function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").rep
 
 // ── API ────────────────────────────────────────────────────────────────────
 async function api(path, body) {
-  // Auto-inject user_id for data endpoints
+  // Auto-inject user_id for data endpoints. The worker ignores this whenever
+  // a session token is presented — it's the compatibility fallback for the
+  // rollout window and costs nothing to keep sending.
   const dataEndpoints = ['/meals/', '/meas/', '/history/', '/cache/'];
   if (currentUser && dataEndpoints.some(e => path.startsWith(e))) {
     body = { ...body, user_id: currentUser.id };
   }
+  const headers = {"Content-Type":"application/json"};
+  if (sessionToken) {
+    // Sent both ways on purpose: the header is standard, the body copy
+    // survives anything that strips or blocks custom headers (the CORS
+    // failure mode that broke the first session rollout).
+    headers['Authorization'] = `Bearer ${sessionToken}`;
+    body = { ...body, session_token: sessionToken };
+  }
   const res = await fetch(WORKER + path, {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers,
     body: JSON.stringify(body)
   });
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && data && data.code === 'AUTH_REQUIRED') handleAuthExpired();
+  return data;
+}
+
+// Idempotent: the first AUTH_REQUIRED response wins; the burst of parallel
+// requests a page load fires won't stack up repeated resets.
+let authExpiredHandled = false;
+function handleAuthExpired() {
+  if (authExpiredHandled) return;
+  authExpiredHandled = true;
+  localStorage.removeItem('bl_session');
+  localStorage.removeItem('bl_user');
+  sessionToken = null;
+  currentUser = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('auth-error').textContent = 'Your session expired — please sign in again.';
 }
 
 // ── Load a day ─────────────────────────────────────────────────────────────
@@ -1882,7 +1909,7 @@ function showChartTooltip(p, cx, cy) {
   if (p.waistSmallest) rows.push(`<div>📏 <b>${p.waistSmallest}"</b> smallest</div>`);
   if (p.calories) rows.push(`<div>🔥 <b>${p.calories}</b> kcal</div>`);
   if (p.protein) rows.push(`<div>💪 <b>${p.protein}g</b> protein</div>`);
-  if (p.notes) rows.push(`<div style="color:#888;font-style:italic;margin-top:3px">${p.notes}</div>`);
+  if (p.notes) rows.push(`<div style="color:#888;font-style:italic;margin-top:3px">${esc(p.notes)}</div>`);
   tip.innerHTML = `<div style="font-family:'DM Mono',monospace;font-size:9px;color:#f97316;letter-spacing:.05em;margin-bottom:5px">${dateStr.toUpperCase()}</div>${rows.join('')}`;
   tip.style.display = 'block';
   const tw = 170, th = 20 + rows.length * 18;
@@ -2428,16 +2455,27 @@ function updateAvatarBtn() {
 // ── Auth (Google Sign-In) ─────────────────────────────────────────────────
 const GOOGLE_CLIENT_ID = '156334413688-usb68f1fldmrhic94mn925l75hnk82pk.apps.googleusercontent.com';
 let currentUser = null;
+let sessionToken = null; // bearer token proving currentUser's identity to the worker; hydrated from localStorage at boot
 let profileSaveTimer = null;
 
 
 async function handleGoogleCredential(response) {
   const errEl = document.getElementById('auth-error');
-  errEl.textContent = 'Signing in…';
+  // GSI auto-prompts returning users even while the app is already open —
+  // treat that as a silent session refresh, not a fresh login, so the UI
+  // isn't reset mid-use.
+  const silent = !!currentUser;
+  if (!silent) errEl.textContent = 'Signing in…';
   try {
     const data = await api('/auth/google', { token: response.credential });
-    if (data.error) { errEl.textContent = data.error; return; }
+    if (data.error) { if (!silent) errEl.textContent = data.error; return; }
+    if (data.session_token) {
+      sessionToken = data.session_token;
+      localStorage.setItem('bl_session', sessionToken);
+    }
+    authExpiredHandled = false;
     localStorage.setItem('bl_user', JSON.stringify(data.user));
+    if (silent && data.user && data.user.id === currentUser.id) return; // token stored; nothing else to do
     if (data.is_new) {
       // New user — show onboarding
       document.getElementById('auth-screen').style.display = 'none';
@@ -2446,7 +2484,7 @@ async function handleGoogleCredential(response) {
       loginSuccess(data.user);
     }
   } catch(e) {
-    errEl.textContent = 'Sign-in failed: ' + e.message;
+    if (!silent) errEl.textContent = 'Sign-in failed: ' + e.message;
   }
 }
 
@@ -2469,22 +2507,14 @@ function loginSuccess(user) {
 
 function logout() {
   google.accounts.id.disableAutoSelect();
+  if (sessionToken) api('/auth/logout', {}).catch(() => {}); // revoke server-side; fire-and-forget
   localStorage.removeItem('bl_user');
+  localStorage.removeItem('bl_session');
   currentUser = null;
+  sessionToken = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'flex';
   document.getElementById('auth-error').textContent = '';
-}
-
-function checkStoredLogin() {
-  try {
-    const stored = localStorage.getItem('bl_user');
-    if (stored) {
-      const user = JSON.parse(stored);
-      if (user && user.id) { loginSuccess(user); return true; }
-    }
-  } catch(e) {}
-  return false;
 }
 
 let googleInitDone = false;
@@ -2782,9 +2812,14 @@ async function boot() {
 }
 
 
-// Check stored session after all functions defined
+// Check stored login after all functions defined. A cached user WITHOUT a
+// session token still gets in: the worker accepts body.user_id until
+// enforcement flips, and after that the first 401 routes them to a clean
+// re-login via handleAuthExpired — never a silent empty screen.
 (function() {
   try {
+    const t = localStorage.getItem('bl_session');
+    if (t && t !== 'null' && t !== 'undefined') sessionToken = t;
     const stored = localStorage.getItem('bl_user');
     if (stored) {
       const user = JSON.parse(stored);
@@ -2796,7 +2831,7 @@ async function boot() {
   } catch(e) {
     localStorage.removeItem('bl_user');
   }
-  // No stored session — auth screen already visible
+  // No stored login — auth screen already visible
 })();
 </script>
 </body>
