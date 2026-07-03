@@ -244,6 +244,41 @@
   .spinner{width:14px;height:14px;border:2px solid #333;border-top-color:#f97316;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
   @keyframes spin{to{transform:rotate(360deg);}}
 
+  /* Food entry (weigh / known / estimate) */
+  .food-entry{background:#111;border:1px solid #2a2a2a;border-radius:9px;padding:12px;margin-bottom:9px;}
+  .food-entry-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .food-entry-head>span:first-child{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#ccc;}
+  .fe-hint{font-family:'DM Mono',monospace;font-size:9px;margin-left:auto;letter-spacing:.02em;text-align:right;}
+  .fe-hint.ai{color:#8a6a30;}
+  .fe-hint.noai{color:#3a7a4f;}
+  .fe-row{display:flex;gap:8px;align-items:flex-end;}
+  .fe-col{display:flex;flex-direction:column;min-width:0;}
+  .fe-col.grow{flex:1;}
+  .fe-g{width:78px;flex:none;}
+  .fe-kcal{width:82px;flex:none;}
+  .fe-pro{width:74px;flex:none;}
+  .fe-suffix{position:relative;}
+  .fe-suffix input{padding-right:28px;text-align:right;font-variant-numeric:tabular-nums;}
+  .fe-suffix>span{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:10px;color:#666;letter-spacing:1px;pointer-events:none;}
+  .fe-go{background:#f97316;border:none;color:#000;padding:9px 15px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;letter-spacing:.05em;font-family:'DM Mono',monospace;white-space:nowrap;transition:background .15s;flex-shrink:0;height:36px;}
+  .fe-go:hover{background:#fb923c;}
+  .fe-go:disabled{background:#1a1a1a;color:#444;cursor:default;}
+  .fe-go.grow{flex:1;}
+  .fe-est-link{width:100%;background:none;border:none;color:#555;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.04em;padding:8px 2px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:color .15s;margin-bottom:4px;}
+  .fe-est-link:hover{color:#f97316;}
+  .fe-est-link .chev{font-size:9px;transition:transform .2s;}
+  .fe-est-link[aria-expanded="true"] .chev{transform:rotate(90deg);}
+  .fe-est-body{display:none;}
+  .fe-est-body.open{display:block;}
+  body.light .food-entry{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .food-entry-head>span:first-child{color:#2c2820;}
+  body.light .fe-hint.ai{color:#8a5a1a;}
+  body.light .fe-hint.noai{color:#1a6b2a;}
+  body.light .fe-est-link{color:#9e9689;}
+  body.light .fe-go{background:#c8621a;color:#fff;}
+  body.light .fe-go:hover{background:#b55818;}
+  @media (prefers-reduced-motion:reduce){.fe-est-link .chev{transition:none;}}
+
   /* Meals */
   .meal-box{background:#111;border:1px solid #2a2a2a;border-radius:8px;overflow:hidden;margin-bottom:16px;min-height:44px;}
   .no-meals{font-family:'DM Mono',monospace;font-size:11px;color:#555;padding:14px;}
@@ -500,24 +535,53 @@
             <div class="prog-bar"><div class="prog-fill" id="pro-fill" style="width:0%;background:#a78bfa"></div></div>
           </div>
 
-          <div class="chat-wrap">
-            <div class="chat-msgs" id="chat-msgs" style="min-height:0;height:auto;">
-              <div class="chat-empty" id="chat-empty" style="padding:6px 0;font-size:10px;">Describe what you ate — I'll estimate and log it</div>
+          <div class="sec">Log Food</div>
+
+          <!-- Weigh & Calculate: give food + grams, AI computes cals+protein -->
+          <div class="food-entry">
+            <div class="food-entry-head"><span>Weigh &amp; Calculate</span><span class="fe-hint ai">→ AI computes cals + protein</span></div>
+            <div class="fe-row">
+              <div class="fe-col fe-g"><label class="field-lbl">Weight</label><div class="fe-suffix"><input type="number" id="wc-grams" inputmode="decimal" step="1" min="0" placeholder="175" onkeydown="if(event.key==='Enter')calcWeighed()"><span>g</span></div></div>
+              <div class="fe-col grow"><label class="field-lbl">Food</label><input type="text" id="wc-food" maxlength="120" placeholder="sweet potato" onkeydown="if(event.key==='Enter')calcWeighed()"></div>
+              <button class="fe-go" id="wc-btn" onclick="calcWeighed()">Calc</button>
             </div>
-            <div id="img-preview">
-              <img id="img-thumb" src="" alt="food photo">
-              <button class="img-clear" onclick="clearImage()">✕</button>
-            </div>
-            <div class="chat-input-row">
-              <input type="text" id="food-input" maxlength="1000" placeholder="e.g. 2 eggs, oat milk, overnight oats…" onkeydown="if(event.key==='Enter')sendFood()" oninput="updateCharCount()">
-              <button class="cam-btn" onclick="document.getElementById('file-input').click()" title="Photo">📷</button>
-              <button class="send-btn" id="send-btn" onclick="sendFood()">ESTIMATE →</button>
-            </div>
-            <div id="char-count" style="font-family:'DM Mono',monospace;font-size:8px;color:#333;text-align:right;padding:2px 4px;display:none;"></div>
-            <input type="file" id="file-input" accept="image/*" onchange="previewImage(event)">
           </div>
 
-          <div class="sec">Meals</div>
+          <!-- Known Values: exact numbers, logged verbatim, no AI -->
+          <div class="food-entry">
+            <div class="food-entry-head"><span>Known Values</span><span class="fe-hint noai">→ logged as-is, no AI</span></div>
+            <div class="fe-row">
+              <div class="fe-col grow"><label class="field-lbl">Description</label><input type="text" id="kv-desc" maxlength="120" placeholder="yogurt, mango granola, whey" onkeydown="if(event.key==='Enter')addKnown()"></div>
+            </div>
+            <div class="fe-row" style="margin-top:8px">
+              <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="kv-cal" inputmode="numeric" step="1" min="0" placeholder="350" onkeydown="if(event.key==='Enter')addKnown()"><span>kc</span></div></div>
+              <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="kv-pro" inputmode="decimal" step="1" min="0" placeholder="43" onkeydown="if(event.key==='Enter')addKnown()"><span>g</span></div></div>
+              <button class="fe-go grow" id="kv-btn" onclick="addKnown()">Add</button>
+            </div>
+          </div>
+
+          <!-- Estimate (free text / photo) — secondary, behind a toggle -->
+          <button class="fe-est-link" id="est-toggle" aria-expanded="false" onclick="toggleEstimate()"><span class="chev">▶</span> Estimate from text or photo</button>
+          <div class="fe-est-body" id="est-body">
+            <div class="chat-wrap">
+              <div class="chat-msgs" id="chat-msgs" style="min-height:0;height:auto;">
+                <div class="chat-empty" id="chat-empty" style="padding:6px 0;font-size:10px;">Describe what you ate — I'll estimate and log it</div>
+              </div>
+              <div id="img-preview">
+                <img id="img-thumb" src="" alt="food photo">
+                <button class="img-clear" onclick="clearImage()">✕</button>
+              </div>
+              <div class="chat-input-row">
+                <input type="text" id="food-input" maxlength="1000" placeholder="e.g. 2 eggs, oat milk, overnight oats…" onkeydown="if(event.key==='Enter')sendFood()" oninput="updateCharCount()">
+                <button class="cam-btn" onclick="document.getElementById('file-input').click()" title="Photo">📷</button>
+                <button class="send-btn" id="send-btn" onclick="sendFood()">ESTIMATE →</button>
+              </div>
+              <div id="char-count" style="font-family:'DM Mono',monospace;font-size:8px;color:#333;text-align:right;padding:2px 4px;display:none;"></div>
+              <input type="file" id="file-input" accept="image/*" onchange="previewImage(event)">
+            </div>
+          </div>
+
+          <div class="sec" style="margin-top:16px">Meals</div>
           <div class="meal-box" id="meal-list"></div>
         </div>
 
@@ -844,6 +908,8 @@ async function loadDay(d) {
   pendingSuggestion = null;
   chatContext = null;
   document.getElementById('food-input').placeholder = 'e.g. 2 eggs, oat milk, overnight oats…';
+  // Clear the quick-entry fields when switching days
+  ['wc-grams','wc-food','kv-desc','kv-cal','kv-pro'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 
   // Update day label
   const lbl = document.getElementById("day-label");
@@ -1373,6 +1439,71 @@ function updateCharCount() {
   } else {
     cc.style.display = 'none';
   }
+}
+
+// Push a meal, persist, and refresh everything that depends on the day's totals.
+async function logMeal(desc, cal, pro) {
+  meals.push({ id: Date.now() + Math.random(), desc, cal, pro, time: timeNow() });
+  await api("/meals/save", { date: dateKey(activeDate), meals });
+  updateUI();
+  refreshInsight();
+  autoSaveDay();
+}
+
+// Weigh & Calculate: precise AI computation from an exact gram weight — far more
+// accurate than a free-form estimate because the weight is given. Logs directly
+// (rows are editable/deletable if the number looks off).
+async function calcWeighed() {
+  const gramsEl = document.getElementById('wc-grams');
+  const foodEl = document.getElementById('wc-food');
+  const grams = parseFloat(gramsEl.value);
+  const food = foodEl.value.trim();
+  if (!grams || grams <= 0) { gramsEl.focus(); return; }
+  if (!food) { foodEl.focus(); return; }
+  const btn = document.getElementById('wc-btn');
+  if (btn.disabled) return;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const sysPrompt = `You are a precise nutrition calculator. Given a food and an exact weight in grams, compute the TOTAL calories and TOTAL protein for that weight using standard nutrition data (per-100g values scaled to the given grams). Return ONLY valid JSON, no markdown, no backticks: {"calories":0,"protein":0}. Round calories to the nearest whole number and protein to the nearest whole gram.`;
+    const data = await api('/', { max_tokens: 120, _type: 'food', system: sysPrompt, messages: [{ role: 'user', content: `${grams}g ${food}` }] });
+    if (data.rate_limited) throw new Error(data.error.message);
+    if (data.error) throw new Error(data.error.type === 'overloaded_error' ? 'Claude is busy — try again in a moment.' : data.error.message);
+    const raw = (data.content || []).map(b => b.text || '').join('').trim();
+    const j = raw.indexOf('{'), k = raw.lastIndexOf('}');
+    if (j < 0 || k < 0) throw new Error('Unexpected response — try again');
+    const parsed = JSON.parse(raw.substring(j, k + 1));
+    const cal = Math.round(parsed.calories) || 0;
+    const pro = Math.round(parsed.protein) || 0;
+    await logMeal(`${food} (${grams}g)`, cal, pro);
+    gramsEl.value = ''; foodEl.value = ''; gramsEl.focus();
+    toast(`Logged: ${cal} kcal · ${pro}g protein`);
+  } catch (e) {
+    toast('Error: ' + e.message);
+  }
+  btn.disabled = false; btn.textContent = 'Calc';
+}
+
+// Known Values: exact numbers you already have — logged verbatim, no AI call.
+async function addKnown() {
+  const descEl = document.getElementById('kv-desc');
+  const calEl = document.getElementById('kv-cal');
+  const proEl = document.getElementById('kv-pro');
+  const desc = descEl.value.trim();
+  const cal = parseInt(calEl.value);
+  const pro = parseInt(proEl.value) || 0;
+  if (!desc) { descEl.focus(); return; }
+  if (!cal || cal <= 0) { calEl.focus(); return; }
+  await logMeal(desc, cal, pro);
+  descEl.value = ''; calEl.value = ''; proEl.value = ''; descEl.focus();
+  toast(`Logged: ${cal} kcal · ${pro}g protein`);
+}
+
+function toggleEstimate() {
+  const link = document.getElementById('est-toggle');
+  const body = document.getElementById('est-body');
+  const open = body.classList.toggle('open');
+  link.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) document.getElementById('food-input').focus();
 }
 
 let pendingSuggestion = null; // holds parsed AI suggestion before saving
