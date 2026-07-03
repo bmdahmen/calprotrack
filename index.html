@@ -1983,8 +1983,17 @@ async function refreshInsight() {
   const todayWt = todayWtEl ? parseFloat(todayWtEl.value) || null : null;
   const PRO_T_TODAY = proteinTargetFor(dateKey(activeDate), todayWt);
 
-  // Fingerprint: calories + protein + current hour
-  const fp = `${cal}:${pro}:${h}:${currentGoalMode}:${CAL_T_USER}:${PRO_T_TODAY}`;
+  // The specific foods eaten — this is what lets the coach audit intake quality
+  // (fiber, fats, veg, variety) instead of only reasoning about macro totals.
+  const foodList = meals.length
+    ? meals.map(m => `${m.desc} (${m.cal}kcal, ${m.pro}g pro)`).join('; ')
+    : 'nothing logged yet';
+  // Food signature in the fingerprint so a same-macro food swap (e.g. chicken →
+  // candy at identical kcal/protein) still refreshes the cached insight.
+  const foodSig = meals.map(m => `${m.desc}~${m.cal}~${m.pro}`).join('|');
+
+  // Fingerprint: calories + protein + hour + goal + targets + the actual foods
+  const fp = `${cal}:${pro}:${h}:${currentGoalMode}:${CAL_T_USER}:${PRO_T_TODAY}:${foodSig}`;
   const cacheKey = 'insight-day-' + dateKey(activeDate);
 
   // Check DB cache first
@@ -2031,11 +2040,16 @@ async function refreshInsight() {
   else if (cal > TDEE && mode === 'bulk') goalContext = 'They are in a surplus which is good for their bulk goal — encourage them positively.';
   else if (calRemaining < 200 && mode === 'bulk') goalContext = 'They are close to their calorie target but bulking requires more — encourage them to eat more.';
 
-  const prompt = `It is ${hStr} (${mealContext}). The user is ${modeDesc}. Stats so far today: ${cal} kcal eaten, ${pro}g protein eaten. Their goal: ${CAL_TARGET} kcal and ${PRO_T}g protein minimum. TDEE (maintenance): ${TDEE} kcal. Calories remaining to goal: ${calRemaining} kcal. Protein remaining: ${proRemaining}g. ${goalContext} Important rules: protein can ALWAYS go higher — never suggest a zero-protein food unless calories are truly maxed and protein goal is met. If calories are low but protein goal is unmet, suggest high-protein foods. Write ONE direct sentence (max 20 words) advising what to eat next. Be precise about remaining numbers. No emoji. No fluff.`;
+  const sysPrompt = `You are a registered-dietitian-style nutrition coach. You look past calories and protein to overall diet quality: dietary fiber, healthy vs saturated/processed fats, vegetable and fruit intake, micronutrient variety (iron, calcium, potassium, omega-3s, etc.), whole vs ultra-processed foods, added sugar, and how protein is spread across the day. You reason from the SPECIFIC foods the user logged — you audit what they actually ate. Never give obvious filler like "eat more protein" or "you have calories left" unless that is genuinely the single most important thing right now; prefer the most useful non-obvious observation their food list reveals.`;
+
+  const prompt = `It is ${hStr} (${mealContext}). The user is ${modeDesc}. Foods eaten so far today: ${foodList}. Totals: ${cal} kcal, ${pro}g protein. Goal: ${CAL_TARGET} kcal and ${PRO_T}g protein minimum. TDEE (maintenance): ${TDEE} kcal. Calories remaining to goal: ${calRemaining} kcal. Protein remaining: ${proRemaining}g. ${goalContext}
+
+Audit today's intake and name the single most useful gap or improvement you can see in the ACTUAL foods — e.g. no vegetables, low fiber, all protein from one source, heavy processed/saturated fat, lots of added sugar, or a specific macro/micronutrient shortfall. Then suggest one specific food to eat next that addresses it while fitting their remaining calories and protein (protein can always go higher; don't push a zero-protein food unless protein is met and calories are nearly maxed). Two sentences, ~40 words max. Be concrete about their food and remaining numbers. No emoji. No fluff.`;
 
   try {
     const data = await api('/', {
-      max_tokens: 80, _type: 'ai_coach',
+      max_tokens: 160, _type: 'ai_coach',
+      system: sysPrompt,
       messages: [{role: 'user', content: prompt}],
     });
     if (data.error) throw new Error(data.error.message);
