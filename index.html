@@ -603,6 +603,7 @@
             <div><label class="field-lbl">Neck (in)</label><input type="number" id="neck" onblur="saveMeas('neck')" placeholder="15.5" step="0.25"></div>
             <div><label class="field-lbl">Thigh (in)</label><input type="number" id="thigh" onblur="saveMeas('thigh')" placeholder="22.0" step="0.25"></div>
             <div><label class="field-lbl">Bicep (in)</label><input type="number" id="bicep" onblur="saveMeas('bicep')" placeholder="14.0" step="0.25"></div>
+            <div><label class="field-lbl">Hips (in)</label><input type="number" id="hips" onblur="saveMeas('hips')" placeholder="39.0" step="0.25"></div>
             <div><label class="field-lbl">Resting HR (bpm)</label><input type="number" id="rhr" inputmode="numeric" onblur="saveMeas('rhr')" placeholder="58" step="1"></div>
           </div>
           <div style="margin-bottom:14px;margin-top:14px">
@@ -687,7 +688,7 @@
       <div style="overflow-x:auto">
         <table class="hist-table">
           <thead><tr>
-            <th>Date</th><th>Wt AM</th><th>Wt PM</th><th>Navel</th><th>Waist</th><th>Cals</th><th>Prot</th><th>Chest</th><th>Neck</th><th>Thigh</th><th>Bicep</th><th>Rest HR</th>
+            <th>Date</th><th>Wt AM</th><th>Wt PM</th><th>Navel</th><th>Waist</th><th>Cals</th><th>Prot</th><th>Chest</th><th>Neck</th><th>Thigh</th><th>Bicep</th><th>Hips</th><th>Rest HR</th>
           </tr></thead>
           <tbody id="hist-body"></tbody>
         </table>
@@ -941,13 +942,14 @@ async function loadDay(d) {
     document.getElementById("neck").value = meas.neck || "";
     document.getElementById("thigh").value = meas.thigh || "";
     document.getElementById("bicep").value = meas.bicep || "";
+    document.getElementById("hips").value = meas.hips || "";
     document.getElementById("rhr").value = meas.restingHR || "";
     // Green tint for fields with saved data
-    [["wt-am",meas.weightAM],["wt-pm",meas.weightPM],["waist-nav",meas.waistNavel],["waist-sml",meas.waistSmallest],["chest",meas.chest],["neck",meas.neck],["thigh",meas.thigh],["bicep",meas.bicep],["rhr",meas.restingHR]].forEach(([id,val]) => {
+    [["wt-am",meas.weightAM],["wt-pm",meas.weightPM],["waist-nav",meas.waistNavel],["waist-sml",meas.waistSmallest],["chest",meas.chest],["neck",meas.neck],["thigh",meas.thigh],["bicep",meas.bicep],["hips",meas.hips],["rhr",meas.restingHR]].forEach(([id,val]) => {
       setFieldSaved(document.getElementById(id), !!val);
     });
     // Auto-expand the extra measurements if this day already has any of them
-    setMoreMeasurementsOpen(!!(meas.chest || meas.neck || meas.thigh || meas.bicep || meas.restingHR));
+    setMoreMeasurementsOpen(!!(meas.chest || meas.neck || meas.thigh || meas.bicep || meas.hips || meas.restingHR));
     // Placeholder = previous available measurement
     setPrevMeasPlaceholders(d);
     // Load daily activity
@@ -969,8 +971,9 @@ async function loadDay(d) {
     document.getElementById("neck").value = "";
     document.getElementById("thigh").value = "";
     document.getElementById("bicep").value = "";
+    document.getElementById("hips").value = "";
     document.getElementById("rhr").value = "";
-    ["wt-am","wt-pm","waist-nav","waist-sml","chest","neck","thigh","bicep","rhr"].forEach(id => { setFieldSaved(document.getElementById(id), false); });
+    ["wt-am","wt-pm","waist-nav","waist-sml","chest","neck","thigh","bicep","hips","rhr"].forEach(id => { setFieldSaved(document.getElementById(id), false); });
     setMoreMeasurementsOpen(false);
     setPrevMeasPlaceholders(d);
   }
@@ -1246,6 +1249,7 @@ function setPrevMeasPlaceholders(currentDate) {
     ['neck', 'neck'],
     ['thigh', 'thigh'],
     ['bicep', 'bicep'],
+    ['hips', 'hips'],
     ['rhr', 'restingHR'],
   ];
   fields.forEach(([id, key]) => {
@@ -1273,7 +1277,7 @@ function flashSaved(el) {
 }
 
 function refreshAllFieldColors() {
-  [['wt-am'], ['wt-pm'], ['waist-nav'], ['waist-sml'], ['chest'], ['neck'], ['thigh'], ['bicep'], ['rhr']].forEach(([id]) => {
+  [['wt-am'], ['wt-pm'], ['waist-nav'], ['waist-sml'], ['chest'], ['neck'], ['thigh'], ['bicep'], ['hips'], ['rhr']].forEach(([id]) => {
     setFieldSaved(document.getElementById(id), !!(document.getElementById(id)?.value));
   });
 }
@@ -1311,6 +1315,7 @@ function saveMeas(triggeredBy) {
       neck: parseFloat(document.getElementById("neck").value)||null,
       thigh: parseFloat(document.getElementById("thigh").value)||null,
       bicep: parseFloat(document.getElementById("bicep").value)||null,
+      hips: parseFloat(document.getElementById("hips").value)||null,
       restingHR: parseInt(document.getElementById("rhr").value)||null,
       dailyActivity: dailyActivity || 'sedentary',
     });
@@ -1335,6 +1340,7 @@ async function autoSaveDay() {
     neck: parseFloat(document.getElementById("neck").value)||null,
     thigh: parseFloat(document.getElementById("thigh").value)||null,
     bicep: parseFloat(document.getElementById("bicep").value)||null,
+    hips: parseFloat(document.getElementById("hips").value)||null,
     restingHR: parseInt(document.getElementById("rhr").value)||null,
   });
   datesWithData.add(dateKey(activeDate));
@@ -1358,6 +1364,7 @@ async function saveDay() {
     neck: parseFloat(document.getElementById("neck").value)||null,
     thigh: parseFloat(document.getElementById("thigh").value)||null,
     bicep: parseFloat(document.getElementById("bicep").value)||null,
+    hips: parseFloat(document.getElementById("hips").value)||null,
     restingHR: parseInt(document.getElementById("rhr").value)||null,
   });
   datesWithData.add(dateKey(activeDate));
@@ -1409,6 +1416,7 @@ function renderHistory() {
       <td style="color:#444">${e.neck??'—'}</td>
       <td style="color:#444">${e.thigh??'—'}</td>
       <td style="color:#444">${e.bicep??'—'}</td>
+      <td style="color:#444">${e.hips??'—'}</td>
       <td style="color:#444">${e.restingHR??'—'}</td>
     </tr>`).join("");
   const toggleRow = document.getElementById("hist-toggle-row");
@@ -1417,7 +1425,7 @@ function renderHistory() {
       const tbody = document.getElementById("hist-body");
       const tr = document.createElement("tr");
       tr.id = "hist-toggle-row";
-      tr.innerHTML = `<td colspan="12" style="position:static;text-align:center;padding:8px;cursor:pointer;color:#666;font-size:11px;font-family:'DM Mono',monospace;" onclick="toggleHistoryExpand()">${historyExpanded ? '▲ Show less' : '▼ Show ' + (rows.length - HISTORY_PAGE) + ' more'}</td>`;
+      tr.innerHTML = `<td colspan="13" style="position:static;text-align:center;padding:8px;cursor:pointer;color:#666;font-size:11px;font-family:'DM Mono',monospace;" onclick="toggleHistoryExpand()">${historyExpanded ? '▲ Show less' : '▼ Show ' + (rows.length - HISTORY_PAGE) + ' more'}</td>`;
       tbody.appendChild(tr);
     } else {
       toggleRow.querySelector("td").textContent = historyExpanded ? '▲ Show less' : '▼ Show ' + (rows.length - HISTORY_PAGE) + ' more';
