@@ -530,11 +530,14 @@
             <div><label class="field-lbl">Waist @ Navel (in)</label><input type="number" id="waist-nav" onblur="saveMeas('waist-nav')" placeholder="35.0" step="0.25"></div>
             <div><label class="field-lbl">Waist Smallest (in)</label><input type="number" id="waist-sml" onblur="saveMeas('waist-sml')" placeholder="32.5" step="0.25"></div>
           </div>
-          <div style="margin-bottom:12px">
-            <label class="field-lbl">Notes</label>
-            <input type="text" id="day-notes" onblur="saveMeas('day-notes')" placeholder="Thoughts?">
+          <button type="button" class="hist-coach-toggle" id="more-meas-toggle" onclick="toggleMoreMeasurements()">+ More measurements</button>
+          <div class="meas-grid" id="more-meas-grid" style="display:none;margin-top:8px;">
+            <div><label class="field-lbl">Chest (in)</label><input type="number" id="chest" onblur="saveMeas('chest')" placeholder="40.0" step="0.25"></div>
+            <div><label class="field-lbl">Neck (in)</label><input type="number" id="neck" onblur="saveMeas('neck')" placeholder="15.5" step="0.25"></div>
+            <div><label class="field-lbl">Thigh (in)</label><input type="number" id="thigh" onblur="saveMeas('thigh')" placeholder="22.0" step="0.25"></div>
+            <div><label class="field-lbl">Bicep (in)</label><input type="number" id="bicep" onblur="saveMeas('bicep')" placeholder="14.0" step="0.25"></div>
           </div>
-          <div style="margin-bottom:14px">
+          <div style="margin-bottom:14px;margin-top:14px">
             <label class="field-lbl">Today's Activity</label>
             <div class="act-scale-wrap">
               <div class="act-scale-labels">
@@ -616,7 +619,7 @@
       <div style="overflow-x:auto">
         <table class="hist-table">
           <thead><tr>
-            <th>Date</th><th>Wt AM</th><th>Wt PM</th><th>Navel</th><th>Waist</th><th>Cals</th><th>Prot</th><th>Notes</th>
+            <th>Date</th><th>Wt AM</th><th>Wt PM</th><th>Navel</th><th>Waist</th><th>Cals</th><th>Prot</th>
           </tr></thead>
           <tbody id="hist-body"></tbody>
         </table>
@@ -837,11 +840,16 @@ async function loadDay(d) {
     document.getElementById("wt-pm").value = meas.weightPM || "";
     document.getElementById("waist-nav").value = meas.waistNavel || "";
     document.getElementById("waist-sml").value = meas.waistSmallest || "";
-    document.getElementById("day-notes").value = meas.notes || "";
+    document.getElementById("chest").value = meas.chest || "";
+    document.getElementById("neck").value = meas.neck || "";
+    document.getElementById("thigh").value = meas.thigh || "";
+    document.getElementById("bicep").value = meas.bicep || "";
     // Green tint for fields with saved data
-    [["wt-am",meas.weightAM],["wt-pm",meas.weightPM],["waist-nav",meas.waistNavel],["waist-sml",meas.waistSmallest],["day-notes",meas.notes]].forEach(([id,val]) => {
+    [["wt-am",meas.weightAM],["wt-pm",meas.weightPM],["waist-nav",meas.waistNavel],["waist-sml",meas.waistSmallest],["chest",meas.chest],["neck",meas.neck],["thigh",meas.thigh],["bicep",meas.bicep]].forEach(([id,val]) => {
       setFieldSaved(document.getElementById(id), !!val);
     });
+    // Auto-expand the extra measurements if this day already has any of them
+    setMoreMeasurementsOpen(!!(meas.chest || meas.neck || meas.thigh || meas.bicep));
     // Placeholder = previous available measurement
     setPrevMeasPlaceholders(d);
     // Load daily activity
@@ -859,8 +867,12 @@ async function loadDay(d) {
     document.getElementById("wt-pm").value = "";
     document.getElementById("waist-nav").value = "";
     document.getElementById("waist-sml").value = "";
-    document.getElementById("day-notes").value = "";
-    ["wt-am","wt-pm","waist-nav","waist-sml","day-notes"].forEach(id => { setFieldSaved(document.getElementById(id), false); });
+    document.getElementById("chest").value = "";
+    document.getElementById("neck").value = "";
+    document.getElementById("thigh").value = "";
+    document.getElementById("bicep").value = "";
+    ["wt-am","wt-pm","waist-nav","waist-sml","chest","neck","thigh","bicep"].forEach(id => { setFieldSaved(document.getElementById(id), false); });
+    setMoreMeasurementsOpen(false);
     setPrevMeasPlaceholders(d);
   }
 
@@ -1131,6 +1143,10 @@ function setPrevMeasPlaceholders(currentDate) {
     ['wt-pm', 'weightPM'],
     ['waist-nav', 'waistNavel'],
     ['waist-sml', 'waistSmallest'],
+    ['chest', 'chest'],
+    ['neck', 'neck'],
+    ['thigh', 'thigh'],
+    ['bicep', 'bicep'],
   ];
   fields.forEach(([id, key]) => {
     const el = document.getElementById(id);
@@ -1157,9 +1173,24 @@ function flashSaved(el) {
 }
 
 function refreshAllFieldColors() {
-  [['wt-am'], ['wt-pm'], ['waist-nav'], ['waist-sml'], ['day-notes']].forEach(([id]) => {
+  [['wt-am'], ['wt-pm'], ['waist-nav'], ['waist-sml'], ['chest'], ['neck'], ['thigh'], ['bicep']].forEach(([id]) => {
     setFieldSaved(document.getElementById(id), !!(document.getElementById(id)?.value));
   });
+}
+
+// Extra, less-frequently-logged measurements — collapsed by default so the
+// day view stays focused on weight/waist.
+function toggleMoreMeasurements() {
+  const grid = document.getElementById('more-meas-grid');
+  setMoreMeasurementsOpen(grid.style.display === 'none');
+}
+
+function setMoreMeasurementsOpen(open) {
+  const grid = document.getElementById('more-meas-grid');
+  const btn = document.getElementById('more-meas-toggle');
+  if (!grid || !btn) return;
+  grid.style.display = open ? 'grid' : 'none';
+  btn.textContent = open ? '− More measurements' : '+ More measurements';
 }
 
 function saveMeas(triggeredBy) {
@@ -1176,7 +1207,10 @@ function saveMeas(triggeredBy) {
       weightPM: parseFloat(document.getElementById("wt-pm").value)||null,
       waistNavel: parseFloat(document.getElementById("waist-nav").value)||null,
       waistSmallest: parseFloat(document.getElementById("waist-sml").value)||null,
-      notes: document.getElementById("day-notes").value||null,
+      chest: parseFloat(document.getElementById("chest").value)||null,
+      neck: parseFloat(document.getElementById("neck").value)||null,
+      thigh: parseFloat(document.getElementById("thigh").value)||null,
+      bicep: parseFloat(document.getElementById("bicep").value)||null,
       dailyActivity: dailyActivity || 'sedentary',
     });
     if (triggeredBy) flashSaved(document.getElementById(triggeredBy));
@@ -1196,7 +1230,10 @@ async function autoSaveDay() {
     weightPM: parseFloat(document.getElementById("wt-pm").value)||null,
     waistNavel: parseFloat(document.getElementById("waist-nav").value)||null,
     waistSmallest: parseFloat(document.getElementById("waist-sml").value)||null,
-    notes: document.getElementById("day-notes").value||null,
+    chest: parseFloat(document.getElementById("chest").value)||null,
+    neck: parseFloat(document.getElementById("neck").value)||null,
+    thigh: parseFloat(document.getElementById("thigh").value)||null,
+    bicep: parseFloat(document.getElementById("bicep").value)||null,
   });
   datesWithData.add(dateKey(activeDate));
   await loadHistory();
@@ -1215,7 +1252,10 @@ async function saveDay() {
     weightPM: parseFloat(document.getElementById("wt-pm").value)||null,
     waistNavel: parseFloat(document.getElementById("waist-nav").value)||null,
     waistSmallest: parseFloat(document.getElementById("waist-sml").value)||null,
-    notes: document.getElementById("day-notes").value||null,
+    chest: parseFloat(document.getElementById("chest").value)||null,
+    neck: parseFloat(document.getElementById("neck").value)||null,
+    thigh: parseFloat(document.getElementById("thigh").value)||null,
+    bicep: parseFloat(document.getElementById("bicep").value)||null,
   });
   datesWithData.add(dateKey(activeDate));
   await loadHistory();
@@ -1262,7 +1302,6 @@ function renderHistory() {
       <td style="color:#444">${e.waistSmallest??'—'}</td>
       <td style="font-weight:600;color:${e.calories?(e.calories>CAL_T?(document.body.classList.contains('light')?'#8b1a1a':'#f87171'):(document.body.classList.contains('light')?'#1a6b2a':'#4ade80')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.calories??'—'}</td>
       <td style="font-weight:600;color:${e.protein?(e.protein>=proteinTargetFor(e.date,e.weightAM)?(document.body.classList.contains('light')?'#1a6b2a':'#4ade80'):(document.body.classList.contains('light')?'#8b1a1a':'#f87171')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.protein?e.protein+'g':'—'}</td>
-      <td style="color:#383838;font-size:11px">${e.notes||''}</td>
     </tr>`).join("");
   const toggleRow = document.getElementById("hist-toggle-row");
   if (rows.length > HISTORY_PAGE) {
@@ -1270,7 +1309,7 @@ function renderHistory() {
       const tbody = document.getElementById("hist-body");
       const tr = document.createElement("tr");
       tr.id = "hist-toggle-row";
-      tr.innerHTML = `<td colspan="8" style="text-align:center;padding:8px;cursor:pointer;color:#666;font-size:11px;font-family:'DM Mono',monospace;" onclick="toggleHistoryExpand()">${historyExpanded ? '▲ Show less' : '▼ Show ' + (rows.length - HISTORY_PAGE) + ' more'}</td>`;
+      tr.innerHTML = `<td colspan="7" style="text-align:center;padding:8px;cursor:pointer;color:#666;font-size:11px;font-family:'DM Mono',monospace;" onclick="toggleHistoryExpand()">${historyExpanded ? '▲ Show less' : '▼ Show ' + (rows.length - HISTORY_PAGE) + ' more'}</td>`;
       tbody.appendChild(tr);
     } else {
       toggleRow.querySelector("td").textContent = historyExpanded ? '▲ Show less' : '▼ Show ' + (rows.length - HISTORY_PAGE) + ' more';
