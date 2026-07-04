@@ -592,18 +592,18 @@
         <div>
           <div class="sec">Measurements</div>
           <div class="meas-grid">
-            <div><label class="field-lbl">Weight AM (lbs)</label><input type="number" id="wt-am" onblur="saveMeas('wt-am')" placeholder="169.4" step="0.1"></div>
-            <div><label class="field-lbl">Weight PM (lbs)</label><input type="number" id="wt-pm" onblur="saveMeas('wt-pm')" placeholder="171.0" step="0.1"></div>
-            <div><label class="field-lbl">Waist @ Navel (in)</label><input type="number" id="waist-nav" onblur="saveMeas('waist-nav')" placeholder="35.0" step="0.25"></div>
-            <div><label class="field-lbl">Waist Smallest (in)</label><input type="number" id="waist-sml" onblur="saveMeas('waist-sml')" placeholder="32.5" step="0.25"></div>
+            <div><label class="field-lbl">Weight AM (lbs)</label><input type="number" inputmode="decimal" id="wt-am" onblur="saveMeas('wt-am')" placeholder="169.4" step="0.1"></div>
+            <div><label class="field-lbl">Weight PM (lbs)</label><input type="number" inputmode="decimal" id="wt-pm" onblur="saveMeas('wt-pm')" placeholder="171.0" step="0.1"></div>
+            <div><label class="field-lbl">Waist @ Navel (in)</label><input type="number" inputmode="decimal" id="waist-nav" onblur="saveMeas('waist-nav')" placeholder="35.0" step="0.25"></div>
+            <div><label class="field-lbl">Waist Smallest (in)</label><input type="number" inputmode="decimal" id="waist-sml" onblur="saveMeas('waist-sml')" placeholder="32.5" step="0.25"></div>
           </div>
           <button type="button" class="hist-coach-toggle" id="more-meas-toggle" onclick="toggleMoreMeasurements()">+ More measurements</button>
           <div class="meas-grid" id="more-meas-grid" style="display:none;margin-top:8px;">
-            <div><label class="field-lbl">Chest (in)</label><input type="number" id="chest" onblur="saveMeas('chest')" placeholder="40.0" step="0.25"></div>
-            <div><label class="field-lbl">Neck (in)</label><input type="number" id="neck" onblur="saveMeas('neck')" placeholder="15.5" step="0.25"></div>
-            <div><label class="field-lbl">Thigh (in)</label><input type="number" id="thigh" onblur="saveMeas('thigh')" placeholder="22.0" step="0.25"></div>
-            <div><label class="field-lbl">Bicep (in)</label><input type="number" id="bicep" onblur="saveMeas('bicep')" placeholder="14.0" step="0.25"></div>
-            <div><label class="field-lbl">Hips (in)</label><input type="number" id="hips" onblur="saveMeas('hips')" placeholder="39.0" step="0.25"></div>
+            <div><label class="field-lbl">Chest (in)</label><input type="number" inputmode="decimal" id="chest" onblur="saveMeas('chest')" placeholder="40.0" step="0.25"></div>
+            <div><label class="field-lbl">Neck (in)</label><input type="number" inputmode="decimal" id="neck" onblur="saveMeas('neck')" placeholder="15.5" step="0.25"></div>
+            <div><label class="field-lbl">Thigh (in)</label><input type="number" inputmode="decimal" id="thigh" onblur="saveMeas('thigh')" placeholder="22.0" step="0.25"></div>
+            <div><label class="field-lbl">Bicep (in)</label><input type="number" inputmode="decimal" id="bicep" onblur="saveMeas('bicep')" placeholder="14.0" step="0.25"></div>
+            <div><label class="field-lbl">Hips (in)</label><input type="number" inputmode="decimal" id="hips" onblur="saveMeas('hips')" placeholder="39.0" step="0.25"></div>
             <div><label class="field-lbl">Resting HR (bpm)</label><input type="number" id="rhr" inputmode="numeric" onblur="saveMeas('rhr')" placeholder="58" step="1"></div>
             <div><label class="field-lbl">BP Systolic (mmHg)</label><input type="number" id="bp-sys" inputmode="numeric" onblur="saveMeas('bp-sys')" placeholder="118" step="1"></div>
             <div><label class="field-lbl">BP Diastolic (mmHg)</label><input type="number" id="bp-dia" inputmode="numeric" onblur="saveMeas('bp-dia')" placeholder="76" step="1"></div>
@@ -1874,14 +1874,18 @@ function niceAxis(dataMin, dataMax, tickCount) {
   const rawRange = Math.max(dataMax - dataMin, 1e-9);
   let exponent = Math.floor(Math.log10(rawRange / tickCount));
   for (let pass = 0; pass < 20; pass++) {
-    // 2.5 fills the gap between 2 and 5 — without it, a data range that just
-    // misses fitting at step 2 jumps all the way to step 5, tripling the
-    // axis span for no reason (most visible on smaller-range series like %).
-    for (const f of [1, 2, 2.5, 5]) {
+    // 2.5/3/4 fill the gaps between 1/2/5 — without them, a data range that
+    // just misses fitting one step jumps to the next {1,2,5} candidate, which
+    // can double or triple the axis span for no reason. The buffer (scaled to
+    // the candidate step, not the raw data range) requires each candidate to
+    // leave a little headroom rather than accepting an exact edge-to-edge fit,
+    // so the data never sits flush on the top/bottom gridline.
+    for (const f of [1, 2, 2.5, 3, 4, 5]) {
       const step = f * Math.pow(10, exponent);
-      const min = Math.floor(dataMin / step) * step;
+      const buffer = step * 0.1;
+      const min = Math.floor((dataMin - buffer) / step) * step;
       const max = min + step * tickCount;
-      if (max >= dataMax - 1e-9) {
+      if (max >= dataMax + buffer - 1e-9) {
         return { min, max, step, decimals: decimalsForStep(step) };
       }
     }
