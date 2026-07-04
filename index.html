@@ -879,14 +879,29 @@ async function api(path, body) {
     headers['Authorization'] = `Bearer ${sessionToken}`;
     body = { ...body, session_token: sessionToken };
   }
-  const res = await fetch(WORKER + path, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body)
-  });
-  const data = await res.json().catch(() => ({}));
+  let res;
+  try {
+    res = await fetch(WORKER + path, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body)
+    });
+  } catch (e) {
+    logFailure(path, body?._type, 'network error: ' + e.message);
+    throw e;
+  }
+  let parseFailed = false;
+  const data = await res.json().catch(() => { parseFailed = true; return {}; });
+  if (parseFailed) logFailure(path, body?._type, `worker returned non-JSON (status ${res.status})`);
   if (res.status === 401 && data && data.code === 'AUTH_REQUIRED') handleAuthExpired();
   return data;
+}
+
+// Best-effort failure log — fire-and-forget, never throws, and never logs
+// itself (that'd be an infinite loop the moment logging itself fails).
+function logFailure(source, type, message, detail) {
+  if (source === '/log/error') return;
+  api('/log/error', { source, type, message: String(message||'').slice(0,500), detail: detail != null ? String(detail).slice(0,2000) : undefined }).catch(() => {});
 }
 
 // Idempotent: the first AUTH_REQUIRED response wins; the burst of parallel
@@ -1227,6 +1242,7 @@ async function saveEdit(id) {
   editId = null;
   await api("/meals/save",{date:dateKey(activeDate),meals});
   updateUI();
+  refreshInsight();
   autoSaveDay();
   toast("Updated ✓");
 }
@@ -1235,6 +1251,7 @@ async function delMeal(id) {
   meals = meals.filter(m=>m.id!=id);
   await api("/meals/save",{date:dateKey(activeDate),meals});
   updateUI();
+  refreshInsight();
   autoSaveDay();
 }
 
@@ -1515,12 +1532,13 @@ async function calcWeighed() {
   const btn = document.getElementById('wc-btn');
   if (btn.disabled) return;
   btn.disabled = true; btn.textContent = '…';
+  let raw = '';
   try {
     const sysPrompt = `You are a precise nutrition calculator. You are given a food and an exact weight in grams; compute the TOTAL calories and TOTAL protein for that weight from standard nutrition data (scale per-100g values to the given grams). A ratio like "93/7" or "80/20" describes the lean-to-fat percentage of ground meat (e.g. 93% lean, 7% fat) — treat it as a description of the food, never as a fraction to divide. Respond with ONLY a raw JSON object — no prose, no explanation, no markdown, no code fences. Your entire reply must start with { and end with }, in exactly this shape: {"calories":123,"protein":15}. Round both to whole numbers.`;
     const data = await api('/', { max_tokens: 200, _type: 'food', system: sysPrompt, messages: [{ role: 'user', content: `${grams} g of ${food}` }] });
     if (data.rate_limited) throw new Error(data.error.message);
     if (data.error) throw new Error(data.error.type === 'overloaded_error' ? 'Claude is busy — try again in a moment.' : (data.error.message || 'Request failed'));
-    const raw = (data.content || []).map(b => b.text || '').join('').trim();
+    raw = (data.content || []).map(b => b.text || '').join('').trim();
     // Robust extraction: pull the JSON object out of anything the model wrapped
     // around it, and surface what it actually said if that fails.
     const j = raw.indexOf('{'), k = raw.lastIndexOf('}');
@@ -1536,6 +1554,7 @@ async function calcWeighed() {
     toast(`Logged: ${cal} kcal · ${pro}g protein`);
   } catch (e) {
     toast('Error: ' + e.message);
+    logFailure('weigh_calculate', 'food', e.message, raw);
   }
   btn.disabled = false; btn.textContent = 'Calc';
 }
@@ -1589,6 +1608,7 @@ async function sendFood() {
   msgsEl.insertAdjacentHTML("beforeend",`<div class="msg-ai fade" id="${spId}"><div class="ai-av">AI</div><div class="spinner"></div></div>`);
   msgsEl.scrollTop = msgsEl.scrollHeight;
 
+  let raw = '';
   try {
     const sysPrompt = `You are a nutrition estimator assistant. Return ONLY valid JSON, no markdown, no backticks: {"items":[{"description":"short name","calories":0,"protein":0}],"totalCalories":0,"totalProtein":0,"message":"1-2 sentences: briefly note what the meal is and any notable detail (e.g. high protein, calorie-dense, light). Be conversational and specific."}. Realistic estimates, typical servings. Descriptions under 5 words.`;
 
@@ -1619,7 +1639,7 @@ async function sendFood() {
     if (data.rate_limited) throw new Error(data.error.message);
     if (data.error) throw new Error(data.error.type === 'overloaded_error' ? "Claude is overloaded right now — try again in a moment." : data.error.message);
     if (!data.content||!data.content.length) throw new Error("Empty response");
-    const raw = (data.content||[]).map(b=>b.text||"").join("").trim();
+    raw = (data.content||[]).map(b=>b.text||"").join("").trim();
     const j = raw.indexOf("{"), k = raw.lastIndexOf("}");
     if (j<0||k<0) throw new Error("Model said: " + raw.substring(0,100));
     const parsed = JSON.parse(raw.substring(j,k+1));
@@ -1652,6 +1672,7 @@ async function sendFood() {
   } catch(e) {
     document.getElementById(spId)?.remove();
     msgsEl.insertAdjacentHTML("beforeend",`<div class="msg-ai fade"><div class="ai-av">AI</div><div class="ai-text" style="color:#f87171">Error: ${esc(e.message)}</div></div>`);
+    logFailure('food_estimate', pendingImageB64 ? 'image' : 'food', e.message, raw);
   }
 
   msgsEl.scrollTop = msgsEl.scrollHeight;
