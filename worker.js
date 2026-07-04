@@ -85,6 +85,21 @@ async function resolveSessionUserId(env, token) {
   return session.user_id;
 }
 
+// Best-effort failure log — must never throw, so a logging bug can't take
+// down the request it's trying to record.
+async function logError(env, { user_id, source, type, message, detail }) {
+  try {
+    await env.DB.prepare(
+      'INSERT INTO error_log (user_id, source, type, message, detail, created_at) VALUES (?,?,?,?,?,?)'
+    ).bind(
+      user_id || null, source, type || null,
+      String(message || '').slice(0, 500),
+      detail != null ? String(detail).slice(0, 2000) : null,
+      new Date().toISOString()
+    ).run();
+  } catch (e) {}
+}
+
 async function checkRateLimit(env, user_id, field, limit) {
   const today = new Date().toISOString().slice(0, 10);
   const row = await env.DB.prepare(
@@ -233,14 +248,27 @@ export default {
           });
           lastResult = await res.json();
           const overloaded = res.status === 529 || lastResult?.error?.type === 'overloaded_error';
-          if (!overloaded) return json(lastResult); // success or non-overload error
+          if (!overloaded) {
+            if (lastResult?.error) {
+              await logError(env, { user_id, source: 'server_ai_call', type: _type, message: lastResult.error.message || lastResult.error.type, detail: JSON.stringify(lastResult.error) });
+            }
+            return json(lastResult); // success or non-overload error
+          }
           // Overloaded — wait then retry same model, or move to next model on last attempt
           if (attempt < 2) await new Promise(r => setTimeout(r, delay));
           delay *= 2;
         }
         // All retries on this model failed with overload — try next model
       }
+      await logError(env, { user_id, source: 'server_ai_call', type: _type, message: 'all models overloaded after retries', detail: JSON.stringify(lastResult?.error || lastResult) });
       return json({ ...lastResult, error: { ...(lastResult?.error||{}), message: 'Claude is busy right now — please try again in a moment.' } });
+    }
+
+    if (path === '/log/error') {
+      const user_id = resolveUser(body.user_id);
+      const { source, type, message, detail } = body;
+      if (source && message) await logError(env, { user_id, source, type, message, detail });
+      return json({ ok: true });
     }
 
     if (path === '/usage/today') {
