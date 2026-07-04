@@ -1220,6 +1220,7 @@ async function saveEdit(id) {
   editId = null;
   await api("/meals/save",{date:dateKey(activeDate),meals});
   updateUI();
+  refreshInsight();
   autoSaveDay();
   toast("Updated ✓");
 }
@@ -1228,6 +1229,7 @@ async function delMeal(id) {
   meals = meals.filter(m=>m.id!=id);
   await api("/meals/save",{date:dateKey(activeDate),meals});
   updateUI();
+  refreshInsight();
   autoSaveDay();
 }
 
