@@ -605,6 +605,8 @@
             <div><label class="field-lbl">Bicep (in)</label><input type="number" id="bicep" onblur="saveMeas('bicep')" placeholder="14.0" step="0.25"></div>
             <div><label class="field-lbl">Hips (in)</label><input type="number" id="hips" onblur="saveMeas('hips')" placeholder="39.0" step="0.25"></div>
             <div><label class="field-lbl">Resting HR (bpm)</label><input type="number" id="rhr" inputmode="numeric" onblur="saveMeas('rhr')" placeholder="58" step="1"></div>
+            <div><label class="field-lbl">BP Systolic (mmHg)</label><input type="number" id="bp-sys" inputmode="numeric" onblur="saveMeas('bp-sys')" placeholder="118" step="1"></div>
+            <div><label class="field-lbl">BP Diastolic (mmHg)</label><input type="number" id="bp-dia" inputmode="numeric" onblur="saveMeas('bp-dia')" placeholder="76" step="1"></div>
           </div>
           <div style="margin-bottom:14px;margin-top:14px">
             <label class="field-lbl">Today's Activity</label>
@@ -688,7 +690,7 @@
       <div style="overflow-x:auto">
         <table class="hist-table">
           <thead><tr>
-            <th>Date</th><th>Wt AM</th><th>Wt PM</th><th>Navel</th><th>Waist</th><th>Cals</th><th>Prot</th><th>Chest</th><th>Neck</th><th>Thigh</th><th>Bicep</th><th>Hips</th><th>Rest HR</th>
+            <th>Date</th><th>Wt AM</th><th>Wt PM</th><th>Navel</th><th>Waist</th><th>Cals</th><th>Prot</th><th>Chest</th><th>Neck</th><th>Thigh</th><th>Bicep</th><th>Hips</th><th>Rest HR</th><th>BP</th>
           </tr></thead>
           <tbody id="hist-body"></tbody>
         </table>
@@ -932,6 +934,7 @@ async function loadDay(d) {
   } catch(e) { meals = []; }
 
   // Load measurements
+  clearTimeout(extraCollapseTimer);
   try {
     const meas = await api("/meas/load", {date: dateKey(d)});
     document.getElementById("wt-am").value = meas.weightAM || "";
@@ -944,12 +947,14 @@ async function loadDay(d) {
     document.getElementById("bicep").value = meas.bicep || "";
     document.getElementById("hips").value = meas.hips || "";
     document.getElementById("rhr").value = meas.restingHR || "";
+    document.getElementById("bp-sys").value = meas.bpSystolic || "";
+    document.getElementById("bp-dia").value = meas.bpDiastolic || "";
     // Green tint for fields with saved data
-    [["wt-am",meas.weightAM],["wt-pm",meas.weightPM],["waist-nav",meas.waistNavel],["waist-sml",meas.waistSmallest],["chest",meas.chest],["neck",meas.neck],["thigh",meas.thigh],["bicep",meas.bicep],["hips",meas.hips],["rhr",meas.restingHR]].forEach(([id,val]) => {
+    [["wt-am",meas.weightAM],["wt-pm",meas.weightPM],["waist-nav",meas.waistNavel],["waist-sml",meas.waistSmallest],["chest",meas.chest],["neck",meas.neck],["thigh",meas.thigh],["bicep",meas.bicep],["hips",meas.hips],["rhr",meas.restingHR],["bp-sys",meas.bpSystolic],["bp-dia",meas.bpDiastolic]].forEach(([id,val]) => {
       setFieldSaved(document.getElementById(id), !!val);
     });
     // Auto-expand the extra measurements if this day already has any of them
-    setMoreMeasurementsOpen(!!(meas.chest || meas.neck || meas.thigh || meas.bicep || meas.hips || meas.restingHR));
+    setMoreMeasurementsOpen(!!(meas.chest || meas.neck || meas.thigh || meas.bicep || meas.hips || meas.restingHR || meas.bpSystolic || meas.bpDiastolic));
     // Placeholder = previous available measurement
     setPrevMeasPlaceholders(d);
     // Load daily activity
@@ -973,7 +978,9 @@ async function loadDay(d) {
     document.getElementById("bicep").value = "";
     document.getElementById("hips").value = "";
     document.getElementById("rhr").value = "";
-    ["wt-am","wt-pm","waist-nav","waist-sml","chest","neck","thigh","bicep","hips","rhr"].forEach(id => { setFieldSaved(document.getElementById(id), false); });
+    document.getElementById("bp-sys").value = "";
+    document.getElementById("bp-dia").value = "";
+    ["wt-am","wt-pm","waist-nav","waist-sml","chest","neck","thigh","bicep","hips","rhr","bp-sys","bp-dia"].forEach(id => { setFieldSaved(document.getElementById(id), false); });
     setMoreMeasurementsOpen(false);
     setPrevMeasPlaceholders(d);
   }
@@ -1251,6 +1258,8 @@ function setPrevMeasPlaceholders(currentDate) {
     ['bicep', 'bicep'],
     ['hips', 'hips'],
     ['rhr', 'restingHR'],
+    ['bp-sys', 'bpSystolic'],
+    ['bp-dia', 'bpDiastolic'],
   ];
   fields.forEach(([id, key]) => {
     const el = document.getElementById(id);
@@ -1277,7 +1286,7 @@ function flashSaved(el) {
 }
 
 function refreshAllFieldColors() {
-  [['wt-am'], ['wt-pm'], ['waist-nav'], ['waist-sml'], ['chest'], ['neck'], ['thigh'], ['bicep'], ['hips'], ['rhr']].forEach(([id]) => {
+  [['wt-am'], ['wt-pm'], ['waist-nav'], ['waist-sml'], ['chest'], ['neck'], ['thigh'], ['bicep'], ['hips'], ['rhr'], ['bp-sys'], ['bp-dia']].forEach(([id]) => {
     setFieldSaved(document.getElementById(id), !!(document.getElementById(id)?.value));
   });
 }
@@ -1285,6 +1294,7 @@ function refreshAllFieldColors() {
 // Extra, less-frequently-logged measurements — collapsed by default so the
 // day view stays focused on weight/waist.
 function toggleMoreMeasurements() {
+  clearTimeout(extraCollapseTimer);
   const grid = document.getElementById('more-meas-grid');
   setMoreMeasurementsOpen(grid.style.display === 'none');
 }
@@ -1297,6 +1307,17 @@ function setMoreMeasurementsOpen(open) {
   btn.textContent = open ? '− More measurements' : '+ More measurements';
 }
 
+const EXTRA_MEAS_FIELDS = ['chest', 'neck', 'thigh', 'bicep', 'hips', 'rhr', 'bp-sys', 'bp-dia'];
+let extraCollapseTimer = null;
+
+// Once the user finishes entering an extra measurement, fold the section back
+// up after a pause so it doesn't sit there full of green fields crowding out
+// meal entry below. Any further edit within the pause window pushes it back.
+function scheduleExtraCollapse() {
+  clearTimeout(extraCollapseTimer);
+  extraCollapseTimer = setTimeout(() => setMoreMeasurementsOpen(false), 2500);
+}
+
 function saveMeas(triggeredBy) {
   clearTimeout(saveMeasTimer);
   // Immediately color the field being typed into
@@ -1304,6 +1325,7 @@ function saveMeas(triggeredBy) {
     const el = document.getElementById(triggeredBy);
     if (el) setFieldSaved(el, !!el.value);
   }
+  if (triggeredBy && EXTRA_MEAS_FIELDS.includes(triggeredBy)) scheduleExtraCollapse();
   saveMeasTimer = setTimeout(async () => {
     await api("/meas/save",{
       date: dateKey(activeDate),
@@ -1317,6 +1339,8 @@ function saveMeas(triggeredBy) {
       bicep: parseFloat(document.getElementById("bicep").value)||null,
       hips: parseFloat(document.getElementById("hips").value)||null,
       restingHR: parseInt(document.getElementById("rhr").value)||null,
+      bpSystolic: parseInt(document.getElementById("bp-sys").value)||null,
+      bpDiastolic: parseInt(document.getElementById("bp-dia").value)||null,
       dailyActivity: dailyActivity || 'sedentary',
     });
     if (triggeredBy) flashSaved(document.getElementById(triggeredBy));
@@ -1342,6 +1366,8 @@ async function autoSaveDay() {
     bicep: parseFloat(document.getElementById("bicep").value)||null,
     hips: parseFloat(document.getElementById("hips").value)||null,
     restingHR: parseInt(document.getElementById("rhr").value)||null,
+    bpSystolic: parseInt(document.getElementById("bp-sys").value)||null,
+    bpDiastolic: parseInt(document.getElementById("bp-dia").value)||null,
   });
   datesWithData.add(dateKey(activeDate));
   await loadHistory();
@@ -1366,6 +1392,8 @@ async function saveDay() {
     bicep: parseFloat(document.getElementById("bicep").value)||null,
     hips: parseFloat(document.getElementById("hips").value)||null,
     restingHR: parseInt(document.getElementById("rhr").value)||null,
+    bpSystolic: parseInt(document.getElementById("bp-sys").value)||null,
+    bpDiastolic: parseInt(document.getElementById("bp-dia").value)||null,
   });
   datesWithData.add(dateKey(activeDate));
   await loadHistory();
@@ -1418,6 +1446,7 @@ function renderHistory() {
       <td style="color:#444">${e.bicep??'—'}</td>
       <td style="color:#444">${e.hips??'—'}</td>
       <td style="color:#444">${e.restingHR??'—'}</td>
+      <td style="color:#444">${(e.bpSystolic && e.bpDiastolic) ? e.bpSystolic+'/'+e.bpDiastolic : '—'}</td>
     </tr>`).join("");
   const toggleRow = document.getElementById("hist-toggle-row");
   if (rows.length > HISTORY_PAGE) {
