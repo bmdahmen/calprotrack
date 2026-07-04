@@ -949,6 +949,7 @@ async function loadDay(d) {
   } catch(e) { meals = []; }
 
   // Load measurements
+  clearTimeout(extraCollapseTimer);
   try {
     const meas = await api("/meas/load", {date: dateKey(d)});
     document.getElementById("wt-am").value = meas.weightAM || "";
@@ -1311,6 +1312,7 @@ function refreshAllFieldColors() {
 // Extra, less-frequently-logged measurements — collapsed by default so the
 // day view stays focused on weight/waist.
 function toggleMoreMeasurements() {
+  clearTimeout(extraCollapseTimer);
   const grid = document.getElementById('more-meas-grid');
   setMoreMeasurementsOpen(grid.style.display === 'none');
 }
@@ -1323,6 +1325,18 @@ function setMoreMeasurementsOpen(open) {
   btn.textContent = open ? 'Hide measurements' : '+ More measurements';
 }
 
+const EXTRA_MEAS_FIELDS = ['chest', 'neck', 'thigh', 'bicep', 'hips', 'rhr', 'bp-sys', 'bp-dia'];
+let extraCollapseTimer = null;
+
+// After the user finishes entering extra measurements, fold the section back
+// up so it doesn't sit open indefinitely. Long pause so filling in several
+// fields in a row (chest, neck, thigh, ...) doesn't get interrupted — each
+// edit pushes the deadline back out.
+function scheduleExtraCollapse() {
+  clearTimeout(extraCollapseTimer);
+  extraCollapseTimer = setTimeout(() => setMoreMeasurementsOpen(false), 6000);
+}
+
 function saveMeas(triggeredBy) {
   clearTimeout(saveMeasTimer);
   // Immediately color the field being typed into
@@ -1330,6 +1344,7 @@ function saveMeas(triggeredBy) {
     const el = document.getElementById(triggeredBy);
     if (el) setFieldSaved(el, !!el.value);
   }
+  if (triggeredBy && EXTRA_MEAS_FIELDS.includes(triggeredBy)) scheduleExtraCollapse();
   saveMeasTimer = setTimeout(async () => {
     await api("/meas/save",{
       date: dateKey(activeDate),
