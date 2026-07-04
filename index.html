@@ -968,8 +968,11 @@ async function loadDay(d) {
     [["wt-am",meas.weightAM],["wt-pm",meas.weightPM],["waist-nav",meas.waistNavel],["waist-sml",meas.waistSmallest],["chest",meas.chest],["neck",meas.neck],["thigh",meas.thigh],["bicep",meas.bicep],["hips",meas.hips],["rhr",meas.restingHR],["bp-sys",meas.bpSystolic],["bp-dia",meas.bpDiastolic]].forEach(([id,val]) => {
       setFieldSaved(document.getElementById(id), !!val);
     });
-    // Auto-expand the extra measurements if this day already has any of them
-    setMoreMeasurementsOpen(!!(meas.chest || meas.neck || meas.thigh || meas.bicep || meas.hips || meas.restingHR || meas.bpSystolic || meas.bpDiastolic));
+    // Auto-expand the extra measurements if this day already has any of them,
+    // then fold it back up shortly after since we're just viewing, not editing.
+    const hasExtra = !!(meas.chest || meas.neck || meas.thigh || meas.bicep || meas.hips || meas.restingHR || meas.bpSystolic || meas.bpDiastolic);
+    setMoreMeasurementsOpen(hasExtra);
+    if (hasExtra) scheduleExtraCollapse(); else clearTimeout(extraCollapseTimer);
     // Placeholder = previous available measurement
     setPrevMeasPlaceholders(d);
     // Load daily activity
