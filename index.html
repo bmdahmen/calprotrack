@@ -949,7 +949,6 @@ async function loadDay(d) {
   } catch(e) { meals = []; }
 
   // Load measurements
-  clearTimeout(extraCollapseTimer);
   try {
     const meas = await api("/meas/load", {date: dateKey(d)});
     document.getElementById("wt-am").value = meas.weightAM || "";
@@ -968,11 +967,9 @@ async function loadDay(d) {
     [["wt-am",meas.weightAM],["wt-pm",meas.weightPM],["waist-nav",meas.waistNavel],["waist-sml",meas.waistSmallest],["chest",meas.chest],["neck",meas.neck],["thigh",meas.thigh],["bicep",meas.bicep],["hips",meas.hips],["rhr",meas.restingHR],["bp-sys",meas.bpSystolic],["bp-dia",meas.bpDiastolic]].forEach(([id,val]) => {
       setFieldSaved(document.getElementById(id), !!val);
     });
-    // Auto-expand the extra measurements if this day already has any of them,
-    // then fold it back up shortly after since we're just viewing, not editing.
-    const hasExtra = !!(meas.chest || meas.neck || meas.thigh || meas.bicep || meas.hips || meas.restingHR || meas.bpSystolic || meas.bpDiastolic);
-    setMoreMeasurementsOpen(hasExtra);
-    if (hasExtra) scheduleExtraCollapse(); else clearTimeout(extraCollapseTimer);
+    // Extra measurements start collapsed regardless of whether this day has
+    // any of them — "More measurements" / "Hide measurements" toggles it.
+    setMoreMeasurementsOpen(false);
     // Placeholder = previous available measurement
     setPrevMeasPlaceholders(d);
     // Load daily activity
@@ -1314,7 +1311,6 @@ function refreshAllFieldColors() {
 // Extra, less-frequently-logged measurements — collapsed by default so the
 // day view stays focused on weight/waist.
 function toggleMoreMeasurements() {
-  clearTimeout(extraCollapseTimer);
   const grid = document.getElementById('more-meas-grid');
   setMoreMeasurementsOpen(grid.style.display === 'none');
 }
@@ -1324,18 +1320,7 @@ function setMoreMeasurementsOpen(open) {
   const btn = document.getElementById('more-meas-toggle');
   if (!grid || !btn) return;
   grid.style.display = open ? 'grid' : 'none';
-  btn.textContent = open ? '− More measurements' : '+ More measurements';
-}
-
-const EXTRA_MEAS_FIELDS = ['chest', 'neck', 'thigh', 'bicep', 'hips', 'rhr', 'bp-sys', 'bp-dia'];
-let extraCollapseTimer = null;
-
-// Once the user finishes entering an extra measurement, fold the section back
-// up after a pause so it doesn't sit there full of green fields crowding out
-// meal entry below. Any further edit within the pause window pushes it back.
-function scheduleExtraCollapse() {
-  clearTimeout(extraCollapseTimer);
-  extraCollapseTimer = setTimeout(() => setMoreMeasurementsOpen(false), 2500);
+  btn.textContent = open ? 'Hide measurements' : '+ More measurements';
 }
 
 function saveMeas(triggeredBy) {
@@ -1345,7 +1330,6 @@ function saveMeas(triggeredBy) {
     const el = document.getElementById(triggeredBy);
     if (el) setFieldSaved(el, !!el.value);
   }
-  if (triggeredBy && EXTRA_MEAS_FIELDS.includes(triggeredBy)) scheduleExtraCollapse();
   saveMeasTimer = setTimeout(async () => {
     await api("/meas/save",{
       date: dateKey(activeDate),
