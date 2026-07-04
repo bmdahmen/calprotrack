@@ -1862,17 +1862,27 @@ function movingAverage(entries, windowDays) {
 // floor-aligned to a multiple of itself can undershoot the actual data max —
 // flooring the min down "eats into" the span available to reach the max, so
 // the naive one-shot calculation could clip real data points off the chart.
+// How many decimal places are needed to show `step` exactly (e.g. 2.5 -> 1,
+// 5 -> 0). Generic over any step value, not just powers of ten.
+function decimalsForStep(step) {
+  let s = step, d = 0;
+  while (d < 8 && Math.abs(Math.round(s) - s) > 1e-6) { s *= 10; d++; }
+  return d;
+}
+
 function niceAxis(dataMin, dataMax, tickCount) {
   const rawRange = Math.max(dataMax - dataMin, 1e-9);
   let exponent = Math.floor(Math.log10(rawRange / tickCount));
   for (let pass = 0; pass < 20; pass++) {
-    for (const f of [1, 2, 5]) {
+    // 2.5 fills the gap between 2 and 5 — without it, a data range that just
+    // misses fitting at step 2 jumps all the way to step 5, tripling the
+    // axis span for no reason (most visible on smaller-range series like %).
+    for (const f of [1, 2, 2.5, 5]) {
       const step = f * Math.pow(10, exponent);
       const min = Math.floor(dataMin / step) * step;
       const max = min + step * tickCount;
       if (max >= dataMax - 1e-9) {
-        const decimals = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
-        return { min, max, step, decimals };
+        return { min, max, step, decimals: decimalsForStep(step) };
       }
     }
     exponent++;
