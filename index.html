@@ -550,6 +550,23 @@
             </div>
           </div>
 
+          <!-- Calories → Weight: give food + a calorie target, AI estimates the weight -->
+          <div class="food-entry">
+            <div class="food-entry-head"><span>Calories → Weight</span><span class="fe-hint ai">→ AI estimates the weight</span></div>
+            <div class="fe-row">
+              <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="cw-cal" inputmode="numeric" step="1" min="0" placeholder="100" onkeydown="if(event.key==='Enter')calcCalToWeight()"><span>kc</span></div></div>
+              <div class="fe-col grow"><label class="field-lbl">Food</label><input type="text" id="cw-food" maxlength="120" placeholder="black raspberries" onkeydown="if(event.key==='Enter')calcCalToWeight()"></div>
+              <button class="fe-go" id="cw-btn" onclick="calcCalToWeight()">Calc</button>
+            </div>
+            <div class="ai-suggest-card" id="cw-result" style="display:none;margin-top:10px;">
+              <div class="ai-suggest-total" id="cw-result-total"></div>
+              <div class="ai-suggest-actions">
+                <button class="btn-save-food" id="cw-log-btn" onclick="logCalToWeight()">✓ LOG THIS</button>
+                <button class="btn-discuss" onclick="dismissCalToWeight()">✕ Dismiss</button>
+              </div>
+            </div>
+          </div>
+
           <!-- Known Values: exact numbers, logged verbatim, no AI -->
           <div class="food-entry">
             <div class="food-entry-head"><span>Known Values</span><span class="fe-hint noai">→ logged as-is, no AI</span></div>
@@ -931,7 +948,8 @@ async function loadDay(d) {
   chatContext = null;
   document.getElementById('food-input').placeholder = 'e.g. 2 eggs, oat milk, overnight oats…';
   // Clear the quick-entry fields when switching days
-  ['wc-grams','wc-food','kv-desc','kv-cal','kv-pro'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['wc-grams','wc-food','kv-desc','kv-cal','kv-pro','cw-cal','cw-food'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  dismissCalToWeight();
 
   // Update day label
   const lbl = document.getElementById("day-label");
@@ -1565,6 +1583,71 @@ async function calcWeighed() {
     }
   }
   btn.disabled = false; btn.textContent = 'Calc';
+}
+
+// Calories → Weight: the inverse of Weigh & Calculate — given a food and a
+// calorie target, ask the AI how much (in grams) of that food it takes to
+// reach it. Shows the estimate first; logging is a separate, optional step.
+let pendingCalToWeight = null;
+async function calcCalToWeight() {
+  const calEl = document.getElementById('cw-cal');
+  const foodEl = document.getElementById('cw-food');
+  const calories = parseFloat(calEl.value);
+  const food = foodEl.value.trim();
+  if (!calories || calories <= 0) { calEl.focus(); return; }
+  if (!food) { foodEl.focus(); return; }
+  const btn = document.getElementById('cw-btn');
+  if (btn.disabled) return;
+  btn.disabled = true; btn.textContent = '…';
+  dismissCalToWeight();
+  const sysPrompt = `You are a precise nutrition calculator. You are given a food and a target calorie amount; compute the WEIGHT in grams of that food needed to reach approximately that many calories, using standard nutrition data (scale per-100g values). Also compute the total protein for that weight, and a short everyday household measure (e.g. "about 1 cup", "about 2 medium"). Respond with ONLY a raw JSON object — no prose, no explanation, no markdown, no code fences. Your entire reply must start with { and end with }, in exactly this shape: {"grams":143,"protein":15,"measure":"about 1 cup"}. Round grams and protein to whole numbers.`;
+  let raw = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const data = await api('/', { max_tokens: 200, _type: 'food', system: sysPrompt, messages: [{ role: 'user', content: `${calories} calories of ${food}` }] });
+      if (data.rate_limited) throw new Error(data.error.message);
+      if (data.error) throw new Error(data.error.type === 'overloaded_error' ? 'Claude is busy — try again in a moment.' : (data.error.message || 'Request failed'));
+      raw = (data.content || []).map(b => b.text || '').join('').trim();
+      const j = raw.indexOf('{'), k = raw.lastIndexOf('}');
+      let parsed = null;
+      if (j >= 0 && k > j) { try { parsed = JSON.parse(raw.substring(j, k + 1)); } catch (_) {} }
+      if (!parsed || parsed.grams == null) {
+        throw new Error(raw ? `couldn't read the result — model said: "${raw.slice(0, 120)}"` : 'no response — try again');
+      }
+      const grams = Math.round(parsed.grams) || 0;
+      const protein = Math.round(parsed.protein) || 0;
+      const measure = (parsed.measure || '').trim();
+      pendingCalToWeight = { food, calories: Math.round(calories), grams, protein };
+      document.getElementById('cw-result-total').textContent = `≈ ${grams}g of ${food}${measure ? ` (${measure})` : ''} · ${Math.round(calories)} kcal, ${protein}g protein`;
+      document.getElementById('cw-result').style.display = '';
+      break;
+    } catch (e) {
+      if (attempt === 0) continue;
+      toast('Error: ' + e.message);
+      logFailure('cal_to_weight', 'food', e.message, raw);
+    }
+  }
+  btn.disabled = false; btn.textContent = 'Calc';
+}
+
+async function logCalToWeight() {
+  if (!pendingCalToWeight) return;
+  const { food, calories, grams, protein } = pendingCalToWeight;
+  const btn = document.getElementById('cw-log-btn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  await logMeal(`${food} (${grams}g)`, calories, protein);
+  toast(`Logged: ${calories} kcal · ${protein}g protein`);
+  document.getElementById('cw-cal').value = ''; document.getElementById('cw-food').value = '';
+  dismissCalToWeight();
+}
+
+function dismissCalToWeight() {
+  pendingCalToWeight = null;
+  const result = document.getElementById('cw-result');
+  result.style.display = 'none';
+  const btn = document.getElementById('cw-log-btn');
+  btn.disabled = false;
 }
 
 // Known Values: exact numbers you already have — logged verbatim, no AI call.
