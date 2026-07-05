@@ -2419,7 +2419,9 @@ async function refreshHistInsight() {
     currentGoalMode || 'deficit',
     dexaFP,
   ].join(':');
-  const histCacheKey = 'insight-hist-' + chartRange;
+  // v2: bump the key so stale HTML cached under the old rate-row layout
+  // (before the per-stat window lines) is never replayed to returning users.
+  const histCacheKey = 'insight-hist-v2-' + chartRange;
 
   // Check DB cache
   try {
@@ -2907,7 +2909,7 @@ function setGoalMode(mode, btn) {
   updateUI();
   if (currentUser) {
     api('/cache/set', { key: 'insight-day-' + dateKey(activeDate), value: '', fingerprint: 'invalidated' }).catch(() => {});
-    api('/cache/set', { key: 'insight-hist-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
+    api('/cache/set', { key: 'insight-hist-v2-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
   }
   refreshInsight();
 }
