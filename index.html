@@ -2376,11 +2376,18 @@ Audit today's intake and name the single most useful gap or improvement you can 
     });
     if (data.error) throw new Error(data.error.message);
     const text = (data.content||[]).map(b=>b.text||'').join('').trim().replace(/^["']|["']$/g,'');
+    // The model occasionally returns a response with no usable text — treat that
+    // as a failure instead of caching/displaying a permanently blank insight.
+    if (!text) {
+      const diag = `stop_reason=${data.stop_reason} model=${data.model} content_types=[${(data.content||[]).map(b=>b.type).join(',')}]`;
+      throw new Error('empty insight response: ' + diag);
+    }
     const escaped = esc(text);
     // Store cls and text together
     await api('/cache/set', {key: cacheKey, value: `cls:${cls}|${escaped}`, fingerprint: fp});
     bar.innerHTML = '<span class="insight-label">AI COACH</span>' + escaped;
   } catch(e) {
+    logFailure('ai_coach_insight', 'ai_coach', e.message);
     bar.innerHTML = '<span class="insight-label">AI COACH</span><span style="opacity:.3">—</span>';
   }
 }
