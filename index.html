@@ -1561,7 +1561,7 @@ async function calcWeighed() {
   // data problem) — retry once before bothering the user with an error.
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const data = await api('/', { max_tokens: 200, _type: 'food', system: sysPrompt, messages: [{ role: 'user', content: `${grams} g of ${food}` }] });
+      const data = await api('/', { max_tokens: 200, thinking: { type: 'disabled' }, _type: 'food', system: sysPrompt, messages: [{ role: 'user', content: `${grams} g of ${food}` }] });
       if (data.rate_limited) throw new Error(data.error.message);
       if (data.error) throw new Error(data.error.type === 'overloaded_error' ? 'Claude is busy — try again in a moment.' : (data.error.message || 'Request failed'));
       raw = (data.content || []).map(b => b.text || '').join('').trim();
@@ -1611,7 +1611,7 @@ async function calcCalToWeight() {
   let diag = '';
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const data = await api('/', { max_tokens: 200, _type: 'food', system: sysPrompt, messages: [{ role: 'user', content: `${calories} calories of ${food}` }] });
+      const data = await api('/', { max_tokens: 200, thinking: { type: 'disabled' }, _type: 'food', system: sysPrompt, messages: [{ role: 'user', content: `${calories} calories of ${food}` }] });
       if (data.rate_limited) throw new Error(data.error.message);
       if (data.error) throw new Error(data.error.type === 'overloaded_error' ? 'Claude is busy — try again in a moment.' : (data.error.message || 'Request failed'));
       raw = (data.content || []).map(b => b.text || '').join('').trim();
@@ -1733,7 +1733,7 @@ async function sendFood() {
     }
 
     const _type = pendingImageB64 ? "image" : "food";
-    const data = await api("/", { max_tokens:600, _type, system: sysPrompt, messages });
+    const data = await api("/", { max_tokens:600, thinking: { type: 'disabled' }, _type, system: sysPrompt, messages });
 
     if (data.rate_limited) throw new Error(data.error.message);
     if (data.error) throw new Error(data.error.type === 'overloaded_error' ? "Claude is overloaded right now — try again in a moment." : data.error.message);
@@ -1895,7 +1895,7 @@ Goal mode: ${currentGoalMode}. TDEE: ${TDEE_USER} kcal. Target: ${CAL_T_USER} kc
 
 Answer the user's question specifically and practically, referencing their actual numbers. Keep responses under 3 sentences. Be direct.`;
     const data = await api('/', {
-      max_tokens: 200, _type: 'ai_coach',
+      max_tokens: 200, thinking: { type: 'disabled' }, _type: 'ai_coach',
       system: sysPrompt,
       messages: histChatHistory,
     });
@@ -2370,7 +2370,7 @@ Audit today's intake and name the single most useful gap or improvement you can 
 
   try {
     const data = await api('/', {
-      max_tokens: 160, _type: 'ai_coach',
+      max_tokens: 160, thinking: { type: 'disabled' }, _type: 'ai_coach',
       system: sysPrompt,
       messages: [{role: 'user', content: prompt}],
     });
@@ -2522,7 +2522,7 @@ Write 2-3 encouraging but factual sentences evaluating this progress given their
 
   try {
     const data = await api('/', {
-      max_tokens: 150, _type: 'ai_coach',
+      max_tokens: 150, thinking: { type: 'disabled' }, _type: 'ai_coach',
       messages: [{ role: 'user', content: prompt }],
     });
     if (data.rate_limited) throw new Error(data.error.message);
