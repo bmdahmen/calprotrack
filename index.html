@@ -1556,6 +1556,7 @@ async function calcWeighed() {
   btn.disabled = true; btn.textContent = '…';
   const sysPrompt = `You are a precise nutrition calculator. You are given a food and an exact weight in grams; compute the TOTAL calories and TOTAL protein for that weight from standard nutrition data (scale per-100g values to the given grams). A ratio like "93/7" or "80/20" describes the lean-to-fat percentage of ground meat (e.g. 93% lean, 7% fat) — treat it as a description of the food, never as a fraction to divide. Respond with ONLY a raw JSON object — no prose, no explanation, no markdown, no code fences. Your entire reply must start with { and end with }, in exactly this shape: {"calories":123,"protein":15}. Round both to whole numbers.`;
   let raw = '';
+  let diag = '';
   // A model reply can occasionally get cut short mid-JSON (transient, not a
   // data problem) — retry once before bothering the user with an error.
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -1564,6 +1565,9 @@ async function calcWeighed() {
       if (data.rate_limited) throw new Error(data.error.message);
       if (data.error) throw new Error(data.error.type === 'overloaded_error' ? 'Claude is busy — try again in a moment.' : (data.error.message || 'Request failed'));
       raw = (data.content || []).map(b => b.text || '').join('').trim();
+      // When there's no text to show, at least capture why (stop reason, model,
+      // content shape) so an empty-response run can be diagnosed after the fact.
+      diag = `stop_reason=${data.stop_reason} model=${data.model} content_types=[${(data.content||[]).map(b=>b.type).join(',')}]`;
       // Robust extraction: pull the JSON object out of anything the model wrapped
       // around it, and surface what it actually said if that fails.
       const j = raw.indexOf('{'), k = raw.lastIndexOf('}');
@@ -1581,7 +1585,7 @@ async function calcWeighed() {
     } catch (e) {
       if (attempt === 0) continue;
       toast('Error: ' + e.message);
-      logFailure('weigh_calculate', 'food', e.message, raw);
+      logFailure('weigh_calculate', 'food', e.message, raw || diag);
     }
   }
   btn.disabled = false; btn.textContent = 'Calc';
@@ -1604,12 +1608,14 @@ async function calcCalToWeight() {
   dismissCalToWeight();
   const sysPrompt = `You are a precise nutrition calculator. You are given a food and a target calorie amount; compute the WEIGHT in grams of that food needed to reach approximately that many calories, using standard nutrition data (scale per-100g values). Also compute the total protein for that weight, and a short everyday household measure (e.g. "about 1 cup", "about 2 medium"). Respond with ONLY a raw JSON object — no prose, no explanation, no markdown, no code fences. Your entire reply must start with { and end with }, in exactly this shape: {"grams":143,"protein":15,"measure":"about 1 cup"}. Round grams and protein to whole numbers.`;
   let raw = '';
+  let diag = '';
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const data = await api('/', { max_tokens: 200, _type: 'food', system: sysPrompt, messages: [{ role: 'user', content: `${calories} calories of ${food}` }] });
       if (data.rate_limited) throw new Error(data.error.message);
       if (data.error) throw new Error(data.error.type === 'overloaded_error' ? 'Claude is busy — try again in a moment.' : (data.error.message || 'Request failed'));
       raw = (data.content || []).map(b => b.text || '').join('').trim();
+      diag = `stop_reason=${data.stop_reason} model=${data.model} content_types=[${(data.content||[]).map(b=>b.type).join(',')}]`;
       const j = raw.indexOf('{'), k = raw.lastIndexOf('}');
       let parsed = null;
       if (j >= 0 && k > j) { try { parsed = JSON.parse(raw.substring(j, k + 1)); } catch (_) {} }
@@ -1626,7 +1632,7 @@ async function calcCalToWeight() {
     } catch (e) {
       if (attempt === 0) continue;
       toast('Error: ' + e.message);
-      logFailure('cal_to_weight', 'food', e.message, raw);
+      logFailure('cal_to_weight', 'food', e.message, raw || diag);
     }
   }
   btn.disabled = false; btn.textContent = 'Calc';
@@ -2356,7 +2362,7 @@ async function refreshInsight() {
   else if (cal > TDEE && mode === 'bulk') goalContext = 'They are in a surplus which is good for their bulk goal — encourage them positively.';
   else if (calRemaining < 200 && mode === 'bulk') goalContext = 'They are close to their calorie target but bulking requires more — encourage them to eat more.';
 
-  const sysPrompt = `You are a registered-dietitian-style nutrition coach. You look past calories and protein to overall diet quality: dietary fiber, healthy vs saturated/processed fats, vegetable and fruit intake, micronutrient variety (iron, calcium, potassium, omega-3s, etc.), whole vs ultra-processed foods, added sugar, and how protein is spread across the day. You reason from the SPECIFIC foods the user logged — you audit what they actually ate. Never give obvious filler like "eat more protein" or "you have calories left" unless that is genuinely the single most important thing right now; prefer the most useful non-obvious observation their food list reveals.`;
+  const sysPrompt = `You are a registered-dietitian-style nutrition coach. You look past calories and protein to overall diet quality: dietary fiber, healthy vs saturated/processed fats, vegetable and fruit intake, micronutrient variety (iron, calcium, potassium, omega-3s, etc.), whole vs ultra-processed foods, added sugar, and how protein is spread across the day. You reason from the SPECIFIC foods the user logged — you audit what they actually ate. Foods are logged as separate entries even when they're the same category (e.g. broccoli, carrots, and lettuce each logged separately are all "vegetables") — before stating any total quantity (grams of veg, servings of fruit, etc.), add up every matching entry in the food list; never quote a single entry's amount as if it were the day's total. Never give obvious filler like "eat more protein" or "you have calories left" unless that is genuinely the single most important thing right now; prefer the most useful non-obvious observation their food list reveals.`;
 
   const prompt = `It is ${hStr} (${mealContext}). The user is ${modeDesc}. Foods eaten so far today: ${foodList}. Totals: ${cal} kcal, ${pro}g protein. Goal: ${CAL_TARGET} kcal and ${PRO_T}g protein minimum. TDEE (maintenance): ${TDEE} kcal. Calories remaining to goal: ${calRemaining} kcal. Protein remaining: ${proRemaining}g. ${goalContext}
 
