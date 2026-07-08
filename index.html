@@ -2482,11 +2482,13 @@ async function refreshHistInsight() {
 
   // Estimated body fat % vs. DEXA baseline, if one is set
   const bodyComp = estimateBodyComp(lastW.weightAM);
+  const bodyCompStart = estimateBodyComp(firstW.weightAM);
+  const bfStartPct = bodyCompStart && bodyCompStart.bfPctNow != null ? bodyCompStart.bfPctNow : (bodyComp && bodyComp.dexa.bfPct);
   const bfBlock = bodyComp && bodyComp.bfPctNow != null ? `
     <div class="hist-rate-block">
       <div class="hist-rate-num ${bodyComp.deltaWeight < 0 ? 'loss' : bodyComp.deltaWeight > 0 ? 'gain' : 'neutral'}">${bodyComp.bfPctNow.toFixed(1)}%</div>
       <div class="hist-rate-lbl">EST. BODY FAT</div>
-      <div class="hist-rate-window">${bodyComp.dexa.bfPct}% → ${bodyComp.bfPctNow.toFixed(1)}% BF (DEXA)</div>
+      <div class="hist-rate-window">${bfStartPct.toFixed(1)}% → ${bodyComp.bfPctNow.toFixed(1)}% BF</div>
     </div>` : '';
 
   rateRow.innerHTML = `
