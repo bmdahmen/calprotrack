@@ -2484,10 +2484,12 @@ async function refreshHistInsight() {
   const bodyComp = estimateBodyComp(lastW.weightAM);
   const bodyCompStart = estimateBodyComp(firstW.weightAM);
   const bfStartPct = bodyCompStart && bodyCompStart.bfPctNow != null ? bodyCompStart.bfPctNow : (bodyComp && bodyComp.dexa.bfPct);
+  const bfChangePerWeek = bodyComp && bodyComp.bfPctNow != null ? ((bodyComp.bfPctNow - bfStartPct) / daySpanW) * 7 : null;
+  const bfStr = bfChangePerWeek != null ? (bfChangePerWeek > 0 ? '+' : '') + bfChangePerWeek.toFixed(2) : '';
   const bfBlock = bodyComp && bodyComp.bfPctNow != null ? `
     <div class="hist-rate-block">
-      <div class="hist-rate-num ${bodyComp.deltaWeight < 0 ? 'loss' : bodyComp.deltaWeight > 0 ? 'gain' : 'neutral'}">${bodyComp.bfPctNow.toFixed(1)}%</div>
-      <div class="hist-rate-lbl">EST. BODY FAT</div>
+      <div class="hist-rate-num ${bfChangePerWeek < -0.05 ? 'loss' : bfChangePerWeek > 0.05 ? 'gain' : 'neutral'}">${bfStr}%</div>
+      <div class="hist-rate-lbl">BODY FAT %/WEEK</div>
       <div class="hist-rate-window">${bfStartPct.toFixed(1)}% → ${bodyComp.bfPctNow.toFixed(1)}% BF</div>
     </div>` : '';
 
