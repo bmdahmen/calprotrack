@@ -2350,10 +2350,15 @@ async function refreshInsight() {
   // connection, chaining these one-await-at-a-time is what left the bar
   // stuck on the spinner. Each is independently caught so one failing
   // doesn't block reading the other.
-  const [cached, pending] = await Promise.all([
+  let [cached, pending] = await Promise.all([
     api('/cache/get', {key: cacheKey}).catch(() => null),
     api('/cache/get', {key: pendingKey}).catch(() => null),
   ]);
+  // Other code paths (TDEE/goal-mode changes) explicitly blank this row —
+  // value:'', fingerprint:'invalidated' — to force a refresh. Treat that as
+  // "nothing cached" everywhere below; otherwise showCached() renders the
+  // empty value verbatim, i.e. the coach bar goes blank.
+  if (cached && !cached.value) cached = null;
   const now = Date.now();
   const cachedAgeMs = cached ? now - new Date(cached.updated_at).getTime() : Infinity;
 
@@ -2494,7 +2499,9 @@ async function refreshHistInsight() {
   const DAY_MS = 24 * 60 * 60 * 1000;
   try {
     const cached = await api('/cache/get', {key: histCacheKey});
-    if (cached && (Date.now() - new Date(cached.updated_at).getTime()) < DAY_MS) {
+    // A blank value means something explicitly invalidated this row (e.g. a
+    // goal-mode change) — never reuse that, or the coach renders empty.
+    if (cached && cached.value && (Date.now() - new Date(cached.updated_at).getTime()) < DAY_MS) {
       const parts = cached.value.split('||');
       rateRow.innerHTML = parts[0] || '';
       bar.innerHTML = '<span class="insight-label">AI COACH</span>' + (parts[1] || '');
