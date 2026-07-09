@@ -2334,8 +2334,14 @@ async function refreshInsight() {
   };
 
   const HOUR_MS = 60 * 60 * 1000, FOUR_HOURS_MS = 4 * HOUR_MS, FIFTEEN_MIN_MS = 15 * 60 * 1000;
-  let cached = null;
-  try { cached = await api('/cache/get', {key: cacheKey}); } catch(e) {}
+  // Fetch both cache rows in parallel (not sequentially) — on a slow
+  // connection, chaining these one-await-at-a-time is what left the bar
+  // stuck on the spinner. Each is independently caught so one failing
+  // doesn't block reading the other.
+  const [cached, pending] = await Promise.all([
+    api('/cache/get', {key: cacheKey}).catch(() => null),
+    api('/cache/get', {key: pendingKey}).catch(() => null),
+  ]);
   const now = Date.now();
   const cachedAgeMs = cached ? now - new Date(cached.updated_at).getTime() : Infinity;
 
@@ -2348,10 +2354,9 @@ async function refreshInsight() {
   } else {
     // Food changed — debounce. Don't call the model until 15 minutes after
     // the FIRST edit in this burst, and never call it more than once/hour.
-    let pending = null;
-    try { pending = await api('/cache/get', {key: pendingKey}); } catch(e) {}
     if (!pending || !pending.value) {
-      try { await api('/cache/set', {key: pendingKey, value: String(now), fingerprint: fp}); } catch(e) {}
+      // Best-effort marker write — don't block rendering on it.
+      api('/cache/set', {key: pendingKey, value: String(now), fingerprint: fp}).catch(() => {});
       if (cached) showCached(cached); else showPendingPlaceholder();
       return;
     }
@@ -2418,11 +2423,11 @@ Audit today's intake and name the single most useful gap or improvement you can 
       throw new Error('empty insight response: ' + diag);
     }
     const escaped = esc(text);
-    // Store cls and text together
-    await api('/cache/set', {key: cacheKey, value: `cls:${cls}|${escaped}`, fingerprint: fp});
-    // Clear the debounce marker so the next food edit starts a fresh clock.
-    try { await api('/cache/set', {key: pendingKey, value: '', fingerprint: ''}); } catch(e) {}
+    // Render immediately — persisting the cache row and clearing the
+    // debounce marker don't need to block the UI on two more round-trips.
     bar.innerHTML = '<span class="insight-label">AI COACH</span>' + escaped;
+    api('/cache/set', {key: cacheKey, value: `cls:${cls}|${escaped}`, fingerprint: fp}).catch(() => {});
+    api('/cache/set', {key: pendingKey, value: '', fingerprint: ''}).catch(() => {});
   } catch(e) {
     logFailure('ai_coach_insight', 'ai_coach', e.message);
     bar.innerHTML = '<span class="insight-label">AI COACH</span><span style="opacity:.3">—</span>';
