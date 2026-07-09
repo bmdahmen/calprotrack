@@ -2,25 +2,32 @@ const GOOGLE_CLIENT_ID = '156334413688-usb68f1fldmrhic94mn925l75hnk82pk.apps.goo
 
 // Default models, used only if the corresponding env var isn't set.
 // To roll to new models with no code change/redeploy, set these in your
-// Cloudflare Worker environment instead: MODEL_OPUS, MODEL_SONNET.
+// Cloudflare Worker environment instead: MODEL_OPUS, MODEL_SONNET, MODEL_HAIKU.
 const DEFAULT_MODELS = {
   opus: 'claude-opus-4-8',
   sonnet: 'claude-sonnet-5',
+  haiku: 'claude-haiku-4-5',
 };
 
 function getModels(env) {
   return {
     opus: env.MODEL_OPUS || DEFAULT_MODELS.opus,
     sonnet: env.MODEL_SONNET || DEFAULT_MODELS.sonnet,
+    haiku: env.MODEL_HAIKU || DEFAULT_MODELS.haiku,
   };
 }
 
+// Trial (started 2026-07-09): lead text-only calls with Haiku to see if it's
+// good enough for the coach/food-estimator tone and JSON accuracy, falling
+// back to Sonnet/Opus on failure. Food photo ID stays on Sonnet/Opus —
+// misidentifying a meal corrupts logged calories, a worse failure mode than
+// duller coaching text. Revert by swapping haiku back out of these two lines.
 function buildModelCascade(env) {
   const m = getModels(env);
   return {
     image: [m.opus, m.sonnet],
-    food: [m.sonnet, m.opus],
-    ai_coach: [m.sonnet, m.opus],
+    food: [m.haiku, m.sonnet, m.opus],
+    ai_coach: [m.haiku, m.sonnet, m.opus],
     default: [m.sonnet, m.opus],
   };
 }
@@ -211,6 +218,7 @@ export default {
       }
 
       // Model cascade per request type — worker picks model, not client
+      const availableModels = getModels(env);
       const modelCascade = buildModelCascade(env);
       const models = modelCascade[_type] || modelCascade.default;
 
@@ -239,6 +247,11 @@ export default {
       let lastResult = null;
       for (let mi = 0; mi < models.length; mi++) {
         aiBody.model = models[mi];
+        // Haiku 4.5 has no adaptive-thinking default to override, and may not
+        // accept an explicit thinking.type — omit rather than risk a 400 that
+        // (unlike overload errors) skips the rest of the cascade below.
+        if (aiBody.model === availableModels.haiku) delete aiBody.thinking;
+        else if (body.thinking) aiBody.thinking = body.thinking;
         let delay = 500;
         for (let attempt = 0; attempt < 3; attempt++) {
           const res = await fetch('https://api.anthropic.com/v1/messages', {
