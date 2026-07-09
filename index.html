@@ -898,16 +898,28 @@ async function api(path, body) {
     headers['Authorization'] = `Bearer ${sessionToken}`;
     body = { ...body, session_token: sessionToken };
   }
+  // fetch() has no built-in timeout — on a weak/stalled connection it can
+  // hang indefinitely, which previously left callers (e.g. the AI coach)
+  // spinning forever with no error to catch. AI endpoints get a longer
+  // budget since the worker itself retries across models with backoff.
+  const isAiCall = path === '/' || path === '/ai';
+  const timeoutMs = isAiCall ? 45000 : 15000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res;
   try {
     res = await fetch(WORKER + path, {
       method: "POST",
       headers,
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch (e) {
-    logFailure(path, body?._type, 'network error: ' + e.message);
+    const msg = e.name === 'AbortError' ? `request timed out after ${timeoutMs/1000}s` : 'network error: ' + e.message;
+    logFailure(path, body?._type, msg);
     throw e;
+  } finally {
+    clearTimeout(timer);
   }
   let parseFailed = false;
   const data = await res.json().catch(() => { parseFailed = true; return {}; });
