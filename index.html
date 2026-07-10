@@ -2345,9 +2345,6 @@ async function refreshInsight() {
     const txt = c.value.includes('|') ? c.value.split('|').slice(1).join('|') : c.value;
     bar.innerHTML = '<span class="insight-label">AI COACH</span>' + txt;
   };
-  const showPendingPlaceholder = () => {
-    bar.innerHTML = '<span class="insight-label">AI COACH</span><span style="opacity:.4">Logged — insight updates in a few minutes</span>';
-  };
 
   const FIVE_MIN_MS = 5 * 60 * 1000, FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
   // Re-evaluating now, so any timer from an earlier call is stale — drop it
@@ -2375,28 +2372,32 @@ async function refreshInsight() {
     // hours even if the hour-of-day (and thus meal context) has moved on.
     if (cachedAgeMs < FOUR_HOURS_MS) { showCached(cached); return; }
     // Stale but unchanged — fall through and regenerate below.
-  } else {
-    // Food changed — wait for 5 quiet minutes since the LAST edit. The
-    // pending marker stores the fingerprint it was written for; a newer
-    // edit (fingerprint no longer matches) resets the clock by rewriting
-    // it. A timer re-invokes this function once the quiet period should
-    // have elapsed, so the coach updates on its own with no further action.
+  } else if (cached) {
+    // A real response already exists but food changed since — wait for 5
+    // quiet minutes since the LAST edit, always showing that prior response
+    // in the meantime (never a placeholder). The pending marker stores the
+    // fingerprint it was written for; a newer edit (fingerprint no longer
+    // matches) resets the clock by rewriting it. A timer re-invokes this
+    // function once the quiet period should have elapsed, so the coach
+    // updates on its own with no further action needed.
     if (!pending || !pending.value || pending.fingerprint !== fp) {
-      // Best-effort marker write — don't block rendering on it.
       api('/cache/set', {key: pendingKey, value: String(now), fingerprint: fp}).catch(() => {});
       insightRetryTimer = setTimeout(refreshInsight, FIVE_MIN_MS + 250);
-      if (cached) showCached(cached); else showPendingPlaceholder();
+      showCached(cached);
       return;
     }
     const lastEditMs = parseInt(pending.value, 10) || now;
     const sinceLastEdit = now - lastEditMs;
     if (sinceLastEdit < FIVE_MIN_MS) {
       insightRetryTimer = setTimeout(refreshInsight, FIVE_MIN_MS - sinceLastEdit + 250);
-      if (cached) showCached(cached); else showPendingPlaceholder();
+      showCached(cached);
       return;
     }
     // Quiet period elapsed — regenerate below.
   }
+  // else: no real response exists yet today (cached is null) — nothing to
+  // show while debouncing, so the very first edit generates immediately
+  // rather than sitting behind a placeholder.
 
   // Determine color class
   const TDEE = TDEE_USER || 2100;
