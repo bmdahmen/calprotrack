@@ -863,6 +863,9 @@ const SEED_HISTORY = [
 // ── State ──────────────────────────────────────────────────────────────────
 let activeDate = new Date(); // the day being viewed
 let meals = [];
+// Timer that auto-retriggers the day AI coach once the post-edit quiet
+// period elapses, so it updates on its own without another user action.
+let insightRetryTimer = null;
 let editId = null;
 let historyData = [];
 let datesWithData = new Set();
@@ -2330,8 +2333,9 @@ async function refreshInsight() {
   // the time-based throttle below, not by crossing an hour boundary.
   const fp = `${cal}:${pro}:${currentGoalMode}:${CAL_T_USER}:${PRO_T_TODAY}:${foodSig}`;
   const cacheKey = 'insight-day-' + dateKey(activeDate);
-  // Tracks when the food list first changed since the last real generation,
-  // so a burst of meal edits only starts one 15-minute debounce clock.
+  // Tracks the timestamp + fingerprint of the most recent food edit since
+  // the last real generation, so the coach waits for 5 quiet minutes after
+  // the LAST edit rather than a fixed delay from the first one.
   const pendingKey = 'insight-pending-' + dateKey(activeDate);
 
   bar.innerHTML = '<span class="insight-label">AI COACH</span><span class="insight-spin"></span>';
@@ -2345,7 +2349,11 @@ async function refreshInsight() {
     bar.innerHTML = '<span class="insight-label">AI COACH</span><span style="opacity:.4">Logged — insight updates in a few minutes</span>';
   };
 
-  const HOUR_MS = 60 * 60 * 1000, FOUR_HOURS_MS = 4 * HOUR_MS, FIFTEEN_MIN_MS = 15 * 60 * 1000;
+  const FIVE_MIN_MS = 5 * 60 * 1000, FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+  // Re-evaluating now, so any timer from an earlier call is stale — drop it
+  // to avoid a duplicate auto-retrigger stacking on top of this one.
+  if (insightRetryTimer) { clearTimeout(insightRetryTimer); insightRetryTimer = null; }
+
   // Fetch both cache rows in parallel (not sequentially) — on a slow
   // connection, chaining these one-await-at-a-time is what left the bar
   // stuck on the spinner. Each is independently caught so one failing
@@ -2368,21 +2376,26 @@ async function refreshInsight() {
     if (cachedAgeMs < FOUR_HOURS_MS) { showCached(cached); return; }
     // Stale but unchanged — fall through and regenerate below.
   } else {
-    // Food changed — debounce. Don't call the model until 15 minutes after
-    // the FIRST edit in this burst.
-    if (!pending || !pending.value) {
+    // Food changed — wait for 5 quiet minutes since the LAST edit. The
+    // pending marker stores the fingerprint it was written for; a newer
+    // edit (fingerprint no longer matches) resets the clock by rewriting
+    // it. A timer re-invokes this function once the quiet period should
+    // have elapsed, so the coach updates on its own with no further action.
+    if (!pending || !pending.value || pending.fingerprint !== fp) {
       // Best-effort marker write — don't block rendering on it.
       api('/cache/set', {key: pendingKey, value: String(now), fingerprint: fp}).catch(() => {});
+      insightRetryTimer = setTimeout(refreshInsight, FIVE_MIN_MS + 250);
       if (cached) showCached(cached); else showPendingPlaceholder();
       return;
     }
-    const dirtySinceMs = parseInt(pending.value, 10) || now;
-    const sinceDirty = now - dirtySinceMs;
-    if (sinceDirty < FIFTEEN_MIN_MS) {
+    const lastEditMs = parseInt(pending.value, 10) || now;
+    const sinceLastEdit = now - lastEditMs;
+    if (sinceLastEdit < FIVE_MIN_MS) {
+      insightRetryTimer = setTimeout(refreshInsight, FIVE_MIN_MS - sinceLastEdit + 250);
       if (cached) showCached(cached); else showPendingPlaceholder();
       return;
     }
-    // Debounce elapsed — regenerate below.
+    // Quiet period elapsed — regenerate below.
   }
 
   // Determine color class
