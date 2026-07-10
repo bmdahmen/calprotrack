@@ -2086,7 +2086,10 @@ function drawChart() {
     ...(chartSeriesOn.waistNavel ? waists : []),
     ...(chartSeriesOn.waistAvg ? waistAvgPts.map(p=>p.value) : []),
   ];
-  const ticks = 4;
+  // 5 (not 4) gives niceAxis one more grid line to work with, which measurably
+  // tightens the fit for typical weight/waist/body-fat ranges — e.g. a 3.75in
+  // waist range no longer rounds up to a 6in axis just to land on a step of 2.
+  const ticks = 5;
   const wAxis = weightExtremes.length ? niceAxis(Math.min(...weightExtremes), Math.max(...weightExtremes), ticks) : { min: 0, max: 10, decimals: 0 };
   const vAxis = waistExtremes.length ? niceAxis(Math.min(...waistExtremes), Math.max(...waistExtremes), ticks) : { min: 0, max: 10, decimals: 1 };
   const wMin = wAxis.min, wMax = wAxis.max;
