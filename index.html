@@ -2366,11 +2366,10 @@ async function refreshInsight() {
     // Food unchanged since the last generation — safe to reuse for up to 4
     // hours even if the hour-of-day (and thus meal context) has moved on.
     if (cachedAgeMs < FOUR_HOURS_MS) { showCached(cached); return; }
-    // Stale but unchanged — fall through and regenerate below. 4h elapsed
-    // already satisfies the 1-hour floor, so no further check needed.
+    // Stale but unchanged — fall through and regenerate below.
   } else {
     // Food changed — debounce. Don't call the model until 15 minutes after
-    // the FIRST edit in this burst, and never call it more than once/hour.
+    // the FIRST edit in this burst.
     if (!pending || !pending.value) {
       // Best-effort marker write — don't block rendering on it.
       api('/cache/set', {key: pendingKey, value: String(now), fingerprint: fp}).catch(() => {});
@@ -2379,12 +2378,11 @@ async function refreshInsight() {
     }
     const dirtySinceMs = parseInt(pending.value, 10) || now;
     const sinceDirty = now - dirtySinceMs;
-    const sinceLastGen = cached ? cachedAgeMs : Infinity;
-    if (sinceDirty < FIFTEEN_MIN_MS || sinceLastGen < HOUR_MS) {
+    if (sinceDirty < FIFTEEN_MIN_MS) {
       if (cached) showCached(cached); else showPendingPlaceholder();
       return;
     }
-    // Debounce elapsed and the hourly floor is satisfied — regenerate below.
+    // Debounce elapsed — regenerate below.
   }
 
   // Determine color class
