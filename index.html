@@ -1962,50 +1962,28 @@ function movingAverage(entries, windowDays) {
   });
 }
 
-// Picks axis bounds split into exactly `tickCount` equal, round-numbered
-// (1/2/5 × a power of ten) steps, so each gridline's label is the exact
-// value it's drawn at — instead of dividing the raw data range into
-// `tickCount` equal parts and rounding each label independently, which
-// drifts the printed number away from the gridline's true position whenever
-// the range isn't a clean multiple of it.
-//
-// Searches increasing step sizes (rather than deriving one step directly
-// from the raw range) because a step picked from the raw range and then
-// floor-aligned to a multiple of itself can undershoot the actual data max —
-// flooring the min down "eats into" the span available to reach the max, so
-// the naive one-shot calculation could clip real data points off the chart.
-// How many decimal places are needed to show `step` exactly (e.g. 2.5 -> 1,
-// 5 -> 0). Generic over any step value, not just powers of ten.
-function decimalsForStep(step) {
-  let s = step, d = 0;
-  while (d < 8 && Math.abs(Math.round(s) - s) > 1e-6) { s *= 10; d++; }
-  return d;
-}
-
+// Picks axis bounds that tightly wrap whatever data is actually passed in —
+// deliberately NOT snapped to round-number step multiples. Snapping to nice
+// steps (the previous approach) meant the axis size depended on where the
+// data happened to fall relative to a fixed {1,2,2.5,5}×10^n grid: a range
+// that just missed fitting one step jumped to the next candidate, which
+// could leave 60%+ of the chart empty for no reason related to the data
+// itself. Since callers already recompute dataMin/dataMax from only the
+// currently-toggled series, a fixed proportional buffer (8% of the range on
+// each side) means the axis always resizes in lockstep with the selection —
+// deselecting a series never leaves stale headroom sized for data that's no
+// longer shown.
 function niceAxis(dataMin, dataMax, tickCount) {
   const rawRange = Math.max(dataMax - dataMin, 1e-9);
-  let exponent = Math.floor(Math.log10(rawRange / tickCount));
-  for (let pass = 0; pass < 20; pass++) {
-    // 1.5/2.5/3/4 fill the gaps between 1/2/5 — without them, a data range that
-    // just misses fitting one step jumps to the next {1,2,5} candidate, which
-    // can double or triple the axis span for no reason. The buffer (scaled to
-    // the candidate step, not the raw data range) requires each candidate to
-    // leave a little headroom rather than accepting an exact edge-to-edge fit,
-    // so the data never sits flush on the top/bottom gridline.
-    for (const f of [1, 1.5, 2, 2.5, 3, 4, 5]) {
-      const step = f * Math.pow(10, exponent);
-      const buffer = step * 0.1;
-      const min = Math.floor((dataMin - buffer) / step) * step;
-      const max = min + step * tickCount;
-      if (max >= dataMax + buffer - 1e-9) {
-        return { min, max, step, decimals: decimalsForStep(step) };
-      }
-    }
-    exponent++;
-  }
-  // Unreachable in practice — fail safe with a span that at least covers the data.
-  const step = rawRange / tickCount;
-  return { min: dataMin, max: dataMin + step * tickCount, step, decimals: 2 };
+  // Degenerate/near-flat series (e.g. a single data point): 8% of a ~zero
+  // range is still ~zero, so fall back to a small buffer scaled off the
+  // value itself instead of drawing the line as a single hairline.
+  const buffer = rawRange > 0.05 ? rawRange * 0.08 : Math.max(Math.abs(dataMax || dataMin || 1) * 0.01, 0.05);
+  const min = dataMin - buffer;
+  const max = dataMax + buffer;
+  const step = (max - min) / tickCount;
+  const decimals = step >= 10 ? 0 : step >= 1 ? 1 : 2;
+  return { min, max, step, decimals };
 }
 
 let chartPoints = []; // global so click handler can use them
@@ -2086,10 +2064,7 @@ function drawChart() {
     ...(chartSeriesOn.waistNavel ? waists : []),
     ...(chartSeriesOn.waistAvg ? waistAvgPts.map(p=>p.value) : []),
   ];
-  // 5 (not 4) gives niceAxis one more grid line to work with, which measurably
-  // tightens the fit for typical weight/waist/body-fat ranges — e.g. a 3.75in
-  // waist range no longer rounds up to a 6in axis just to land on a step of 2.
-  const ticks = 5;
+  const ticks = 4;
   const wAxis = weightExtremes.length ? niceAxis(Math.min(...weightExtremes), Math.max(...weightExtremes), ticks) : { min: 0, max: 10, decimals: 0 };
   const vAxis = waistExtremes.length ? niceAxis(Math.min(...waistExtremes), Math.max(...waistExtremes), ticks) : { min: 0, max: 10, decimals: 1 };
   const wMin = wAxis.min, wMax = wAxis.max;
