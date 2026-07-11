@@ -522,7 +522,6 @@
         <span class="logo-sub"></span>
       </div>
     <div class="stats-row" id="stats-row"></div>
-    <div class="insight-bar deficit-deep" id="insight-bar"><span class="insight-label">AI COACH</span><span class="insight-spin"></span></div>
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <div class="tabs">
         <button class="tab-btn on" onclick="showTab('day',this)">Day</button>
@@ -631,7 +630,6 @@
         <div class="prog-bar"><div class="prog-fill" id="pro-fill" style="width:0%;background:#a78bfa"></div></div>
       </div>
 
-      <div class="sec">Weigh &amp; Calculate</div>
       <div class="food-entry">
         <div class="food-entry-head"><span>Weigh &amp; Calculate</span><span class="fe-hint ai">→ AI computes cals + protein</span></div>
         <div class="fe-row">
@@ -641,8 +639,7 @@
         </div>
       </div>
 
-      <div class="sec" style="margin-top:20px">Calories → Weight</div>
-      <div class="food-entry">
+      <div class="food-entry" style="margin-top:12px">
         <div class="food-entry-head"><span>Calories → Weight</span><span class="fe-hint ai">→ AI estimates the weight</span></div>
         <div class="fe-row">
           <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="cw-cal" inputmode="numeric" step="1" min="0" placeholder="100" onkeydown="if(event.key==='Enter')calcCalToWeight()"><span>kc</span></div></div>
@@ -658,8 +655,7 @@
         </div>
       </div>
 
-      <div class="sec" style="margin-top:20px">Known Values</div>
-      <div class="food-entry">
+      <div class="food-entry" style="margin-top:12px">
         <div class="food-entry-head"><span>Known Values</span><span class="fe-hint noai">→ logged as-is, no AI</span></div>
         <div class="fe-row">
           <div class="fe-col grow"><label class="field-lbl">Description</label><input type="text" id="kv-desc" maxlength="120" placeholder="yogurt, mango granola, whey" onkeydown="if(event.key==='Enter')addKnown()"></div>
@@ -732,6 +728,8 @@
 
       <div class="sec" style="margin-top:22px">Meals</div>
       <div class="meal-box" id="meal-list"></div>
+
+      <div class="insight-bar deficit-deep" id="insight-bar" style="margin-top:20px;border-radius:8px;border-top:none;"><span class="insight-label">AI COACH</span><span class="insight-spin"></span></div>
     </div>
 
     <!-- HISTORY -->
@@ -2174,8 +2172,7 @@ function showTab(name, btn) {
   if (chart) chart.style.display = (name === 'day' || name === 'history') ? 'block' : 'none';
   if (name==="history") { renderHistory(); setTimeout(() => { drawChart(); refreshHistInsight(); }, 50); histChatOpen=false; histChatHistory=[]; const w=document.getElementById('hist-chat-wrap'); if(w)w.classList.remove('open'); const t=document.getElementById('hist-coach-toggle'); if(t)t.textContent='+ Ask AI Coach a question'; }
   if (name==="profile") loadProfilePane();
-  if (name==="day") refreshInsight();
-  if (name==="foodlog") renderFoodLog();
+  if (name==="foodlog") { renderFoodLog(); refreshInsight(); }
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
