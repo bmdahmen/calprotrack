@@ -2841,17 +2841,26 @@ Audit today's intake and name the single most useful gap or improvement you can 
 
 
 // ── History AI Insight ─────────────────────────────────────────────────────
+// Guards against out-of-order async completion: switching the chart range
+// fires a new refresh before the previous one's network round-trip (cache
+// lookup or AI call) has resolved. Without this sequence check, an older
+// call for a different range can resolve last and overwrite the rate row
+// with stale numbers/caption for a range that isn't even selected anymore.
+let histInsightSeq = 0;
+
 async function refreshHistInsight() {
+  const seq = ++histInsightSeq;
   const bar = document.getElementById('hist-insight-bar');
   const rateRow = document.getElementById('hist-rate-row');
   if (!bar || !rateRow) return;
+  const range = chartRange; // capture now — chartRange can change while we await below
 
   bar.innerHTML = '<span class="insight-label">AI COACH</span><span class="insight-spin"></span>';
   rateRow.innerHTML = '';
 
   // Filter history to chart range
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - chartRange);
+  cutoff.setDate(cutoff.getDate() - range);
 
   const isOwner = currentUser && currentUser.email === 'bmdahmen@gmail.com';
   const seedData = isOwner ? SEED_HISTORY : [];
@@ -2870,7 +2879,7 @@ async function refreshHistInsight() {
   // Fingerprint: range + first/last weight + first/last waist + DEXA baseline
   const dexaFP = JSON.stringify(getDexaBaseline());
   const histFP = [
-    chartRange,
+    range,
     weightPts.length ? weightPts[0].date + weightPts[0].weightAM : '',
     weightPts.length ? weightPts[weightPts.length-1].date + weightPts[weightPts.length-1].weightAM : '',
     waistPts.length ? waistPts[0].waistNavel : '',
@@ -2880,13 +2889,14 @@ async function refreshHistInsight() {
   ].join(':');
   // v2: bump the key so stale HTML cached under the old rate-row layout
   // (before the per-stat window lines) is never replayed to returning users.
-  const histCacheKey = 'insight-hist-v2-' + chartRange;
+  const histCacheKey = 'insight-hist-v2-' + range;
 
   // Check DB cache — capped to one real generation per 24h regardless of
   // whether the underlying data changed (weight/waist entries, DEXA, etc.).
   const DAY_MS = 24 * 60 * 60 * 1000;
   try {
     const cached = await api('/cache/get', {key: histCacheKey});
+    if (seq !== histInsightSeq) return; // a newer refresh has since started — drop this stale result
     // A blank value means something explicitly invalidated this row (e.g. a
     // goal-mode change) — never reuse that, or the coach renders empty.
     if (cached && cached.value && (Date.now() - new Date(cached.updated_at).getTime()) < DAY_MS) {
@@ -2896,6 +2906,7 @@ async function refreshHistInsight() {
       return;
     }
   } catch(e) {}
+  if (seq !== histInsightSeq) return;
 
   if (weightPts.length < 2) {
     bar.innerHTML = '<span class="insight-label">AI COACH</span>Not enough data in this range to evaluate trends.';
@@ -2945,7 +2956,7 @@ async function refreshHistInsight() {
     </div>` : '';
 
   rateRow.innerHTML = `
-    <div class="hist-rate-caption">${chartRange}D WINDOW</div>
+    <div class="hist-rate-caption">${range}D WINDOW</div>
     <div class="hist-rate-blocks">
       <div class="hist-rate-block">
         <div class="hist-rate-num ${wClass}">${wStr}</div>
@@ -2968,7 +2979,7 @@ async function refreshHistInsight() {
     ? 'The user is trying to maintain their current weight. Stable weight is the goal.'
     : 'The user is trying to lose fat (caloric deficit). Weight loss is the goal.';
 
-  const prompt = `Over the last ${chartRange} days:
+  const prompt = `Over the last ${range} days:
 - Weight went from ${firstW.weightAM} lbs to ${lastW.weightAM} lbs (${weightChangeLbs > 0 ? '+' : ''}${weightChangeLbs.toFixed(1)} lbs, ${wStr} lbs/week).
 ${waistSummary ? '- ' + waistSummary : '- No waist data available.'}
 - ${goalCtx}
@@ -2984,9 +2995,11 @@ Write 2-3 encouraging but factual sentences evaluating this progress given their
     if (data.error) throw new Error(data.error.message);
     const text = (data.content||[]).map(b=>b.text||'').join('').trim();
     const escaped = esc(text);
+    if (seq !== histInsightSeq) return; // a newer refresh has since started — drop this stale result
     await api('/cache/set', {key: histCacheKey, value: rateRow.innerHTML + '||' + escaped, fingerprint: histFP});
     bar.innerHTML = '<span class="insight-label">AI COACH</span>' + escaped;
   } catch(e) {
+    if (seq !== histInsightSeq) return;
     bar.innerHTML = '<span class="insight-label">AI COACH</span><span style="opacity:.4">—</span>';
   }
 }
