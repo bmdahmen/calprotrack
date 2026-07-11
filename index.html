@@ -688,22 +688,24 @@
         </div>
       </div>
 
-      <div class="sec" style="margin-top:22px">Food Items</div>
-      <button type="button" class="fe-est-link" id="fi-form-toggle" aria-expanded="false" onclick="toggleCollapse('fi-form-toggle','fi-form-body')"><span class="chev">▶</span> Add a new food item</button>
-      <div class="fe-est-body" id="fi-form-body">
-        <div class="food-entry">
-          <div class="food-entry-head"><span>Add Food Item</span><span class="fe-hint noai">→ reusable, quick-add in multiples</span></div>
-          <div class="fe-row">
-            <div class="fe-col grow"><label class="field-lbl">Name</label><input type="text" id="fi-name" maxlength="80" placeholder="Mango (40cal serving)" onkeydown="if(event.key==='Enter')addFoodItem()"></div>
-          </div>
-          <div class="fe-row" style="margin-top:8px">
-            <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="fi-cal" inputmode="numeric" step="1" min="0" placeholder="40" onkeydown="if(event.key==='Enter')addFoodItem()"><span>kc</span></div></div>
-            <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="fi-pro" inputmode="numeric" step="1" min="0" placeholder="1" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
-            <button class="fe-go grow" id="fi-btn" onclick="addFoodItem()">Add Item</button>
+      <button type="button" class="fe-est-link" id="fooditems-toggle" aria-expanded="false" onclick="toggleFoodItemsSection()" style="margin-top:22px"><span class="chev">▶</span> <span id="fooditems-toggle-label">Food Items</span></button>
+      <div class="fe-est-body" id="fooditems-body">
+        <button type="button" class="fe-est-link" id="fi-form-toggle" aria-expanded="false" onclick="toggleCollapse('fi-form-toggle','fi-form-body')"><span class="chev">▶</span> Add a new food item</button>
+        <div class="fe-est-body" id="fi-form-body">
+          <div class="food-entry">
+            <div class="food-entry-head"><span>Add Food Item</span><span class="fe-hint noai">→ reusable, quick-add in multiples</span></div>
+            <div class="fe-row">
+              <div class="fe-col grow"><label class="field-lbl">Name</label><input type="text" id="fi-name" maxlength="80" placeholder="Mango (40cal serving)" onkeydown="if(event.key==='Enter')addFoodItem()"></div>
+            </div>
+            <div class="fe-row" style="margin-top:8px">
+              <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="fi-cal" inputmode="numeric" step="1" min="0" placeholder="40" onkeydown="if(event.key==='Enter')addFoodItem()"><span>kc</span></div></div>
+              <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="fi-pro" inputmode="numeric" step="1" min="0" placeholder="1" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
+              <button class="fe-go grow" id="fi-btn" onclick="addFoodItem()">Add Item</button>
+            </div>
           </div>
         </div>
+        <div class="meal-box" id="fooditem-list" style="margin-top:10px"></div>
       </div>
-      <div class="meal-box" id="fooditem-list" style="margin-top:10px"></div>
 
       <button type="button" class="fe-est-link" id="presets-toggle" aria-expanded="false" onclick="togglePresetsSection()" style="margin-top:18px"><span class="chev">▶</span> <span id="presets-toggle-label">Presets</span></button>
       <div class="fe-est-body" id="presets-body">
@@ -1360,6 +1362,8 @@ function renderFoodLog() {
 // -- Reusable food items --
 
 function renderFoodItems() {
+  const label = document.getElementById('fooditems-toggle-label');
+  if (label) label.textContent = foodItems.length ? `Food Items (${foodItems.length})` : 'Food Items';
   const box = document.getElementById('fooditem-list');
   if (!box) return;
   if (!foodItems.length) { box.innerHTML = '<div class="no-meals">No food items yet — add one below</div>'; return; }
@@ -2011,6 +2015,10 @@ function toggleCollapse(linkId, bodyId) {
 
 function togglePresetsSection() {
   toggleCollapse('presets-toggle', 'presets-body');
+}
+
+function toggleFoodItemsSection() {
+  toggleCollapse('fooditems-toggle', 'fooditems-body');
 }
 
 let pendingSuggestion = null; // holds parsed AI suggestion before saving
