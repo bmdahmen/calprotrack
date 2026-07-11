@@ -2887,9 +2887,11 @@ async function refreshHistInsight() {
     currentGoalMode || 'deficit',
     dexaFP,
   ].join(':');
-  // v2: bump the key so stale HTML cached under the old rate-row layout
-  // (before the per-stat window lines) is never replayed to returning users.
-  const histCacheKey = 'insight-hist-v2-' + range;
+  // v3: bump the key again — a race in refreshHistInsight (fixed above) could
+  // cache one range's rate-row HTML under a different range's key, so any
+  // v2 entry may hold another window's numbers under the wrong caption.
+  // Bumping orphans those poisoned entries instead of replaying them forever.
+  const histCacheKey = 'insight-hist-v3-' + range;
 
   // Check DB cache — capped to one real generation per 24h regardless of
   // whether the underlying data changed (weight/waist entries, DEXA, etc.).
@@ -3389,7 +3391,7 @@ function setGoalMode(mode, btn) {
   updateUI();
   if (currentUser) {
     api('/cache/set', { key: 'insight-day-' + dateKey(activeDate), value: '', fingerprint: 'invalidated' }).catch(() => {});
-    api('/cache/set', { key: 'insight-hist-v2-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
+    api('/cache/set', { key: 'insight-hist-v3-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
   }
   refreshInsight();
 }
