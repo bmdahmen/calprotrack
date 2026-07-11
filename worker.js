@@ -191,6 +191,8 @@ export default {
       await env.DB.prepare("UPDATE measurements SET user_id=? WHERE user_id='default'").bind(user_id).run();
       await env.DB.prepare("UPDATE history SET user_id=? WHERE user_id='default'").bind(user_id).run();
       await env.DB.prepare("UPDATE cache SET user_id=? WHERE user_id='default'").bind(user_id).run();
+      await env.DB.prepare("UPDATE food_items SET user_id=? WHERE user_id='default'").bind(user_id).run();
+      await env.DB.prepare("UPDATE presets SET user_id=? WHERE user_id='default'").bind(user_id).run();
       return json({ ok: true });
     }
 
@@ -313,6 +315,44 @@ export default {
       const user_id = resolveUser(body.user_id);
       if (!user_id) return authError();
       const { results } = await env.DB.prepare('SELECT * FROM meals WHERE date=? AND user_id=? ORDER BY rowid').bind(date, user_id).all();
+      return json(results);
+    }
+
+    if (path === '/fooditems/save') {
+      const { food_items } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
+      await env.DB.prepare('DELETE FROM food_items WHERE user_id=?').bind(user_id).run();
+      for (let i = 0; i < food_items.length; i++) {
+        const f = food_items[i];
+        await env.DB.prepare('INSERT INTO food_items (id,user_id,name,cal,pro,sort_order,created_at) VALUES (?,?,?,?,?,?,?)')
+          .bind(String(f.id), user_id, f.name, f.cal, f.pro || 0, i, f.created_at || new Date().toISOString()).run();
+      }
+      return json({ ok: true });
+    }
+    if (path === '/fooditems/load') {
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
+      const { results } = await env.DB.prepare('SELECT * FROM food_items WHERE user_id=? ORDER BY sort_order, rowid').bind(user_id).all();
+      return json(results);
+    }
+
+    if (path === '/presets/save') {
+      const { presets } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
+      await env.DB.prepare('DELETE FROM presets WHERE user_id=?').bind(user_id).run();
+      for (let i = 0; i < presets.length; i++) {
+        const p = presets[i];
+        await env.DB.prepare('INSERT INTO presets (id,user_id,name,items,sort_order,created_at) VALUES (?,?,?,?,?,?)')
+          .bind(String(p.id), user_id, p.name, JSON.stringify(p.items || []), i, p.created_at || new Date().toISOString()).run();
+      }
+      return json({ ok: true });
+    }
+    if (path === '/presets/load') {
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
+      const { results } = await env.DB.prepare('SELECT * FROM presets WHERE user_id=? ORDER BY sort_order, rowid').bind(user_id).all();
       return json(results);
     }
 

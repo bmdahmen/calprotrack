@@ -142,6 +142,17 @@
   body.light .btn-discuss{border-color:#c8c1b8;color:#7a7168;}
   body.light .prof-tdee-display{color:#7a7168;}
   body.light .no-meals{color:#9e9689;}
+  body.light .foodlog-hint{color:#9e9689;}
+  body.light .fe-go-muted{background:#cfc8bf;color:#6e675e;}
+  body.light .qty-btn{background:#d5cec5;border-color:#c0b9b0;color:#4a4540;}
+  body.light .qty-btn:hover{border-color:#c8621a;color:#c8621a;}
+  body.light .qty-val{color:#2c2820;}
+  body.light .fi-log-btn{background:#c8621a;color:#fff;}
+  body.light .chip{background:#d5cec5;border-color:#c0b9b0;color:#4a4540;}
+  body.light .chip-add{background:#d5cec5;border-color:#c0b9b0;color:#4a4540;}
+  body.light .chip-add:hover{border-color:#c8621a;color:#c8621a;}
+  body.light .preset-card{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .preset-name{color:#2c2820;}
   body.light .hist-insight-bar{background:#dbd4ca;border-color:#c8c1b8;}
   body.light .history-row{border-bottom-color:#c8c1b8;color:#4a4540;}
   body.light .toast{background:#2c2820;color:#e8e2d9;}
@@ -293,6 +304,29 @@
   .edit-wrap input{padding:5px 8px;font-size:12px;}
   .save-btn{background:#f97316;border:none;color:#000;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
   .cancel-btn{background:none;border:1px solid #444;color:#aaa;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
+
+  /* Food Log: presets + reusable quick-add items */
+  .foodlog-hint{font-family:'DM Mono',monospace;font-size:10px;color:#666;letter-spacing:.03em;margin-bottom:10px;}
+  .fe-go-muted{background:#1a1a1a;color:#888;}
+  .fe-go-muted:hover{background:#222;}
+  .qty-stepper{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .qty-btn{background:#1a1a1a;border:1px solid #2a2a2a;color:#ccc;width:22px;height:22px;border-radius:5px;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;}
+  .qty-btn:hover{border-color:#f97316;color:#f97316;}
+  .qty-val{font-family:'DM Mono',monospace;font-size:12px;color:#eee;min-width:14px;text-align:center;}
+  .fi-log-btn{background:#f97316;border:none;color:#000;padding:6px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0;}
+  .fi-log-btn:hover{background:#fb923c;}
+  .chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:#1a1a1a;border:1px solid #2a2a2a;color:#ccc;border-radius:20px;padding:4px 10px;font-family:'DM Mono',monospace;font-size:10px;}
+  .chip-add{background:#161616;border:1px solid #2a2a2a;color:#ccc;border-radius:20px;padding:5px 12px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;transition:all .15s;}
+  .chip-add:hover{border-color:#f97316;color:#f97316;}
+  .chip-x{background:none;border:none;color:#666;cursor:pointer;font-size:10px;padding:0;line-height:1;}
+  .chip-x:hover{color:#f87171;}
+  .preset-card{background:#111;border:1px solid #2a2a2a;border-radius:9px;padding:12px 14px;margin-bottom:10px;}
+  .preset-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+  .preset-name{font-size:13px;color:#eee;font-weight:600;}
+  .preset-totals{font-family:'DM Mono',monospace;font-size:10px;white-space:nowrap;}
+  .preset-actions{display:flex;align-items:center;gap:6px;margin-top:8px;}
+  .preset-actions .fe-go{height:30px;padding:6px 12px;font-size:10px;}
 
   .meas-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
   .primary-btn{background:#f97316;border:none;color:#000;padding:10px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;width:100%;letter-spacing:.06em;transition:background .15s;margin-bottom:18px;}
@@ -502,6 +536,7 @@
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <div class="tabs">
         <button class="tab-btn on" onclick="showTab('day',this)">Day</button>
+        <button class="tab-btn" onclick="showTab('foodlog',this)">Food Log</button>
         <button class="tab-btn" onclick="showTab('history',this)">History</button>
       </div>
       <button class="avatar-btn" id="avatar-btn" onclick="showTab('profile',null)" title="Profile">
@@ -691,6 +726,44 @@
         <canvas id="trend-chart" height="240" onclick="handleChartClick(event)" onmouseleave="closeChartTooltip()" style="cursor:crosshair"></canvas>
       </div>
     </div>
+    <!-- FOOD LOG -->
+    <div id="pane-foodlog" class="pane">
+      <div class="foodlog-hint" id="foodlog-day-hint"></div>
+
+      <div class="sec">Presets</div>
+      <div id="preset-list"></div>
+      <button type="button" class="show-more-btn" id="preset-builder-toggle" onclick="togglePresetBuilder()" style="margin-bottom:16px">+ New Preset</button>
+
+      <div class="food-entry" id="preset-builder" style="display:none">
+        <div class="food-entry-head"><span id="preset-builder-title">New Preset</span></div>
+        <div class="fe-row">
+          <div class="fe-col grow"><label class="field-lbl">Preset Name</label><input type="text" id="pb-name" maxlength="80" placeholder="Yogurt Bowl"></div>
+        </div>
+        <div class="field-lbl" style="margin-top:10px">Tap a food item to add it (tap again to add another)</div>
+        <div class="chip-row" id="pb-item-picker"></div>
+        <div class="field-lbl" style="margin-top:10px">In this preset</div>
+        <div class="chip-row" id="pb-items"><span class="no-meals" style="padding:0">Nothing added yet</span></div>
+        <div class="fe-row" style="margin-top:12px">
+          <button class="fe-go grow" onclick="savePresetBuilder()">Save Preset</button>
+          <button class="fe-go grow fe-go-muted" onclick="cancelPresetBuilder()">Cancel</button>
+        </div>
+      </div>
+
+      <div class="sec" style="margin-top:20px">Food Items</div>
+      <div class="food-entry">
+        <div class="food-entry-head"><span>Add Food Item</span><span class="fe-hint noai">→ reusable, quick-add in multiples</span></div>
+        <div class="fe-row">
+          <div class="fe-col grow"><label class="field-lbl">Name</label><input type="text" id="fi-name" maxlength="80" placeholder="Mango (40cal serving)" onkeydown="if(event.key==='Enter')addFoodItem()"></div>
+        </div>
+        <div class="fe-row" style="margin-top:8px">
+          <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="fi-cal" inputmode="numeric" step="1" min="0" placeholder="40" onkeydown="if(event.key==='Enter')addFoodItem()"><span>kc</span></div></div>
+          <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="fi-pro" inputmode="numeric" step="1" min="0" placeholder="1" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
+          <button class="fe-go grow" id="fi-btn" onclick="addFoodItem()">Add Item</button>
+        </div>
+      </div>
+      <div class="meal-box" id="fooditem-list"></div>
+    </div>
+
     <!-- HISTORY -->
     <div id="pane-history" class="pane">
       <div class="hist-insight-wrap">
@@ -871,6 +944,12 @@ let historyData = [];
 let datesWithData = new Set();
 let calViewDate = new Date();
 let saveMeasTimer = null;
+let foodItems = [];        // reusable quick-add line items {id,name,cal,pro}
+let presets = [];          // {id,name,items:[{food_item_id,name,cal,pro,qty}]}
+let foodItemQty = {};      // per-item stepper qty, keyed by food item id
+let editFoodItemId = null;
+let presetBuilderItems = [];
+let presetBuilderEditId = null; // preset id being edited, or null for "new"
 
 // ── Date helpers ───────────────────────────────────────────────────────────
 function dateKey(d) {
@@ -889,7 +968,7 @@ async function api(path, body) {
   // Auto-inject user_id for data endpoints. The worker ignores this whenever
   // a session token is presented — it's the compatibility fallback for the
   // rollout window and costs nothing to keep sending.
-  const dataEndpoints = ['/meals/', '/meas/', '/history/', '/cache/'];
+  const dataEndpoints = ['/meals/', '/meas/', '/history/', '/cache/', '/fooditems/', '/presets/'];
   if (currentUser && dataEndpoints.some(e => path.startsWith(e))) {
     body = { ...body, user_id: currentUser.id };
   }
@@ -1289,6 +1368,274 @@ async function delMeal(id) {
   updateUI();
   refreshInsight();
   autoSaveDay();
+}
+
+// ── Food Log (reusable quick-add items + presets) ───────────────────────────
+function newLocalId() { return Date.now() + '-' + Math.random().toString(36).slice(2, 8); }
+
+function safeParseItems(raw) {
+  try { const v = JSON.parse(raw || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
+
+async function loadFoodLog() {
+  try {
+    const [fi, pr] = await Promise.all([
+      api('/fooditems/load', {}),
+      api('/presets/load', {}),
+    ]);
+    foodItems = Array.isArray(fi) ? fi : [];
+    presets = (Array.isArray(pr) ? pr : []).map(p => ({ ...p, items: safeParseItems(p.items) }));
+  } catch (e) {
+    foodItems = []; presets = [];
+  }
+}
+
+async function saveFoodItems() { await api('/fooditems/save', { food_items: foodItems }); }
+async function savePresetsToServer() { await api('/presets/save', { presets }); }
+
+function activeDayShortLabel() {
+  const lbl = document.getElementById('day-label');
+  return lbl ? lbl.textContent : '';
+}
+
+function renderFoodLog() {
+  const hint = document.getElementById('foodlog-day-hint');
+  if (hint) hint.textContent = 'Adding to: ' + activeDayShortLabel();
+  renderPresets();
+  renderFoodItems();
+  if (document.getElementById('preset-builder').style.display !== 'none') renderPresetBuilderPicker();
+}
+
+// -- Reusable food items --
+
+function renderFoodItems() {
+  const box = document.getElementById('fooditem-list');
+  if (!box) return;
+  if (!foodItems.length) { box.innerHTML = '<div class="no-meals">No food items yet — add one below</div>'; return; }
+  box.innerHTML = foodItems.map(f => {
+    if (editFoodItemId == f.id) {
+      return `
+      <div class="meal-row fade" id="fi-row-${f.id}">
+        <div class="edit-wrap">
+          <input type="text" id="efi-n-${f.id}" value="${esc(f.name)}" style="flex:2;min-width:100px;padding:5px 8px;font-size:12px">
+          <input type="number" id="efi-c-${f.id}" value="${f.cal}" placeholder="kcal" style="width:68px;padding:5px 8px;font-size:12px">
+          <input type="number" id="efi-p-${f.id}" value="${f.pro||0}" placeholder="g" style="width:55px;padding:5px 8px;font-size:12px">
+          <button class="save-btn" onclick="saveEditFoodItem('${f.id}')">SAVE</button>
+          <button class="cancel-btn" onclick="editFoodItemId=null;renderFoodItems()">✕</button>
+        </div>
+      </div>`;
+    }
+    const qty = foodItemQty[f.id] || 1;
+    return `
+    <div class="meal-row fade" id="fi-row-${f.id}">
+      <div style="flex:1">
+        <div class="meal-desc">${esc(f.name)}</div>
+        <div class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span></div>
+      </div>
+      <div class="qty-stepper">
+        <button type="button" class="qty-btn" onclick="bumpFoodItemQty('${f.id}',-1)">－</button>
+        <span class="qty-val" id="fi-qty-${f.id}">${qty}</span>
+        <button type="button" class="qty-btn" onclick="bumpFoodItemQty('${f.id}',1)">＋</button>
+      </div>
+      <button type="button" class="fi-log-btn" onclick="logFoodItem('${f.id}')">+ Log</button>
+      <button class="icon-btn ed" onclick="startEditFoodItem('${f.id}')" title="Edit">✎</button>
+      <button class="icon-btn" onclick="deleteFoodItem('${f.id}')" title="Delete">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function bumpFoodItemQty(id, delta) {
+  const cur = foodItemQty[id] || 1;
+  const next = Math.max(1, Math.min(20, cur + delta));
+  foodItemQty[id] = next;
+  const el = document.getElementById('fi-qty-' + id);
+  if (el) el.textContent = next;
+}
+
+async function addFoodItem() {
+  const nameEl = document.getElementById('fi-name');
+  const calEl = document.getElementById('fi-cal');
+  const proEl = document.getElementById('fi-pro');
+  const name = nameEl.value.trim();
+  const cal = parseInt(calEl.value);
+  const pro = parseInt(proEl.value) || 0;
+  if (!name) { nameEl.focus(); return; }
+  if (!cal || cal <= 0) { calEl.focus(); return; }
+  foodItems.push({ id: newLocalId(), name, cal, pro, created_at: new Date().toISOString() });
+  await saveFoodItems();
+  nameEl.value = ''; calEl.value = ''; proEl.value = ''; nameEl.focus();
+  renderFoodItems();
+  renderPresetBuilderPicker();
+  toast('Food item added ✓');
+}
+
+function startEditFoodItem(id) { editFoodItemId = id; renderFoodItems(); }
+
+async function saveEditFoodItem(id) {
+  const name = document.getElementById(`efi-n-${id}`).value.trim();
+  const cal = parseInt(document.getElementById(`efi-c-${id}`).value) || 0;
+  const pro = parseInt(document.getElementById(`efi-p-${id}`).value) || 0;
+  if (!name || cal <= 0) return;
+  foodItems = foodItems.map(f => f.id == id ? { ...f, name, cal, pro } : f);
+  editFoodItemId = null;
+  await saveFoodItems();
+  renderFoodItems();
+  renderPresetBuilderPicker();
+  toast('Updated ✓');
+}
+
+async function deleteFoodItem(id) {
+  foodItems = foodItems.filter(f => f.id != id);
+  delete foodItemQty[id];
+  await saveFoodItems();
+  renderFoodItems();
+  renderPresetBuilderPicker();
+}
+
+async function logFoodItem(id) {
+  const item = foodItems.find(f => f.id == id);
+  if (!item) return;
+  const qty = foodItemQty[id] || 1;
+  const cal = Math.round(item.cal * qty);
+  const pro = Math.round((item.pro||0) * qty);
+  const desc = qty > 1 ? `${item.name} ×${qty}` : item.name;
+  await logMeal(desc, cal, pro);
+  foodItemQty[id] = 1;
+  const el = document.getElementById('fi-qty-' + id);
+  if (el) el.textContent = 1;
+  toast(`Logged: ${cal} kcal · ${pro}g protein`);
+}
+
+// -- Presets --
+
+function renderPresets() {
+  const box = document.getElementById('preset-list');
+  if (!box) return;
+  if (!presets.length) { box.innerHTML = '<div class="no-meals">No presets yet — build one below</div>'; return; }
+  const dayLbl = activeDayShortLabel();
+  box.innerHTML = presets.map(p => {
+    const totalCal = p.items.reduce((s,it)=>s+Math.round(it.cal*it.qty),0);
+    const totalPro = p.items.reduce((s,it)=>s+Math.round((it.pro||0)*it.qty),0);
+    const chips = p.items.map(it => `<span class="chip">${esc(it.name)}${it.qty>1?' ×'+it.qty:''}</span>`).join('');
+    return `
+    <div class="preset-card fade" id="preset-${p.id}">
+      <div class="preset-card-top">
+        <div class="preset-name">${esc(p.name)}</div>
+        <div class="preset-totals"><span class="kc">${totalCal} kcal</span> · <span class="pr">${totalPro}g prot</span></div>
+      </div>
+      <div class="chip-row">${chips}</div>
+      <div class="preset-actions">
+        <button class="fe-go" onclick="logPreset('${p.id}')">▶ Log to ${esc(dayLbl)}</button>
+        <button class="icon-btn ed" onclick="openPresetBuilder('${p.id}')" title="Edit">✎</button>
+        <button class="icon-btn" onclick="deletePreset('${p.id}')" title="Delete">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togglePresetBuilder() {
+  const isOpen = document.getElementById('preset-builder').style.display !== 'none';
+  if (isOpen) cancelPresetBuilder(); else openPresetBuilder(null);
+}
+
+function openPresetBuilder(id) {
+  presetBuilderEditId = id;
+  const p = id ? presets.find(p => p.id == id) : null;
+  presetBuilderItems = p ? p.items.map(it => ({...it})) : [];
+  document.getElementById('pb-name').value = p ? p.name : '';
+  document.getElementById('preset-builder-title').textContent = p ? 'Edit Preset' : 'New Preset';
+  document.getElementById('preset-builder').style.display = '';
+  document.getElementById('preset-builder-toggle').style.display = 'none';
+  renderPresetBuilderItems();
+  renderPresetBuilderPicker();
+}
+
+function cancelPresetBuilder() {
+  presetBuilderEditId = null;
+  presetBuilderItems = [];
+  document.getElementById('preset-builder').style.display = 'none';
+  document.getElementById('preset-builder-toggle').style.display = '';
+}
+
+function renderPresetBuilderPicker() {
+  const box = document.getElementById('pb-item-picker');
+  if (!box) return;
+  if (!foodItems.length) { box.innerHTML = '<div class="no-meals" style="padding:0">Add a food item below first</div>'; return; }
+  box.innerHTML = foodItems.map(f =>
+    `<button type="button" class="chip-add" onclick="addToPresetBuilder('${f.id}')">+ ${esc(f.name)}</button>`
+  ).join('');
+}
+
+function addToPresetBuilder(foodItemId) {
+  const f = foodItems.find(f => f.id == foodItemId);
+  if (!f) return;
+  const existing = presetBuilderItems.find(it => it.food_item_id == foodItemId);
+  if (existing) existing.qty += 1;
+  else presetBuilderItems.push({ food_item_id: f.id, name: f.name, cal: f.cal, pro: f.pro||0, qty: 1 });
+  renderPresetBuilderItems();
+}
+
+function decPresetBuilderItem(idx) {
+  const it = presetBuilderItems[idx];
+  if (!it) return;
+  it.qty -= 1;
+  if (it.qty <= 0) presetBuilderItems.splice(idx, 1);
+  renderPresetBuilderItems();
+}
+
+function removePresetBuilderItem(idx) {
+  presetBuilderItems.splice(idx, 1);
+  renderPresetBuilderItems();
+}
+
+function renderPresetBuilderItems() {
+  const box = document.getElementById('pb-items');
+  if (!box) return;
+  if (!presetBuilderItems.length) { box.innerHTML = '<span class="no-meals" style="padding:0">Nothing added yet</span>'; return; }
+  box.innerHTML = presetBuilderItems.map((it, idx) => `
+    <span class="chip">${esc(it.name)}${it.qty>1?' ×'+it.qty:''}
+      <button type="button" class="chip-x" onclick="decPresetBuilderItem(${idx})" title="Remove one">－</button>
+      <button type="button" class="chip-x" onclick="removePresetBuilderItem(${idx})" title="Remove">✕</button>
+    </span>`).join('');
+}
+
+async function savePresetBuilder() {
+  const nameEl = document.getElementById('pb-name');
+  const name = nameEl.value.trim();
+  if (!name) { nameEl.focus(); return; }
+  if (!presetBuilderItems.length) { toast('Add at least one food item'); return; }
+  if (presetBuilderEditId) {
+    presets = presets.map(p => p.id == presetBuilderEditId ? { ...p, name, items: presetBuilderItems } : p);
+  } else {
+    presets.push({ id: newLocalId(), name, items: presetBuilderItems, created_at: new Date().toISOString() });
+  }
+  await savePresetsToServer();
+  cancelPresetBuilder();
+  renderPresets();
+  toast('Preset saved ✓');
+}
+
+async function deletePreset(id) {
+  presets = presets.filter(p => p.id != id);
+  await savePresetsToServer();
+  renderPresets();
+}
+
+// Logs every line item in the preset as its own meal row (not a single
+// combined row), so a component can still be edited/deleted individually
+// afterwards — e.g. swap the granola out without touching the rest.
+async function logPreset(id) {
+  const p = presets.find(p => p.id == id);
+  if (!p || !p.items.length) return;
+  for (const it of p.items) {
+    const desc = it.qty > 1 ? `${it.name} ×${it.qty}` : it.name;
+    meals.push({ id: newLocalId(), desc, cal: Math.round(it.cal*it.qty), pro: Math.round((it.pro||0)*it.qty), time: timeNow() });
+  }
+  await api('/meals/save', { date: dateKey(activeDate), meals });
+  updateUI();
+  refreshInsight();
+  autoSaveDay();
+  toast(`Logged "${p.name}" ✓`);
 }
 
 // ── Measurements ───────────────────────────────────────────────────────────
@@ -1848,6 +2195,7 @@ function showTab(name, btn) {
   if (name==="history") { renderHistory(); setTimeout(() => { drawChart(); refreshHistInsight(); }, 50); histChatOpen=false; histChatHistory=[]; const w=document.getElementById('hist-chat-wrap'); if(w)w.classList.remove('open'); const t=document.getElementById('hist-coach-toggle'); if(t)t.textContent='+ Ask AI Coach a question'; }
   if (name==="profile") loadProfilePane();
   if (name==="day") refreshInsight();
+  if (name==="foodlog") renderFoodLog();
 }
 
 // ── Toast ──────────────────────────────────────────────────────────────────
@@ -3230,6 +3578,7 @@ function estimateBodyComp(currentWeight) {
 async function boot() {
   await loadHistory();
   await loadDay(new Date());
+  await loadFoodLog();
   drawChart();
   window.addEventListener("resize", drawChart);
   refreshInsight();
