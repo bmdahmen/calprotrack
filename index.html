@@ -524,8 +524,8 @@
     <div class="stats-row" id="stats-row"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;">
       <div class="tabs">
-        <button class="tab-btn on" onclick="showTab('day',this)">Day</button>
-        <button class="tab-btn" onclick="showTab('foodlog',this)">Food Log</button>
+        <button class="tab-btn" onclick="showTab('day',this)">Day</button>
+        <button class="tab-btn on" onclick="showTab('foodlog',this)">Food Log</button>
         <button class="tab-btn" onclick="showTab('history',this)">History</button>
       </div>
       <button class="avatar-btn" id="avatar-btn" onclick="showTab('profile',null)" title="Profile">
@@ -545,7 +545,7 @@
       <button class="today-btn" onclick="goToday()">TODAY</button>
     </div>
 
-    <div id="pane-day" class="pane on">
+    <div id="pane-day" class="pane">
       <div class="sec">Measurements</div>
       <div class="meas-grid">
         <div><label class="field-lbl">Weight AM (lbs)</label><input type="number" inputmode="decimal" id="wt-am" onblur="saveMeas('wt-am')" placeholder="169.4" step="0.1"></div>
@@ -588,7 +588,7 @@
 
 
     <!-- TREND CHART -->
-    <div id="pane-chart" style="display:block;">
+    <div id="pane-chart" style="display:none;">
       <div class="chart-wrap">
         <div class="chart-header">
           <div class="sec" style="margin-bottom:0">TREND</div>
@@ -614,7 +614,7 @@
       </div>
     </div>
     <!-- FOOD LOG -->
-    <div id="pane-foodlog" class="pane">
+    <div id="pane-foodlog" class="pane on">
       <div class="prog-wrap">
         <div class="prog-meta"><span>Calories</span><span class="prog-val" id="cal-txt"></span></div>
         <div class="prog-bar-wrap">
@@ -747,7 +747,7 @@
         </div>
       </div>
       <div class="sec">All Entries <span style="color:#444;font-size:8px;margin-left:8px;">CLICK ROW TO EDIT</span></div>
-      <div style="overflow-x:auto">
+      <div class="no-swipe" style="overflow-x:auto">
         <table class="hist-table">
           <thead><tr>
             <th>Date</th><th>Wt AM</th><th>Wt PM</th><th>Navel</th><th>Waist</th><th>Cals</th><th>Prot</th><th>Chest</th><th>Neck</th><th>Thigh</th><th>Bicep</th><th>Hips</th><th>Rest HR</th><th>BP</th>
@@ -2175,6 +2175,48 @@ function showTab(name, btn) {
   if (name==="foodlog") { renderFoodLog(); refreshInsight(); }
 }
 
+// ── Swipe navigation ─────────────────────────────────────────────────────────
+// Horizontal swipe cycles Day / Food Log / History, in tab-bar order, clamped
+// at each end (no wraparound). Only reacts on touchend, so it never fights
+// with native vertical scrolling or the history table's own horizontal
+// scroll (marked .no-swipe below).
+const SWIPE_TAB_ORDER = ['day', 'foodlog', 'history'];
+let swipeStartX = 0, swipeStartY = 0, swipeTracking = false;
+
+function getTabButton(name) {
+  return document.querySelector(`.tab-btn[onclick*="showTab('${name}'"]`);
+}
+
+function handleSwipeStart(e) {
+  if (e.touches.length !== 1) { swipeTracking = false; return; }
+  const target = e.target;
+  if (!target || typeof target.closest !== 'function' || target.closest('.no-swipe, input, textarea, select, canvas')) { swipeTracking = false; return; }
+  swipeStartX = e.touches[0].clientX;
+  swipeStartY = e.touches[0].clientY;
+  swipeTracking = true;
+}
+
+function handleSwipeEnd(e) {
+  if (!swipeTracking) return;
+  swipeTracking = false;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - swipeStartX;
+  const dy = t.clientY - swipeStartY;
+  const SWIPE_MIN_DIST = 60;
+  if (Math.abs(dx) < SWIPE_MIN_DIST || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+  const activePane = document.querySelector('.pane.on');
+  const current = activePane ? activePane.id.replace('pane-', '') : null;
+  const idx = SWIPE_TAB_ORDER.indexOf(current);
+  if (idx === -1) return; // on Profile or unrecognized — swipe does nothing
+  const nextIdx = dx < 0 ? Math.min(SWIPE_TAB_ORDER.length - 1, idx + 1) : Math.max(0, idx - 1);
+  if (nextIdx === idx) return;
+  const nextName = SWIPE_TAB_ORDER[nextIdx];
+  showTab(nextName, getTabButton(nextName));
+}
+
+document.addEventListener('touchstart', handleSwipeStart, { passive: true });
+document.addEventListener('touchend', handleSwipeEnd, { passive: true });
+
 // ── Toast ──────────────────────────────────────────────────────────────────
 function toast(msg) {
   const t = document.getElementById("toast");
@@ -3556,6 +3598,7 @@ async function boot() {
   await loadHistory();
   await loadDay(new Date());
   await loadFoodLog();
+  renderFoodLog(); // Food Log is the default tab, so paint it without waiting for a tab click
   drawChart();
   window.addEventListener("resize", drawChart);
   refreshInsight();
