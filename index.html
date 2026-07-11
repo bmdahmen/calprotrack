@@ -104,10 +104,6 @@
   body.light .day-act-btn.on{border-color:#c8621a;color:#c8621a;}
   body.light .day-tdee-line{color:#9e9689;}
   body.light .day-tdee-line span{color:#c8621a;}
-  body.light .rem-box{background:#dbd4ca;border-color:#c8c1b8;}
-  body.light #goal-lbl{color:#9e9689;}
-  body.light #rem-cal{color:#c8621a;}
-  body.light #rem-pro{color:#6e5ba0;}
   body.light .prog-wrap{background:transparent;}
   body.light .prog-bar-wrap{background:#cfc8bf;}
   body.light .prog-bar-bg{background:#cfc8bf;}
@@ -326,7 +322,6 @@
   .meas-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
   .primary-btn{background:#f97316;border:none;color:#000;padding:10px;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;width:100%;letter-spacing:.06em;transition:background .15s;margin-bottom:18px;}
   .primary-btn:hover{background:#fb923c;}
-  .rem-box{background:#0d0d0d;border:1px solid #1a1a1a;border-radius:8px;padding:14px;}
 
   /* History table */
   .hist-table{width:100%;border-collapse:collapse;font-family:'DM Mono',monospace;font-size:12px;}
@@ -631,56 +626,10 @@
           <div class="prog-marker-lbl" id="cal-lbl-tdee" style="color:#fbbf24"></div>
         </div>
       </div>
-      <div class="prog-wrap" style="margin-bottom:16px">
+      <div class="prog-wrap" style="margin-bottom:20px">
         <div class="prog-meta"><span>Protein</span><span class="prog-val" id="pro-txt"></span></div>
         <div class="prog-bar"><div class="prog-fill" id="pro-fill" style="width:0%;background:#a78bfa"></div></div>
       </div>
-      <div class="rem-box" style="margin-bottom:20px">
-        <div class="sec" style="margin-bottom:10px">Remaining Today</div>
-        <div style="display:flex;gap:24px;">
-          <div>
-            <div id="goal-lbl" style="font-family:'DM Mono',monospace;font-size:8px;color:#555;letter-spacing:3px;margin-bottom:2px;">DEFICIT TARGET</div>
-            <div id="rem-cal" style="font-size:22px;font-weight:500;color:#f97316;font-family:'DM Mono',monospace;">1800</div>
-          </div>
-          <div>
-            <div style="font-family:'DM Mono',monospace;font-size:8px;color:#383838;letter-spacing:3px;margin-bottom:2px;">PROTEIN</div>
-            <div id="rem-pro" style="font-size:22px;font-weight:500;color:#a78bfa;font-family:'DM Mono',monospace;">120g</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="sec">Presets</div>
-      <div id="preset-list"></div>
-      <button type="button" class="show-more-btn" id="preset-builder-toggle" onclick="togglePresetBuilder()" style="margin-bottom:16px">+ New Preset</button>
-
-      <div class="food-entry" id="preset-builder" style="display:none">
-        <div class="food-entry-head"><span id="preset-builder-title">New Preset</span></div>
-        <div class="fe-row">
-          <div class="fe-col grow"><label class="field-lbl">Preset Name</label><input type="text" id="pb-name" maxlength="80" placeholder="Yogurt Bowl"></div>
-        </div>
-        <div class="field-lbl" style="margin-top:10px">Tap a food item to add it (tap again to add another)</div>
-        <div class="chip-row" id="pb-item-picker"></div>
-        <div class="field-lbl" style="margin-top:10px">In this preset</div>
-        <div class="chip-row" id="pb-items"><span class="no-meals" style="padding:0">Nothing added yet</span></div>
-        <div class="fe-row" style="margin-top:12px">
-          <button class="fe-go grow" onclick="savePresetBuilder()">Save Preset</button>
-          <button class="fe-go grow fe-go-muted" onclick="cancelPresetBuilder()">Cancel</button>
-        </div>
-      </div>
-
-      <div class="sec" style="margin-top:20px">Food Items</div>
-      <div class="food-entry">
-        <div class="food-entry-head"><span>Add Food Item</span><span class="fe-hint noai">→ reusable, quick-add in multiples</span></div>
-        <div class="fe-row">
-          <div class="fe-col grow"><label class="field-lbl">Name</label><input type="text" id="fi-name" maxlength="80" placeholder="Mango (40cal serving)" onkeydown="if(event.key==='Enter')addFoodItem()"></div>
-        </div>
-        <div class="fe-row" style="margin-top:8px">
-          <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="fi-cal" inputmode="numeric" step="1" min="0" placeholder="40" onkeydown="if(event.key==='Enter')addFoodItem()"><span>kc</span></div></div>
-          <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="fi-pro" inputmode="numeric" step="1" min="0" placeholder="1" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
-          <button class="fe-go grow" id="fi-btn" onclick="addFoodItem()">Add Item</button>
-        </div>
-      </div>
-      <div class="meal-box" id="fooditem-list" style="margin-bottom:20px"></div>
 
       <div class="sec">Weigh &amp; Calculate</div>
       <div class="food-entry">
@@ -743,7 +692,45 @@
         </div>
       </div>
 
-      <div class="sec" style="margin-top:20px">Meals</div>
+      <div class="sec" style="margin-top:22px">Food Items</div>
+      <button type="button" class="fe-est-link" id="fi-form-toggle" aria-expanded="false" onclick="toggleCollapse('fi-form-toggle','fi-form-body')"><span class="chev">▶</span> Add a new food item</button>
+      <div class="fe-est-body" id="fi-form-body">
+        <div class="food-entry">
+          <div class="food-entry-head"><span>Add Food Item</span><span class="fe-hint noai">→ reusable, quick-add in multiples</span></div>
+          <div class="fe-row">
+            <div class="fe-col grow"><label class="field-lbl">Name</label><input type="text" id="fi-name" maxlength="80" placeholder="Mango (40cal serving)" onkeydown="if(event.key==='Enter')addFoodItem()"></div>
+          </div>
+          <div class="fe-row" style="margin-top:8px">
+            <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="fi-cal" inputmode="numeric" step="1" min="0" placeholder="40" onkeydown="if(event.key==='Enter')addFoodItem()"><span>kc</span></div></div>
+            <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="fi-pro" inputmode="numeric" step="1" min="0" placeholder="1" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
+            <button class="fe-go grow" id="fi-btn" onclick="addFoodItem()">Add Item</button>
+          </div>
+        </div>
+      </div>
+      <div class="meal-box" id="fooditem-list" style="margin-top:10px"></div>
+
+      <button type="button" class="fe-est-link" id="presets-toggle" aria-expanded="false" onclick="togglePresetsSection()" style="margin-top:18px"><span class="chev">▶</span> <span id="presets-toggle-label">Presets</span></button>
+      <div class="fe-est-body" id="presets-body">
+        <div id="preset-list" style="margin-top:8px"></div>
+        <button type="button" class="show-more-btn" id="preset-builder-toggle" onclick="togglePresetBuilder()" style="margin-bottom:16px">+ New Preset</button>
+
+        <div class="food-entry" id="preset-builder" style="display:none">
+          <div class="food-entry-head"><span id="preset-builder-title">New Preset</span></div>
+          <div class="fe-row">
+            <div class="fe-col grow"><label class="field-lbl">Preset Name</label><input type="text" id="pb-name" maxlength="80" placeholder="Yogurt Bowl"></div>
+          </div>
+          <div class="field-lbl" style="margin-top:10px">Tap a food item to add it (tap again to add another)</div>
+          <div class="chip-row" id="pb-item-picker"></div>
+          <div class="field-lbl" style="margin-top:10px">In this preset</div>
+          <div class="chip-row" id="pb-items"><span class="no-meals" style="padding:0">Nothing added yet</span></div>
+          <div class="fe-row" style="margin-top:12px">
+            <button class="fe-go grow" onclick="savePresetBuilder()">Save Preset</button>
+            <button class="fe-go grow fe-go-muted" onclick="cancelPresetBuilder()">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec" style="margin-top:22px">Meals</div>
       <div class="meal-box" id="meal-list"></div>
     </div>
 
@@ -1255,21 +1242,6 @@ function updateUI() {
   const isLight = document.body.classList.contains('light');
   document.getElementById("pro-fill").style.background = pro>=PRO_T_EFF?(isLight?"#2a7a3a":"#4ade80"):(isLight?"#6040a0":"#a78bfa");
 
-  const remCalEl = document.getElementById("rem-cal");
-  remCalEl.textContent = remCal>0 ? remCal : (mode==='bulk' ? '✓ Surplus!' : '0 ✓');
-  remCalEl.style.color = remCal>0?"#f97316":fillColor;
-  const remProEl = document.getElementById("rem-pro");
-  remProEl.textContent = remPro>0?remPro+"g":"0g ✓";
-  const _isLight = document.body.classList.contains('light');
-  remProEl.style.color = remPro>0?(_isLight?"#6040a0":"#a78bfa"):(_isLight?"#1a6b2a":"#4ade80");
-
-  // Update the static GOAL label under rem-cal
-  const goalLbl = document.getElementById("goal-lbl");
-  if (goalLbl) {
-    const modeLabel = mode === 'bulk' ? 'BULK TARGET' : mode === 'maintain' ? 'MAINTAIN' : 'DEFICIT TARGET';
-    goalLbl.textContent = modeLabel;
-  }
-
   // Header stats — use today's wt-am input first, then latest history entry
   const histWeights = historyData.filter(e=>e.weightAM).sort((a,b)=>a.date>b.date?1:-1);
   const lastW = todayWt0 || (histWeights.length ? histWeights[histWeights.length-1].weightAM : null);
@@ -1491,6 +1463,8 @@ async function logFoodItem(id) {
 // -- Presets --
 
 function renderPresets() {
+  const label = document.getElementById('presets-toggle-label');
+  if (label) label.textContent = presets.length ? `Presets (${presets.length})` : 'Presets';
   const box = document.getElementById('preset-list');
   if (!box) return;
   if (!presets.length) { box.innerHTML = '<div class="no-meals">No presets yet — build one below</div>'; return; }
@@ -2024,6 +1998,21 @@ function toggleEstimate() {
   const open = body.classList.toggle('open');
   link.setAttribute('aria-expanded', open ? 'true' : 'false');
   if (open) document.getElementById('food-input').focus();
+}
+
+// Generic collapse/expand for the less-frequently-used Food Log sections
+// (adding a brand-new food item, the presets section) — keeps them out of
+// the way until wanted, same open/closed mechanics as toggleEstimate above.
+function toggleCollapse(linkId, bodyId) {
+  const link = document.getElementById(linkId);
+  const body = document.getElementById(bodyId);
+  const open = body.classList.toggle('open');
+  link.setAttribute('aria-expanded', open ? 'true' : 'false');
+  return open;
+}
+
+function togglePresetsSection() {
+  toggleCollapse('presets-toggle', 'presets-body');
 }
 
 let pendingSuggestion = null; // holds parsed AI suggestion before saving
