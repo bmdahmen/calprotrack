@@ -599,6 +599,8 @@
               <div class="legend-item off" id="legend-weightAvg" onclick="toggleChartSeries('weightAvg',this)"><div class="legend-dot dashed" style="border-color:#60a5fa"></div>Wt 7D Avg</div>
               <div class="legend-item off" id="legend-waistAvg" onclick="toggleChartSeries('waistAvg',this)"><div class="legend-dot dashed" style="border-color:#34d399"></div>Waist 7D Avg</div>
               <div class="legend-item off" id="legend-bodyFat" onclick="toggleChartSeries('bodyFat',this)"><div class="legend-dot" style="background:#fbbf24"></div>Body Fat %</div>
+              <div class="legend-item off" id="legend-calories" onclick="toggleChartSeries('calories',this)"><div class="legend-dot" style="background:#f97316"></div>Calories</div>
+              <div class="legend-item off" id="legend-protein" onclick="toggleChartSeries('protein',this)"><div class="legend-dot" style="background:#a78bfa"></div>Protein (g)</div>
             </div>
             <div class="chart-range">
               <button class="range-btn" onclick="setRange(7,this)">7D</button>
@@ -2304,8 +2306,9 @@ Answer the user's question specifically and practically, referencing their actua
 // ── Trend Chart ────────────────────────────────────────────────────────────
 let chartRange = 30;
 
-// Which series are currently drawn. Raw weight/waist default on; 7D averages and body fat % default off.
-let chartSeriesOn = { weightAM: true, waistNavel: true, weightAvg: false, waistAvg: false, bodyFat: false };
+// Which series are currently drawn. Raw weight/waist default on; 7D averages, body fat %, and
+// calorie/protein intake default off (they compete for axis space with weight/waist/body fat).
+let chartSeriesOn = { weightAM: true, waistNavel: true, weightAvg: false, waistAvg: false, bodyFat: false, calories: false, protein: false };
 
 function toggleChartSeries(key, el) {
   chartSeriesOn[key] = !chartSeriesOn[key];
@@ -2412,7 +2415,7 @@ function drawChart() {
   // All points with at least some data in range — for X positioning use DATE not index
   const points = Object.values(all)
     .filter(e => { try { const d = new Date(e.date); return d >= cutoff && d <= rangeEnd; } catch(x) { return false; } })
-    .filter(e => e.weightAM || e.waistNavel)
+    .filter(e => e.weightAM || e.waistNavel || e.calories || e.protein)
     .sort((a,b) => new Date(a.date) - new Date(b.date));
 
   chartPoints = points;
@@ -2434,7 +2437,17 @@ function drawChart() {
     : [];
   const bfActive = chartSeriesOn.bodyFat && bfPts.length > 0;
 
-  const PAD_L = bfActive ? 74 : 42, PAD_R = 38, PAD_T = 10, PAD_B = 30;
+  // Daily calorie/protein intake — already raw fields on each point (unlike
+  // bodyFat, which is derived), so no extra computation needed beyond
+  // collecting the ones present in range. Each gets its own axis column,
+  // same stacking pattern as bodyFat.
+  const calPts = points.filter(p => p.calories).map(p => ({ date: p.date, value: p.calories, p }));
+  const proPts = points.filter(p => p.protein).map(p => ({ date: p.date, value: p.protein, p }));
+  const calActive = chartSeriesOn.calories && calPts.length > 0;
+  const proActive = chartSeriesOn.protein && proPts.length > 0;
+
+  const extraAxisCount = [bfActive, calActive, proActive].filter(Boolean).length;
+  const PAD_L = 42 + extraAxisCount * 32, PAD_R = 38, PAD_T = 10, PAD_B = 30;
   const plotW = W - PAD_L - PAD_R;
   const plotH = H - PAD_T - PAD_B;
 
@@ -2476,6 +2489,16 @@ function drawChart() {
   const bfMin = bfAxis.min, bfMax = bfAxis.max;
   const yScaleBF = v => PAD_T + plotH - ((v - bfMin) / (bfMax - bfMin || 1)) * plotH;
 
+  const calVals = calActive ? calPts.map(p => p.value) : [];
+  const calAxis = calVals.length ? niceAxis(Math.min(...calVals), Math.max(...calVals), ticks) : { min: 0, max: 10, decimals: 0 };
+  const calMin = calAxis.min, calMax = calAxis.max;
+  const yScaleCal = v => PAD_T + plotH - ((v - calMin) / (calMax - calMin || 1)) * plotH;
+
+  const proVals = proActive ? proPts.map(p => p.value) : [];
+  const proAxis = proVals.length ? niceAxis(Math.min(...proVals), Math.max(...proVals), ticks) : { min: 0, max: 10, decimals: 0 };
+  const proMin = proAxis.min, proMax = proAxis.max;
+  const yScalePro = v => PAD_T + plotH - ((v - proMin) / (proMax - proMin || 1)) * plotH;
+
   // Grid
   ctx.strokeStyle = isLight ? '#e0d9d0' : '#1a1a1a';
   ctx.lineWidth = 1;
@@ -2486,15 +2509,25 @@ function drawChart() {
 
   // Y axis labels
   const bfColor = isLight ? '#b8860b' : '#fbbf24';
+  const calColor = isLight ? '#c8621a' : '#f97316'; // matches .kc everywhere else in the app
+  const proColor = isLight ? '#6040a0' : '#a78bfa'; // matches .pr everywhere else in the app
   ctx.font = "9px 'DM Mono', monospace";
-  if (bfActive) {
-    ctx.fillStyle = bfColor;
+  // Extra left-stacked axes, innermost (closest to the plot) first — each
+  // active toggle claims its own 32px column, in this fixed order.
+  const extraAxes = [
+    bfActive && { axis: bfAxis, color: bfColor, suffix: '%' },
+    calActive && { axis: calAxis, color: calColor, suffix: '' },
+    proActive && { axis: proAxis, color: proColor, suffix: 'g' },
+  ].filter(Boolean);
+  extraAxes.forEach((ax, idx) => {
+    const colX = PAD_L - 32 * (idx + 1);
+    ctx.fillStyle = ax.color;
     ctx.textAlign = 'right';
     for (let i = 0; i <= ticks; i++) {
-      const v = bfMin + i * bfAxis.step;
-      ctx.fillText(v.toFixed(bfAxis.decimals) + '%', PAD_L - 32, PAD_T + plotH - (i/ticks)*plotH + 3);
+      const v = ax.axis.min + i * ax.axis.step;
+      ctx.fillText(v.toFixed(ax.axis.decimals) + ax.suffix, colX, PAD_T + plotH - (i/ticks)*plotH + 3);
     }
-  }
+  });
   if (weightExtremes.length) {
     ctx.fillStyle = isLight ? '#4a80c8' : '#60a5fa';
     ctx.textAlign = 'right';
@@ -2557,6 +2590,26 @@ function drawChart() {
     });
   }
 
+  // Daily calorie / protein intake lines
+  if (calActive) {
+    const segs = calPts.map(p => ({ x: xByDate(p.date), y: yScaleCal(p.value) }));
+    drawLine(ctx, segs, calColor);
+    calPts.forEach(p => {
+      p.p._sy_cal = yScaleCal(p.value);
+      ctx.beginPath(); ctx.arc(xByDate(p.date), yScaleCal(p.value), 3.5, 0, Math.PI*2);
+      ctx.fillStyle = calColor; ctx.fill();
+    });
+  }
+  if (proActive) {
+    const segs = proPts.map(p => ({ x: xByDate(p.date), y: yScalePro(p.value) }));
+    drawLine(ctx, segs, proColor);
+    proPts.forEach(p => {
+      p.p._sy_pro = yScalePro(p.value);
+      ctx.beginPath(); ctx.arc(xByDate(p.date), yScalePro(p.value), 3.5, 0, Math.PI*2);
+      ctx.fillStyle = proColor; ctx.fill();
+    });
+  }
+
   // Dots with stored screen coords for click detection
   points.forEach(p => {
     p._sx = xByDate(p.date);
@@ -2597,8 +2650,9 @@ function handleChartClick(e) {
   // Find nearest point within 18px
   let best = null, bestDist = 18;
   chartPoints.forEach(p => {
-    const dx = mx - p._sx, dy_w = my - (p._sy_w??9999), dy_v = my - (p._sy_v??9999), dy_bf = my - (p._sy_bf??9999);
-    const d = Math.min(Math.hypot(dx, dy_w), Math.hypot(dx, dy_v), Math.hypot(dx, dy_bf));
+    const dx = mx - p._sx;
+    const dys = [p._sy_w, p._sy_v, p._sy_bf, p._sy_cal, p._sy_pro].map(sy => my - (sy ?? 9999));
+    const d = Math.min(...dys.map(dy => Math.hypot(dx, dy)));
     if (d < bestDist) { bestDist = d; best = p; }
   });
   if (!best) { closeChartTooltip(); return; }
