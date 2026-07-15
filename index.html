@@ -721,8 +721,20 @@
           </div>
           <div class="field-lbl" style="margin-top:10px">Tap a food item to add it (tap again to add another)</div>
           <div class="chip-row" id="pb-item-picker"></div>
-          <div class="field-lbl" style="margin-top:10px">In this preset</div>
-          <div class="chip-row" id="pb-items"><span class="no-meals" style="padding:0">Nothing added yet</span></div>
+          <div class="field-lbl" style="margin-top:10px">Or add a one-off item <span style="opacity:.6">(preset-only — won't be saved to Food Items)</span></div>
+          <div class="fe-row" style="margin-top:6px">
+            <div class="fe-col grow"><label class="field-lbl">Description</label><input type="text" id="pb-adhoc-desc" maxlength="120" placeholder="peanut butter, 2tbsp" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"></div>
+          </div>
+          <div class="fe-row" style="margin-top:8px">
+            <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="pb-adhoc-cal" inputmode="numeric" step="1" min="0" placeholder="190" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"><span>kc</span></div></div>
+            <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="pb-adhoc-pro" inputmode="numeric" step="1" min="0" placeholder="7" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"><span>g</span></div></div>
+            <button class="fe-go grow" id="pb-adhoc-btn" onclick="addAdhocToPresetBuilder()">Add</button>
+          </div>
+          <div class="preset-card-top" style="margin-top:12px;margin-bottom:0">
+            <div class="field-lbl">In this preset</div>
+            <div class="preset-totals" id="pb-totals"><span class="kc">0 kcal</span> · <span class="pr">0g prot</span></div>
+          </div>
+          <div class="chip-row" id="pb-items" style="margin-top:6px"><span class="no-meals" style="padding:0">Nothing added yet</span></div>
           <div class="fe-row" style="margin-top:12px">
             <button class="fe-go grow" onclick="savePresetBuilder()">Save Preset</button>
             <button class="fe-go grow fe-go-muted" onclick="cancelPresetBuilder()">Cancel</button>
@@ -1503,6 +1515,9 @@ function openPresetBuilder(id) {
   const p = id ? presets.find(p => p.id == id) : null;
   presetBuilderItems = p ? p.items.map(it => ({...it})) : [];
   document.getElementById('pb-name').value = p ? p.name : '';
+  document.getElementById('pb-adhoc-desc').value = '';
+  document.getElementById('pb-adhoc-cal').value = '';
+  document.getElementById('pb-adhoc-pro').value = '';
   document.getElementById('preset-builder-title').textContent = p ? 'Edit Preset' : 'New Preset';
   document.getElementById('preset-builder').style.display = '';
   document.getElementById('preset-builder-toggle').style.display = 'none';
@@ -1535,6 +1550,22 @@ function addToPresetBuilder(foodItemId) {
   renderPresetBuilderItems();
 }
 
+// Adds a preset-only line item straight from typed values — never touches
+// the food_items table, so it never shows up in the grab-and-go food list.
+function addAdhocToPresetBuilder() {
+  const descEl = document.getElementById('pb-adhoc-desc');
+  const calEl = document.getElementById('pb-adhoc-cal');
+  const proEl = document.getElementById('pb-adhoc-pro');
+  const name = descEl.value.trim();
+  const cal = parseInt(calEl.value);
+  const pro = parseInt(proEl.value) || 0;
+  if (!name) { descEl.focus(); return; }
+  if (!cal || cal <= 0) { calEl.focus(); return; }
+  presetBuilderItems.push({ food_item_id: null, name, cal, pro, qty: 1 });
+  descEl.value = ''; calEl.value = ''; proEl.value = ''; descEl.focus();
+  renderPresetBuilderItems();
+}
+
 function decPresetBuilderItem(idx) {
   const it = presetBuilderItems[idx];
   if (!it) return;
@@ -1550,6 +1581,12 @@ function removePresetBuilderItem(idx) {
 
 function renderPresetBuilderItems() {
   const box = document.getElementById('pb-items');
+  const totalsEl = document.getElementById('pb-totals');
+  if (totalsEl) {
+    const totalCal = presetBuilderItems.reduce((s,it)=>s+Math.round(it.cal*it.qty),0);
+    const totalPro = presetBuilderItems.reduce((s,it)=>s+Math.round((it.pro||0)*it.qty),0);
+    totalsEl.innerHTML = `<span class="kc">${totalCal} kcal</span> · <span class="pr">${totalPro}g prot</span>`;
+  }
   if (!box) return;
   if (!presetBuilderItems.length) { box.innerHTML = '<span class="no-meals" style="padding:0">Nothing added yet</span>'; return; }
   box.innerHTML = presetBuilderItems.map((it, idx) => `
