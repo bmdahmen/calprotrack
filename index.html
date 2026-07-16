@@ -785,17 +785,23 @@
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;" id="aggr-desc"></div>
         </div>
 
+        <div style="margin-top:10px">
+          <label class="field-lbl">Calorie Target Override</label>
+          <input type="number" id="prof-cal-override" placeholder="Auto — leave blank to use the calculation above" step="1" min="0" oninput="scheduleProfileSave()">
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;" id="cal-override-desc"></div>
+        </div>
 
         <div style="margin-top:14px;font-family:'DM Mono',monospace;font-size:10px;color:#555;line-height:1.8;">
           Estimated TDEE: <span id="prof-tdee-display" style="color:#f97316">—</span><br>
-          <span style="font-size:9px;color:#333">Mifflin-St Jeor · updates automatically</span>
+          <span style="font-size:9px;color:#333" id="prof-tdee-source">Mifflin-St Jeor · updates automatically</span>
         </div>
 
         <div class="sec" style="margin-top:18px;margin-bottom:10px">Body Composition (DEXA)</div>
         <div class="settings-grid">
           <div><label class="field-lbl">Scan Date</label><input type="date" id="prof-dexa-date" oninput="scheduleDexaSave()"></div>
           <div><label class="field-lbl">Scan Weight (lbs)</label><input type="number" id="prof-dexa-weight" placeholder="160" step="0.1" oninput="scheduleDexaSave()"></div>
-          <div style="grid-column:span 2"><label class="field-lbl">Scan Body Fat %</label><input type="number" id="prof-dexa-bf" placeholder="15" step="0.1" min="0" max="80" oninput="scheduleDexaSave()"></div>
+          <div><label class="field-lbl">Scan Body Fat %</label><input type="number" id="prof-dexa-bf" placeholder="15" step="0.1" min="0" max="80" oninput="scheduleDexaSave()"></div>
+          <div><label class="field-lbl">RMR (kcal/day)</label><input type="number" id="prof-rmr" placeholder="1650" step="1" min="0" oninput="scheduleProfileSave()"></div>
         </div>
         <div style="margin-top:10px" id="muscle-split-section">
           <label class="field-lbl">Assumed Muscle Share of Weight Change (Deficit)</label>
@@ -3227,7 +3233,9 @@ function updateAggrDesc() {
     const target = goalCalTargetFull(tdee, mode, currentAggressiveness || 'moderate');
     const pct = Math.round((cfg.mult - 1) * 100);
     const pctStr = pct === 0 ? 'maintenance' : (pct > 0 ? `+${pct}%` : `${pct}%`);
-    el.innerHTML = cfg ? `${cfg.label}<br><span style="color:#f97316;font-size:10px;">→ ${target} kcal/day (${pctStr} of ${tdee} TDEE)</span>` : '';
+    const overrideRaw = parseFloat(document.getElementById('prof-cal-override')?.value);
+    const overridden = !isNaN(overrideRaw) && overrideRaw > 0;
+    el.innerHTML = cfg ? `${cfg.label}<br><span style="color:#f97316;font-size:10px;">→ ${target} kcal/day (${pctStr} of ${tdee} TDEE)${overridden ? ' <span style="opacity:.5">— overridden below</span>' : ''}</span>` : '';
   }
   const section = document.getElementById('aggr-section');
   if (section) section.style.display = mode === 'maintain' ? 'none' : 'block';
@@ -3319,7 +3327,8 @@ function loginSuccess(user) {
   if (user.tdee) TDEE_USER = user.tdee;
   if (user.goal_mode) currentGoalMode = user.goal_mode;
   if (user.aggressiveness) currentAggressiveness = user.aggressiveness;
-  if (user.tdee && user.goal_mode) CAL_T_USER = goalCalTarget(user.tdee, user.goal_mode);
+  if (user.cal_target_override) CAL_T_USER = user.cal_target_override;
+  else if (user.tdee && user.goal_mode) CAL_T_USER = goalCalTarget(user.tdee, user.goal_mode);
   else if (user.cal_target) CAL_T_USER = user.cal_target;
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
@@ -3375,11 +3384,32 @@ let TDEE_USER = 2100;
 
 const ACTIVITY_MULTIPLIERS = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725 };
 
-function calcTDEE(age, weightLbs, heightIn, activity) {
+// rmrOverride, when given, replaces the Mifflin-St Jeor BMR estimate — e.g.
+// a resting metabolic rate measured directly by a DEXA scan.
+function calcTDEE(age, weightLbs, heightIn, activity, rmrOverride) {
   const kg = weightLbs * 0.453592;
   const cm = heightIn * 2.54;
-  const bmr = (10 * kg) + (6.25 * cm) - (5 * age) + 5;
+  const bmr = (rmrOverride && rmrOverride > 0) ? rmrOverride : ((10 * kg) + (6.25 * cm) - (5 * age) + 5);
   return Math.round(bmr * (ACTIVITY_MULTIPLIERS[activity] || 1.2));
+}
+
+// Reads the profile form and resolves the effective TDEE and calorie target,
+// accounting for the optional RMR and calorie-target overrides. Shared by
+// updateTDEEDisplay() (live preview) and saveProfile() (persisted values) so
+// the two can never disagree.
+function computeProfileTargets() {
+  const age    = parseInt(document.getElementById('prof-age').value) || 35;
+  const weight = parseFloat(document.getElementById('prof-weight').value) || 170;
+  const height = parseFloat(document.getElementById('prof-height').value) || 66;
+  const rmrRaw = parseFloat(document.getElementById('prof-rmr').value);
+  const rmr    = (!isNaN(rmrRaw) && rmrRaw > 0) ? rmrRaw : null;
+  const tdee   = calcTDEE(age, weight, height, currentActivity, rmr);
+  const mode   = currentGoalMode || 'deficit';
+  const overrideRaw = parseFloat(document.getElementById('prof-cal-override').value);
+  const hasOverride = !isNaN(overrideRaw) && overrideRaw > 0;
+  const autoTarget = goalCalTarget(tdee, mode);
+  const calTarget = hasOverride ? Math.round(overrideRaw) : autoTarget;
+  return { age, weight, height, rmr, tdee, mode, hasOverride, calTarget, autoTarget };
 }
 
 function setActivity(act, btn) {
@@ -3410,26 +3440,38 @@ function goalCalTarget(tdee, mode) {
 }
 
 function updateTDEEDisplay() {
-  const age    = parseInt(document.getElementById('prof-age').value) || 35;
-  const weight = parseFloat(document.getElementById('prof-weight').value) || 170;
-  const height = parseFloat(document.getElementById('prof-height').value) || 66;
-  const tdee   = calcTDEE(age, weight, height, currentActivity);
-  const mode   = currentGoalMode || 'deficit';
-  const calTarget = goalCalTarget(tdee, mode);
+  const t = computeProfileTargets();
 
-  TDEE_USER    = tdee;
-  CAL_T_USER   = calTarget;
+  TDEE_USER    = t.tdee;
+  CAL_T_USER   = t.calTarget;
   const proteinRatio = parseFloat(document.getElementById('prof-protein-ratio').value) || 1.0;
-  PRO_T_USER   = Math.round(proteinRatio * weight);
+  PRO_T_USER   = Math.round(proteinRatio * t.weight);
   PRO_RATIO_USER = proteinRatio;
   const ratioDesc = document.getElementById('protein-ratio-desc');
-  if (ratioDesc) ratioDesc.textContent = `= ${PRO_T_USER}g at ${weight} lbs`;
+  if (ratioDesc) ratioDesc.textContent = `= ${PRO_T_USER}g at ${t.weight} lbs`;
 
-  const cfg = (AGGR_CONFIG[mode] || AGGR_CONFIG.deficit)[currentAggressiveness || 'moderate'];
-  const pct = Math.round((cfg.mult - 1) * 100);
-  const pctStr = pct === 0 ? 'maintenance' : (pct > 0 ? `+${pct}%` : `${pct}%`);
+  let pctStr;
+  if (t.hasOverride) {
+    const pct = Math.round((t.calTarget / t.tdee - 1) * 100);
+    pctStr = pct === 0 ? 'maintenance' : (pct > 0 ? `+${pct}%` : `${pct}%`);
+  } else {
+    const cfg = (AGGR_CONFIG[t.mode] || AGGR_CONFIG.deficit)[currentAggressiveness || 'moderate'];
+    const pct = Math.round((cfg.mult - 1) * 100);
+    pctStr = pct === 0 ? 'maintenance' : (pct > 0 ? `+${pct}%` : `${pct}%`);
+  }
   document.getElementById('prof-tdee-display').innerHTML =
-    `TDEE ${tdee} kcal &nbsp;·&nbsp; <span style="color:#fff">Target ${calTarget} kcal</span> <span style="opacity:.4">(${pctStr})</span>`;
+    `TDEE ${t.tdee} kcal &nbsp;·&nbsp; <span style="color:#fff">Target ${t.calTarget} kcal</span> <span style="opacity:.4">(${pctStr}${t.hasOverride ? ' · custom' : ''})</span>`;
+
+  const sourceEl = document.getElementById('prof-tdee-source');
+  if (sourceEl) sourceEl.textContent = t.rmr ? 'Using your entered RMR · updates automatically' : 'Mifflin-St Jeor estimate · updates automatically';
+
+  const overrideDesc = document.getElementById('cal-override-desc');
+  if (overrideDesc) {
+    overrideDesc.textContent = t.hasOverride
+      ? `Overriding the calculation above — ${t.calTarget} kcal (${pctStr} vs ${t.tdee} TDEE).`
+      : '';
+  }
+  updateAggrDesc(); // keeps the "X% of TDEE" line in sync — TDEE_USER just changed above
   updateUI();
 }
 
@@ -3459,17 +3501,14 @@ async function migrateData() {
 
 async function saveProfile() {
   if (!currentUser) return;
-  const age = parseInt(document.getElementById('prof-age').value) || 35;
-  const weight = parseFloat(document.getElementById('prof-weight').value) || 170;
-  const height = parseFloat(document.getElementById('prof-height').value) || 66;
+  const t = computeProfileTargets();
   const proteinRatio = parseFloat(document.getElementById('prof-protein-ratio').value) || 1.0;
-  const protein = Math.round(proteinRatio * weight);
-  const tdee = calcTDEE(age, weight, height, currentActivity);
-  TDEE_USER = tdee;
+  const protein = Math.round(proteinRatio * t.weight);
+  TDEE_USER = t.tdee;
   PRO_T_USER = protein;
   PRO_RATIO_USER = proteinRatio;
-  const calTarget = goalCalTarget(tdee, currentGoalMode);
-  CAL_T_USER = calTarget;
+  CAL_T_USER = t.calTarget;
+  const calOverride = t.hasOverride ? t.calTarget : null;
   const dexaDate = document.getElementById('prof-dexa-date').value || null;
   const dexaWeight = parseFloat(document.getElementById('prof-dexa-weight').value) || null;
   const dexaBF = parseFloat(document.getElementById('prof-dexa-bf').value) || null;
@@ -3481,19 +3520,22 @@ async function saveProfile() {
   const muscleMaintainPct = isNaN(muscleMaintainRaw) ? 20 : Math.min(100, Math.max(0, muscleMaintainRaw));
   await api('/auth/profile', {
     user_id: currentUser.id,
-    tdee, cal_target: calTarget, pro_target: protein,
-    age, weight_lbs: weight, height_in: height,
+    tdee: t.tdee, cal_target: t.calTarget, pro_target: protein,
+    age: t.age, weight_lbs: t.weight, height_in: t.height,
     activity: currentActivity, goal_mode: currentGoalMode,
     aggressiveness: currentAggressiveness,
+    rmr: t.rmr, cal_target_override: calOverride,
     dexa_date: dexaDate, dexa_weight: dexaWeight, dexa_bf_pct: dexaBF,
     muscle_loss_pct: musclePct, muscle_gain_pct: muscleGainPct, muscle_maintain_pct: muscleMaintainPct
   });
   // Update stored user
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
-  stored.tdee = tdee; stored.pro_target = protein;
-  stored.goal_mode = currentGoalMode; stored.cal_target = calTarget;
-  stored.age = age; stored.weight_lbs = weight; stored.height_in = height;
+  stored.tdee = t.tdee; stored.pro_target = protein;
+  stored.goal_mode = currentGoalMode; stored.cal_target = t.calTarget;
+  stored.age = t.age; stored.weight_lbs = t.weight; stored.height_in = t.height;
   stored.activity = currentActivity;
+  stored.aggressiveness = currentAggressiveness;
+  stored.rmr = t.rmr; stored.cal_target_override = calOverride;
   stored.dexa_date = dexaDate; stored.dexa_weight = dexaWeight;
   stored.dexa_bf_pct = dexaBF; stored.muscle_loss_pct = musclePct;
   stored.muscle_gain_pct = muscleGainPct;
@@ -3525,6 +3567,8 @@ function loadProfilePane() {
   if (stored.dexa_date) document.getElementById('prof-dexa-date').value = stored.dexa_date;
   if (stored.dexa_weight) document.getElementById('prof-dexa-weight').value = stored.dexa_weight;
   if (stored.dexa_bf_pct) document.getElementById('prof-dexa-bf').value = stored.dexa_bf_pct;
+  if (stored.rmr) document.getElementById('prof-rmr').value = stored.rmr;
+  if (stored.cal_target_override) document.getElementById('prof-cal-override').value = stored.cal_target_override;
   document.getElementById('prof-muscle-pct').value = stored.muscle_loss_pct != null ? stored.muscle_loss_pct : 20;
   document.getElementById('prof-muscle-gain-pct').value = stored.muscle_gain_pct != null ? stored.muscle_gain_pct : 20;
   document.getElementById('prof-muscle-maintain-pct').value = stored.muscle_maintain_pct != null ? stored.muscle_maintain_pct : 20;
