@@ -38,16 +38,6 @@
   .avatar-btn .av-placeholder{width:32px;height:32px;border-radius:50%;background:#1a1a1a;border:2px solid #f97316;display:flex;align-items:center;justify-content:center;font-family:"DM Mono",monospace;font-size:13px;color:#f97316;}
   .avatar-label{font-family:"DM Mono",monospace;font-size:8px;color:#555;letter-spacing:.08em;text-transform:uppercase;}
   body.light .avatar-label{color:#9e9689;}
-  /* Activity scale */
-  .act-scale-wrap{margin-top:4px;}
-  .act-scale-labels{display:flex;justify-content:space-between;font-family:"DM Mono",monospace;font-size:8px;color:#444;margin-bottom:3px;letter-spacing:.03em;}
-  body.light .act-scale-labels{color:#9e9689;}
-  .act-scale-emojis{display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;padding:0 6px;}
-  .act-scale-btns{display:flex;gap:4px;}
-  .act-scale-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:"DM Mono",monospace;font-size:11px;font-weight:600;padding:8px 4px;border-radius:6px;cursor:pointer;transition:all .15s;text-align:center;}
-  .act-scale-btn.on{border-color:#f97316;color:#f97316;background:#1a0f00;}
-  body.light .act-scale-btn{border-color:#c8c1b8;color:#7a7168;}
-  body.light .act-scale-btn.on{border-color:#c8621a;color:#c8621a;background:#fff0e8;}
   /* Meals collapsed */
   .meals-collapsed .meal-row:nth-child(n+4){display:none;}
   .show-more-btn{width:100%;background:none;border:1px solid #2a2a2a;border-radius:6px;color:#555;font-family:"DM Mono",monospace;font-size:10px;padding:7px;cursor:pointer;margin-top:4px;transition:all .15s;}
@@ -100,10 +90,6 @@
   body.light input[type=number],body.light input[type=text]{background:#d5cec5;border-color:#c0b9b0;color:#2c2820;}
   body.light .meas-grid input{background:#d5cec5;}
   body.light input[type=number].saving,body.light input[type=text].saving{background:#c5d8c8;}
-  body.light .day-act-btn{border-color:#c8c1b8;color:#7a7168;}
-  body.light .day-act-btn.on{border-color:#c8621a;color:#c8621a;}
-  body.light .day-tdee-line{color:#9e9689;}
-  body.light .day-tdee-line span{color:#c8621a;}
   body.light .prog-wrap{background:transparent;}
   body.light .prog-bar-wrap{background:#cfc8bf;}
   body.light .prog-bar-bg{background:#cfc8bf;}
@@ -158,7 +144,6 @@
   .migrate-status-txt{color:#4ade80;}
   body.light .migrate-status-txt{color:#1a6b2a;}
   body.light .aggr-desc{color:#9e9689;}
-  body.light .day-tdee-line{color:#9e9689;}
   /* Green text overrides — #4ade80 is unreadable on light backgrounds */
   body.light .val.good{color:#1a6b2a!important;}
   body.light .insight-bar.deficit-deep{color:#1a5c28;background:#d5ead8;}
@@ -454,11 +439,6 @@
   .prog-marker{position:absolute;top:-4px;width:2px;height:14px;border-radius:1px;opacity:0.6;}
   .prog-marker-lbl{position:absolute;top:12px;font-family:'DM Mono',monospace;font-size:7px;letter-spacing:.05em;transform:translateX(-50%);white-space:nowrap;opacity:0.5;}
 
-  .day-act-btns{display:flex;gap:6px;margin-top:4px;}
-  .day-act-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:'DM Mono',monospace;font-size:9px;padding:7px 4px;border-radius:6px;cursor:pointer;transition:all .15s;text-align:center;}
-  .day-act-btn.on{border-color:#f97316;color:#f97316;}
-  .day-tdee-line{font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:6px;letter-spacing:.05em;}
-  .day-tdee-line span{color:#f97316;}
   .aggr-btns{display:flex;gap:6px;margin-top:4px;}
   .aggr-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:'DM Mono',monospace;font-size:9px;padding:7px 4px;border-radius:6px;cursor:pointer;transition:all .15s;text-align:center;}
   .aggr-btn.on{border-color:#f97316;color:#f97316;}
@@ -563,26 +543,6 @@
         <div><label class="field-lbl">Resting HR (bpm)</label><input type="number" id="rhr" inputmode="numeric" onblur="saveMeas('rhr')" placeholder="58" step="1"></div>
         <div><label class="field-lbl">BP Systolic (mmHg)</label><input type="number" id="bp-sys" inputmode="numeric" onblur="saveMeas('bp-sys')" placeholder="118" step="1"></div>
         <div><label class="field-lbl">BP Diastolic (mmHg)</label><input type="number" id="bp-dia" inputmode="numeric" onblur="saveMeas('bp-dia')" placeholder="76" step="1"></div>
-      </div>
-      <div style="margin-bottom:14px;margin-top:14px">
-        <label class="field-lbl">Today's Activity</label>
-        <div class="act-scale-wrap">
-          <div class="act-scale-labels">
-            <span>Sedentary</span>
-            <span>Active</span>
-          </div>
-          <div class="act-scale-emojis">
-            <span>🪑</span><span style="opacity:.4">·</span><span>🚶</span><span style="opacity:.4">·</span><span>🏋️</span>
-          </div>
-          <div class="act-scale-btns" id="day-act-btns">
-            <button class="act-scale-btn on" onclick="setDayActivity('1',this)">1</button>
-            <button class="act-scale-btn" onclick="setDayActivity('2',this)">2</button>
-            <button class="act-scale-btn" onclick="setDayActivity('3',this)">3</button>
-            <button class="act-scale-btn" onclick="setDayActivity('4',this)">4</button>
-            <button class="act-scale-btn" onclick="setDayActivity('5',this)">5</button>
-          </div>
-        </div>
-        <div class="day-tdee-line" id="day-tdee-line">Today's TDEE: <span id="day-tdee-val">—</span></div>
       </div>
     </div>
 
@@ -1071,15 +1031,6 @@ async function loadDay(d) {
     setMoreMeasurementsOpen(false);
     // Placeholder = previous available measurement
     setPrevMeasPlaceholders(d);
-    // Load daily activity
-    // Map old 3-value to new 5-value scale
-    const actMap = { sedentary:'1', moderate:'3', heavy:'5' };
-    const rawAct = meas.dailyActivity || '1';
-    dailyActivity = actMap[rawAct] || (Object.keys(DAY_ACT_MULT).includes(rawAct) ? rawAct : '1');
-    document.querySelectorAll('#day-act-btns .act-scale-btn').forEach(b => {
-      b.classList.toggle('on', b.textContent.trim() === dailyActivity);
-    });
-    updateDayTDEE();
   refreshInsight();
   } catch(e) {
     document.getElementById("wt-am").value = "";
@@ -1740,7 +1691,6 @@ function saveMeas(triggeredBy) {
       restingHR: parseInt(document.getElementById("rhr").value)||null,
       bpSystolic: parseInt(document.getElementById("bp-sys").value)||null,
       bpDiastolic: parseInt(document.getElementById("bp-dia").value)||null,
-      dailyActivity: dailyActivity || 'sedentary',
     });
     if (triggeredBy) flashSaved(document.getElementById(triggeredBy));
     refreshAllFieldColors();
@@ -3227,12 +3177,8 @@ async function obSubmit() {
 }
 
 
-// ── Daily Activity & Aggressiveness ────────────────────────────────────────
-let dailyActivity = 'sedentary'; // per-day, resets each day load
+// ── Aggressiveness ──────────────────────────────────────────────────────────
 let currentAggressiveness = 'moderate'; // profile-level
-
-const DAY_ACT_MULT = { '1': 1.2, '2': 1.35, '3': 1.45, '4': 1.5, '5': 1.55 };
-const ACT_DESCRIPTIONS = { '1':'Desk job, no exercise','2':'Light activity / short walks','3':'Moderate exercise 3-4x/week','4':'Active job or daily training','5':'Heavy training / physical labor' };
 
 const AGGR_CONFIG = {
   deficit: {
@@ -3252,43 +3198,9 @@ const AGGR_CONFIG = {
   },
 };
 
-function getDailyTDEE() {
-  // Use today's activity level + base BMR from profile
-  const user = JSON.parse(localStorage.getItem('bl_user') || '{}');
-  const age    = user.age    || 35;
-  const weight = user.weight_lbs || 170;
-  const height = user.height_in  || 66;
-  const kg = weight * 0.453592;
-  const cm = height * 2.54;
-  const bmr = (10 * kg) + (6.25 * cm) - (5 * age) + 5;
-  return Math.round(bmr * (DAY_ACT_MULT[dailyActivity] || DAY_ACT_MULT['1']));
-}
-
 function goalCalTargetFull(tdee, mode, aggr) {
   const cfg = (AGGR_CONFIG[mode] || AGGR_CONFIG.deficit)[aggr || 'moderate'];
   return Math.round(tdee * cfg.mult);
-}
-
-function setDayActivity(act, btn) {
-  dailyActivity = act;
-  document.querySelectorAll('#day-act-btns .act-scale-btn').forEach(b => b.classList.remove('on'));
-  btn.classList.add('on');
-  updateDayTDEE();
-  saveMeas();
-}
-
-function updateDayTDEE() {
-  const tdee = getDailyTDEE();
-  const calTarget = goalCalTargetFull(tdee, currentGoalMode, currentAggressiveness);
-  TDEE_USER  = tdee;
-  CAL_T_USER = calTarget;
-  const el = document.getElementById('day-tdee-val');
-  if (el) el.textContent = `${tdee} kcal (target: ${calTarget} kcal)`;
-  updateUI();
-  // Invalidate day insight cache since TDEE changed
-  if (currentUser) {
-    api('/cache/set', { key: 'insight-day-' + dateKey(activeDate), value: '', fingerprint: 'invalidated' }).catch(() => {});
-  }
 }
 
 function setAggressiveness(level, btn) {
@@ -3296,8 +3208,14 @@ function setAggressiveness(level, btn) {
   document.querySelectorAll('#aggr-btns .aggr-btn').forEach(b => b.classList.remove('on'));
   btn.classList.add('on');
   updateAggrDesc();
-  updateDayTDEE();
+  updateTDEEDisplay();
   scheduleProfileSave();
+  updateUI();
+  if (currentUser) {
+    api('/cache/set', { key: 'insight-day-' + dateKey(activeDate), value: '', fingerprint: 'invalidated' }).catch(() => {});
+    api('/cache/set', { key: 'insight-hist-v3-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
+  }
+  refreshInsight();
 }
 
 function updateAggrDesc() {
