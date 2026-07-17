@@ -2433,9 +2433,11 @@ function drawChart() {
   // Daily calorie/protein intake — already raw fields on each point (unlike
   // bodyFat, which is derived), so no extra computation needed beyond
   // collecting the ones present in range. Each gets its own axis column,
-  // same stacking pattern as bodyFat.
-  const calPts = points.filter(p => p.calories).map(p => ({ date: p.date, value: p.calories, p }));
-  const proPts = points.filter(p => p.protein).map(p => ({ date: p.date, value: p.protein, p }));
+  // same stacking pattern as bodyFat. Today is excluded: the day isn't over
+  // yet, so its running total would plot as a misleadingly low dip.
+  const today = todayKey();
+  const calPts = points.filter(p => p.calories && p.date !== today).map(p => ({ date: p.date, value: p.calories, p }));
+  const proPts = points.filter(p => p.protein && p.date !== today).map(p => ({ date: p.date, value: p.protein, p }));
   const calActive = chartSeriesOn.calories && calPts.length > 0;
   const proActive = chartSeriesOn.protein && proPts.length > 0;
 
