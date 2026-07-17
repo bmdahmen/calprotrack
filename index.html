@@ -2355,13 +2355,16 @@ function niceAxis(dataMin, dataMax, tickCount) {
   const rawRange = Math.max(dataMax - dataMin, 1e-9);
   let exponent = Math.floor(Math.log10(rawRange / tickCount));
   for (let pass = 0; pass < 20; pass++) {
-    // 1.5/2.5/3/4 fill the gaps between 1/2/5 — without them, a data range that
-    // just misses fitting one step jumps to the next {1,2,5} candidate, which
-    // can double or triple the axis span for no reason. The buffer (scaled to
-    // the candidate step, not the raw data range) requires each candidate to
-    // leave a little headroom rather than accepting an exact edge-to-edge fit,
-    // so the data never sits flush on the top/bottom gridline.
-    for (const f of [1, 1.5, 2, 2.5, 3, 4, 5]) {
+    // 1.5/2.5/3/4 fill the gaps between 1/2/5, and 6/7/8/9 fill the gap between
+    // 5 and the next power of ten — without them, a data range that just misses
+    // fitting one step jumps to the next candidate, which can double the axis
+    // span for no reason (e.g. a 25.4-unit range needing step=6 to fit was
+    // jumping straight from a too-small step=5 to a step=10 that wasted 20
+    // units of empty headroom). The buffer (scaled to the candidate step, not
+    // the raw data range) requires each candidate to leave a little headroom
+    // rather than accepting an exact edge-to-edge fit, so the data never sits
+    // flush on the top/bottom gridline.
+    for (const f of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8, 9]) {
       const step = f * Math.pow(10, exponent);
       const buffer = step * 0.1;
       const min = Math.floor((dataMin - buffer) / step) * step;
