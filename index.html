@@ -373,9 +373,9 @@
   body.light .hist-coach-toggle{color:#9e9689;}
   .hist-rate-row{margin-bottom:10px;}
   .hist-rate-caption{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:2px;color:#444;margin-bottom:8px;}
-  .hist-rate-blocks{display:flex;align-items:flex-start;gap:20px;}
-  .hist-rate-block{text-align:center;}
-  .hist-rate-num{font-size:26px;font-weight:500;font-family:'DM Mono',monospace;line-height:1;letter-spacing:-0.02em;}
+  .hist-rate-blocks{display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px 28px;}
+  .hist-rate-block{text-align:left;}
+  .hist-rate-num{font-size:23px;font-weight:500;font-family:'DM Mono',monospace;line-height:1;letter-spacing:-0.02em;}
   .hist-rate-lbl{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:2px;opacity:.5;margin-top:2px;}
   .hist-rate-window{font-family:'DM Mono',monospace;font-size:9px;color:#555;margin-top:5px;}
   .hist-rate-num.loss{color:#4ade80;}
@@ -564,7 +564,6 @@
               <div class="legend-item off" id="legend-bodyFat" onclick="toggleChartSeries('bodyFat',this)"><div class="legend-dot" style="background:#fbbf24"></div>Body Fat %</div>
               <div class="legend-item off" id="legend-calories" onclick="toggleChartSeries('calories',this)"><div class="legend-dot" style="background:#f97316"></div>Calories</div>
               <div class="legend-item off" id="legend-protein" onclick="toggleChartSeries('protein',this)"><div class="legend-dot" style="background:#a78bfa"></div>Protein (g)</div>
-              <div class="legend-item off" id="legend-estTdee" onclick="toggleChartSeries('estTdee',this)"><div class="legend-dot" style="background:#22d3ee"></div>Est TDEE</div>
             </div>
             <div class="chart-range">
               <button class="range-btn" onclick="setRange(7,this)">7D</button>
@@ -2314,7 +2313,7 @@ let chartRange = 30;
 
 // Which series are currently drawn. Raw weight/waist default on; 7D averages, body fat %, and
 // calorie/protein intake default off (they compete for axis space with weight/waist/body fat).
-let chartSeriesOn = { weightAM: true, waistNavel: true, weightAvg: false, waistAvg: false, bodyFat: false, calories: false, protein: false, estTdee: false };
+let chartSeriesOn = { weightAM: true, waistNavel: true, weightAvg: false, waistAvg: false, bodyFat: false, calories: false, protein: false };
 
 function toggleChartSeries(key, el) {
   chartSeriesOn[key] = !chartSeriesOn[key];
@@ -2457,42 +2456,7 @@ function drawChart() {
   const calActive = chartSeriesOn.calories && calPts.length > 0;
   const proActive = chartSeriesOn.protein && proPts.length > 0;
 
-  // Rolling TDEE estimate: for each day, look back ~14 days and back out what
-  // maintenance intake must have been — average calories eaten plus the
-  // energy value of the weight actually lost (or minus the weight gained),
-  // via dailyEnergyImbalance(). Uses the 7-day-smoothed weight line so
-  // single-day water swings don't whipsaw the estimate, and requires calorie
-  // logs for at least half the window so a sparse week can't fake a number.
-  const TDEE_EST_WINDOW = 14;
-  let estTdeePts = [];
-  if (chartSeriesOn.estTdee) {
-    const calByDate = {};
-    allSorted.forEach(e => { if (e.calories && e.date !== today) calByDate[e.date] = e.calories; });
-    weightAvgFull.forEach((end, i) => {
-      let start = null, bestOff = Infinity;
-      for (let j = i - 1; j >= 0; j--) {
-        const span = (new Date(end.date) - new Date(weightAvgFull[j].date)) / 86400000;
-        if (span > TDEE_EST_WINDOW * 1.5) break;
-        const off = Math.abs(span - TDEE_EST_WINDOW);
-        if (span >= TDEE_EST_WINDOW * 0.7 && off < bestOff) { bestOff = off; start = weightAvgFull[j]; }
-      }
-      if (!start) return;
-      const days = (new Date(end.date) - new Date(start.date)) / 86400000;
-      // Calories eaten ON the start date affect the weight at the end, so the
-      // window is [start, end) by date string — no timezone math needed.
-      const cals = Object.keys(calByDate).filter(k => k >= start.date && k < end.date).map(k => calByDate[k]);
-      if (cals.length < Math.max(5, Math.round(days * 0.5))) return;
-      const avgCal = cals.reduce((s, v) => s + v, 0) / cals.length;
-      const est = avgCal - dailyEnergyImbalance(end.value - start.value, days);
-      // Discard absurd estimates from noisy/sparse data rather than letting
-      // one bad window blow out the axis.
-      if (isFinite(est) && est > 500 && est < 8000) estTdeePts.push({ date: end.date, value: Math.round(est) });
-    });
-    estTdeePts = estTdeePts.filter(inRange);
-  }
-  const tdeeActive = chartSeriesOn.estTdee && estTdeePts.length > 0;
-
-  const extraAxisCount = [bfActive, calActive, proActive, tdeeActive].filter(Boolean).length;
+  const extraAxisCount = [bfActive, calActive, proActive].filter(Boolean).length;
   const PAD_L = 42 + extraAxisCount * 32, PAD_R = 38, PAD_T = 10, PAD_B = 30;
   const plotW = W - PAD_L - PAD_R;
   const plotH = H - PAD_T - PAD_B;
@@ -2545,10 +2509,6 @@ function drawChart() {
   const proMin = proAxis.min, proMax = proAxis.max;
   const yScalePro = v => PAD_T + plotH - ((v - proMin) / (proMax - proMin || 1)) * plotH;
 
-  const tdeeVals = tdeeActive ? estTdeePts.map(p => p.value) : [];
-  const tdeeAxis = tdeeVals.length ? niceAxis(Math.min(...tdeeVals), Math.max(...tdeeVals), ticks) : { min: 0, max: 10, decimals: 0 };
-  const tdeeMin = tdeeAxis.min, tdeeMax = tdeeAxis.max;
-  const yScaleTdee = v => PAD_T + plotH - ((v - tdeeMin) / (tdeeMax - tdeeMin || 1)) * plotH;
 
   // Grid
   ctx.strokeStyle = isLight ? '#e0d9d0' : '#1a1a1a';
@@ -2562,7 +2522,6 @@ function drawChart() {
   const bfColor = isLight ? '#b8860b' : '#fbbf24';
   const calColor = isLight ? '#c8621a' : '#f97316'; // matches .kc everywhere else in the app
   const proColor = isLight ? '#6040a0' : '#a78bfa'; // matches .pr everywhere else in the app
-  const tdeeColor = isLight ? '#0e7490' : '#22d3ee';
   ctx.font = "9px 'DM Mono', monospace";
   // Extra left-stacked axes, innermost (closest to the plot) first — each
   // active toggle claims its own 32px column, in this fixed order.
@@ -2570,7 +2529,6 @@ function drawChart() {
     bfActive && { axis: bfAxis, color: bfColor, suffix: '%' },
     calActive && { axis: calAxis, color: calColor, suffix: '' },
     proActive && { axis: proAxis, color: proColor, suffix: 'g' },
-    tdeeActive && { axis: tdeeAxis, color: tdeeColor, suffix: '' },
   ].filter(Boolean);
   extraAxes.forEach((ax, idx) => {
     const colX = PAD_L - 32 * (idx + 1);
@@ -2663,22 +2621,6 @@ function drawChart() {
     });
   }
 
-  // Rolling TDEE estimate line — estTdeePts carries no point refs (it's built
-  // from the smoothed weight series), so match back to visible day points by
-  // date for tooltip/click support.
-  if (tdeeActive) {
-    const byDate = {};
-    points.forEach(p => { byDate[p.date] = p; });
-    const segs = estTdeePts.map(p => ({ x: xByDate(p.date), y: yScaleTdee(p.value) }));
-    drawLine(ctx, segs, tdeeColor);
-    estTdeePts.forEach(pt => {
-      ctx.beginPath(); ctx.arc(xByDate(pt.date), yScaleTdee(pt.value), 3.5, 0, Math.PI*2);
-      ctx.fillStyle = tdeeColor; ctx.fill();
-      const p = byDate[pt.date];
-      if (p) { p._tdee = pt.value; p._sy_tdee = yScaleTdee(pt.value); }
-    });
-  }
-
   // Dots with stored screen coords for click detection
   points.forEach(p => {
     p._sx = xByDate(p.date);
@@ -2720,7 +2662,7 @@ function handleChartClick(e) {
   let best = null, bestDist = 18;
   chartPoints.forEach(p => {
     const dx = mx - p._sx;
-    const dys = [p._sy_w, p._sy_v, p._sy_bf, p._sy_cal, p._sy_pro, p._sy_tdee].map(sy => my - (sy ?? 9999));
+    const dys = [p._sy_w, p._sy_v, p._sy_bf, p._sy_cal, p._sy_pro].map(sy => my - (sy ?? 9999));
     const d = Math.min(...dys.map(dy => Math.hypot(dx, dy)));
     if (d < bestDist) { bestDist = d; best = p; }
   });
@@ -2745,7 +2687,6 @@ function showChartTooltip(p, cx, cy) {
   if (p.waistSmallest) rows.push(`<div>📏 <b>${p.waistSmallest}"</b> smallest</div>`);
   if (p.calories) rows.push(`<div>🔥 <b>${p.calories}</b> kcal</div>`);
   if (p.protein) rows.push(`<div>💪 <b>${p.protein}g</b> protein</div>`);
-  if (p._tdee != null) rows.push(`<div>⚡ <b>${p._tdee}</b> kcal TDEE (est.)</div>`);
   if (p.notes) rows.push(`<div style="color:#888;font-style:italic;margin-top:3px">${esc(p.notes)}</div>`);
   tip.innerHTML = `<div style="font-family:'DM Mono',monospace;font-size:9px;color:#f97316;letter-spacing:.05em;margin-bottom:5px">${dateStr.toUpperCase()}</div>${rows.join('')}`;
   tip.style.display = 'block';
