@@ -1250,8 +1250,8 @@ function renderMeals() {
       ${editId==m.id?`
         <div class="edit-wrap">
           <input type="text" id="ed-d-${m.id}" value="${esc(m.desc)}" style="flex:2;min-width:100px;padding:5px 8px;font-size:12px">
-          <input type="number" id="ed-c-${m.id}" value="${m.cal}" placeholder="kcal" style="width:68px;padding:5px 8px;font-size:12px">
-          <input type="number" id="ed-p-${m.id}" value="${m.pro}" placeholder="g" style="width:55px;padding:5px 8px;font-size:12px">
+          <input type="number" id="ed-c-${m.id}" value="${m.cal}" placeholder="kcal" inputmode="numeric" style="width:68px;padding:5px 8px;font-size:12px">
+          <input type="number" id="ed-p-${m.id}" value="${m.pro}" placeholder="g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
           <button class="save-btn" onclick="saveEdit('${m.id}')">SAVE</button>
           <button class="cancel-btn" onclick="editId=null;renderMeals()">✕</button>
         </div>
@@ -1344,8 +1344,8 @@ function renderFoodItems() {
       <div class="meal-row fade" id="fi-row-${f.id}">
         <div class="edit-wrap">
           <input type="text" id="efi-n-${f.id}" value="${esc(f.name)}" style="flex:2;min-width:100px;padding:5px 8px;font-size:12px">
-          <input type="number" id="efi-c-${f.id}" value="${f.cal}" placeholder="kcal" style="width:68px;padding:5px 8px;font-size:12px">
-          <input type="number" id="efi-p-${f.id}" value="${f.pro||0}" placeholder="g" style="width:55px;padding:5px 8px;font-size:12px">
+          <input type="number" id="efi-c-${f.id}" value="${f.cal}" placeholder="kcal" inputmode="numeric" style="width:68px;padding:5px 8px;font-size:12px">
+          <input type="number" id="efi-p-${f.id}" value="${f.pro||0}" placeholder="g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
           <button class="save-btn" onclick="saveEditFoodItem('${f.id}')">SAVE</button>
           <button class="cancel-btn" onclick="editFoodItemId=null;renderFoodItems()">✕</button>
         </div>
