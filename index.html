@@ -564,6 +564,7 @@
               <div class="legend-item off" id="legend-bodyFat" onclick="toggleChartSeries('bodyFat',this)"><div class="legend-dot" style="background:#fbbf24"></div>Body Fat %</div>
               <div class="legend-item off" id="legend-calories" onclick="toggleChartSeries('calories',this)"><div class="legend-dot" style="background:#f97316"></div>Calories</div>
               <div class="legend-item off" id="legend-protein" onclick="toggleChartSeries('protein',this)"><div class="legend-dot" style="background:#a78bfa"></div>Protein (g)</div>
+              <div class="legend-item off" id="legend-estTdee" onclick="toggleChartSeries('estTdee',this)"><div class="legend-dot" style="background:#22d3ee"></div>Est TDEE</div>
             </div>
             <div class="chart-range">
               <button class="range-btn" onclick="setRange(7,this)">7D</button>
@@ -2313,7 +2314,7 @@ let chartRange = 30;
 
 // Which series are currently drawn. Raw weight/waist default on; 7D averages, body fat %, and
 // calorie/protein intake default off (they compete for axis space with weight/waist/body fat).
-let chartSeriesOn = { weightAM: true, waistNavel: true, weightAvg: false, waistAvg: false, bodyFat: false, calories: false, protein: false };
+let chartSeriesOn = { weightAM: true, waistNavel: true, weightAvg: false, waistAvg: false, bodyFat: false, calories: false, protein: false, estTdee: false };
 
 function toggleChartSeries(key, el) {
   chartSeriesOn[key] = !chartSeriesOn[key];
@@ -2456,7 +2457,42 @@ function drawChart() {
   const calActive = chartSeriesOn.calories && calPts.length > 0;
   const proActive = chartSeriesOn.protein && proPts.length > 0;
 
-  const extraAxisCount = [bfActive, calActive, proActive].filter(Boolean).length;
+  // Rolling TDEE estimate: for each day, look back ~14 days and back out what
+  // maintenance intake must have been — average calories eaten plus the
+  // energy value of the weight actually lost (or minus the weight gained),
+  // via dailyEnergyImbalance(). Uses the 7-day-smoothed weight line so
+  // single-day water swings don't whipsaw the estimate, and requires calorie
+  // logs for at least half the window so a sparse week can't fake a number.
+  const TDEE_EST_WINDOW = 14;
+  let estTdeePts = [];
+  if (chartSeriesOn.estTdee) {
+    const calByDate = {};
+    allSorted.forEach(e => { if (e.calories && e.date !== today) calByDate[e.date] = e.calories; });
+    weightAvgFull.forEach((end, i) => {
+      let start = null, bestOff = Infinity;
+      for (let j = i - 1; j >= 0; j--) {
+        const span = (new Date(end.date) - new Date(weightAvgFull[j].date)) / 86400000;
+        if (span > TDEE_EST_WINDOW * 1.5) break;
+        const off = Math.abs(span - TDEE_EST_WINDOW);
+        if (span >= TDEE_EST_WINDOW * 0.7 && off < bestOff) { bestOff = off; start = weightAvgFull[j]; }
+      }
+      if (!start) return;
+      const days = (new Date(end.date) - new Date(start.date)) / 86400000;
+      // Calories eaten ON the start date affect the weight at the end, so the
+      // window is [start, end) by date string — no timezone math needed.
+      const cals = Object.keys(calByDate).filter(k => k >= start.date && k < end.date).map(k => calByDate[k]);
+      if (cals.length < Math.max(5, Math.round(days * 0.5))) return;
+      const avgCal = cals.reduce((s, v) => s + v, 0) / cals.length;
+      const est = avgCal - dailyEnergyImbalance(end.value - start.value, days);
+      // Discard absurd estimates from noisy/sparse data rather than letting
+      // one bad window blow out the axis.
+      if (isFinite(est) && est > 500 && est < 8000) estTdeePts.push({ date: end.date, value: Math.round(est) });
+    });
+    estTdeePts = estTdeePts.filter(inRange);
+  }
+  const tdeeActive = chartSeriesOn.estTdee && estTdeePts.length > 0;
+
+  const extraAxisCount = [bfActive, calActive, proActive, tdeeActive].filter(Boolean).length;
   const PAD_L = 42 + extraAxisCount * 32, PAD_R = 38, PAD_T = 10, PAD_B = 30;
   const plotW = W - PAD_L - PAD_R;
   const plotH = H - PAD_T - PAD_B;
@@ -2509,6 +2545,11 @@ function drawChart() {
   const proMin = proAxis.min, proMax = proAxis.max;
   const yScalePro = v => PAD_T + plotH - ((v - proMin) / (proMax - proMin || 1)) * plotH;
 
+  const tdeeVals = tdeeActive ? estTdeePts.map(p => p.value) : [];
+  const tdeeAxis = tdeeVals.length ? niceAxis(Math.min(...tdeeVals), Math.max(...tdeeVals), ticks) : { min: 0, max: 10, decimals: 0 };
+  const tdeeMin = tdeeAxis.min, tdeeMax = tdeeAxis.max;
+  const yScaleTdee = v => PAD_T + plotH - ((v - tdeeMin) / (tdeeMax - tdeeMin || 1)) * plotH;
+
   // Grid
   ctx.strokeStyle = isLight ? '#e0d9d0' : '#1a1a1a';
   ctx.lineWidth = 1;
@@ -2521,6 +2562,7 @@ function drawChart() {
   const bfColor = isLight ? '#b8860b' : '#fbbf24';
   const calColor = isLight ? '#c8621a' : '#f97316'; // matches .kc everywhere else in the app
   const proColor = isLight ? '#6040a0' : '#a78bfa'; // matches .pr everywhere else in the app
+  const tdeeColor = isLight ? '#0e7490' : '#22d3ee';
   ctx.font = "9px 'DM Mono', monospace";
   // Extra left-stacked axes, innermost (closest to the plot) first — each
   // active toggle claims its own 32px column, in this fixed order.
@@ -2528,6 +2570,7 @@ function drawChart() {
     bfActive && { axis: bfAxis, color: bfColor, suffix: '%' },
     calActive && { axis: calAxis, color: calColor, suffix: '' },
     proActive && { axis: proAxis, color: proColor, suffix: 'g' },
+    tdeeActive && { axis: tdeeAxis, color: tdeeColor, suffix: '' },
   ].filter(Boolean);
   extraAxes.forEach((ax, idx) => {
     const colX = PAD_L - 32 * (idx + 1);
@@ -2620,6 +2663,22 @@ function drawChart() {
     });
   }
 
+  // Rolling TDEE estimate line — estTdeePts carries no point refs (it's built
+  // from the smoothed weight series), so match back to visible day points by
+  // date for tooltip/click support.
+  if (tdeeActive) {
+    const byDate = {};
+    points.forEach(p => { byDate[p.date] = p; });
+    const segs = estTdeePts.map(p => ({ x: xByDate(p.date), y: yScaleTdee(p.value) }));
+    drawLine(ctx, segs, tdeeColor);
+    estTdeePts.forEach(pt => {
+      ctx.beginPath(); ctx.arc(xByDate(pt.date), yScaleTdee(pt.value), 3.5, 0, Math.PI*2);
+      ctx.fillStyle = tdeeColor; ctx.fill();
+      const p = byDate[pt.date];
+      if (p) { p._tdee = pt.value; p._sy_tdee = yScaleTdee(pt.value); }
+    });
+  }
+
   // Dots with stored screen coords for click detection
   points.forEach(p => {
     p._sx = xByDate(p.date);
@@ -2661,7 +2720,7 @@ function handleChartClick(e) {
   let best = null, bestDist = 18;
   chartPoints.forEach(p => {
     const dx = mx - p._sx;
-    const dys = [p._sy_w, p._sy_v, p._sy_bf, p._sy_cal, p._sy_pro].map(sy => my - (sy ?? 9999));
+    const dys = [p._sy_w, p._sy_v, p._sy_bf, p._sy_cal, p._sy_pro, p._sy_tdee].map(sy => my - (sy ?? 9999));
     const d = Math.min(...dys.map(dy => Math.hypot(dx, dy)));
     if (d < bestDist) { bestDist = d; best = p; }
   });
@@ -2686,6 +2745,7 @@ function showChartTooltip(p, cx, cy) {
   if (p.waistSmallest) rows.push(`<div>📏 <b>${p.waistSmallest}"</b> smallest</div>`);
   if (p.calories) rows.push(`<div>🔥 <b>${p.calories}</b> kcal</div>`);
   if (p.protein) rows.push(`<div>💪 <b>${p.protein}g</b> protein</div>`);
+  if (p._tdee != null) rows.push(`<div>⚡ <b>${p._tdee}</b> kcal TDEE (est.)</div>`);
   if (p.notes) rows.push(`<div style="color:#888;font-style:italic;margin-top:3px">${esc(p.notes)}</div>`);
   tip.innerHTML = `<div style="font-family:'DM Mono',monospace;font-size:9px;color:#f97316;letter-spacing:.05em;margin-bottom:5px">${dateStr.toUpperCase()}</div>${rows.join('')}`;
   tip.style.display = 'block';
@@ -2951,11 +3011,10 @@ async function refreshHistInsight() {
     currentGoalMode || 'deficit',
     dexaFP,
   ].join(':');
-  // v3: bump the key again — a race in refreshHistInsight (fixed above) could
-  // cache one range's rate-row HTML under a different range's key, so any
-  // v2 entry may hold another window's numbers under the wrong caption.
-  // Bumping orphans those poisoned entries instead of replaying them forever.
-  const histCacheKey = 'insight-hist-v3-' + range;
+  // v4: bumped for the est-deficit block — cached v3 rate-row HTML predates it
+  // and would replay without the new stat for up to 24h. (v3 bump before this
+  // orphaned entries poisoned by a since-fixed range race.)
+  const histCacheKey = 'insight-hist-v4-' + range;
 
   // Check DB cache — capped to one real generation per 24h regardless of
   // whether the underlying data changed (weight/waist entries, DEXA, etc.).
@@ -3021,6 +3080,23 @@ async function refreshHistInsight() {
       <div class="hist-rate-window">${bfStartPct.toFixed(1)}% → ${bodyComp.bfPctNow.toFixed(1)}% BF</div>
     </div>` : '';
 
+  // Estimated average daily energy balance implied by the window's weight
+  // change (fat/lean energy densities + muscle split), and — when intake was
+  // logged for enough of the window — the maintenance intake it implies.
+  const imbalance = dailyEnergyImbalance(weightChangeLbs, daySpanW);
+  const calDaysArr = pts.filter(e => e.calories && e.date !== todayKey());
+  const avgEaten = calDaysArr.length ? calDaysArr.reduce((s, e) => s + e.calories, 0) / calDaysArr.length : null;
+  const showImpliedTdee = avgEaten != null && calDaysArr.length >= 5;
+  let defClass;
+  if (currentGoalMode === 'bulk') defClass = imbalance > 50 ? 'loss' : imbalance < -50 ? 'gain' : 'neutral';
+  else defClass = imbalance < -50 ? 'loss' : imbalance > 50 ? 'gain' : 'neutral';
+  const defBlock = imbalance != null ? `
+    <div class="hist-rate-block">
+      <div class="hist-rate-num ${defClass}">${imbalance > 0 ? '+' : ''}${Math.round(imbalance)}</div>
+      <div class="hist-rate-lbl">EST KCAL/DAY ${imbalance <= 0 ? 'DEFICIT' : 'SURPLUS'}</div>
+      <div class="hist-rate-window">${showImpliedTdee ? `ate ~${Math.round(avgEaten)}/day → TDEE ≈ ${Math.round(avgEaten - imbalance)}` : 'from weight change'}</div>
+    </div>` : '';
+
   rateRow.innerHTML = `
     <div class="hist-rate-caption">${range}D WINDOW</div>
     <div class="hist-rate-blocks">
@@ -3036,6 +3112,7 @@ async function refreshHistInsight() {
         <div class="hist-rate-window">${waistPts[0].waistNavel}" → ${waistPts[waistPts.length-1].waistNavel}"</div>
       </div>` : ''}
       ${bfBlock}
+      ${defBlock}
     </div>`;
 
   // Build AI prompt
@@ -3236,7 +3313,7 @@ function setAggressiveness(level, btn) {
   updateUI();
   if (currentUser) {
     api('/cache/set', { key: 'insight-day-' + dateKey(activeDate), value: '', fingerprint: 'invalidated' }).catch(() => {});
-    api('/cache/set', { key: 'insight-hist-v3-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
+    api('/cache/set', { key: 'insight-hist-v4-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
   }
   refreshInsight();
 }
@@ -3447,7 +3524,7 @@ function setGoalMode(mode, btn) {
   updateUI();
   if (currentUser) {
     api('/cache/set', { key: 'insight-day-' + dateKey(activeDate), value: '', fingerprint: 'invalidated' }).catch(() => {});
-    api('/cache/set', { key: 'insight-hist-v3-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
+    api('/cache/set', { key: 'insight-hist-v4-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
   }
   refreshInsight();
 }
@@ -3666,6 +3743,34 @@ function getDexaBaseline() {
 // Within this many lbs of the DEXA baseline, weight is treated as "maintaining"
 // rather than clearly bulking/cutting, and uses the maintain split instead.
 const MAINTAIN_BAND_LBS = 1;
+
+// ── Energy-balance estimation ───────────────────────────────────────────────
+// Converts an observed weight change into an average daily energy imbalance:
+// fat at the classic Wishnofsky 3500 kcal/lb; lean tissue at ~800 kcal/lb —
+// lean mass is ~70-75% water, so its energy is just its protein content
+// (4 kcal/g), which body-composition models (Hall, Am J Clin Nutr 2008) put
+// at ~1800 kcal/kg ≈ 820 kcal/lb. The fat/lean split uses the same user-set
+// muscle-share assumptions as the body-fat estimate. Returns kcal/day,
+// negative = deficit; null without a span.
+const FAT_KCAL_PER_LB = 3500;
+const LEAN_KCAL_PER_LB = 800;
+
+function muscleShareFor(deltaW) {
+  const stored = JSON.parse(localStorage.getItem('bl_user') || '{}');
+  const pct = Math.abs(deltaW) <= MAINTAIN_BAND_LBS
+    ? (stored.muscle_maintain_pct != null ? stored.muscle_maintain_pct : 20)
+    : deltaW < 0
+      ? (stored.muscle_loss_pct != null ? stored.muscle_loss_pct : 20)
+      : (stored.muscle_gain_pct != null ? stored.muscle_gain_pct : 20);
+  return Math.min(100, Math.max(0, pct)) / 100;
+}
+
+function dailyEnergyImbalance(deltaW, days) {
+  if (!days) return null;
+  const lean = deltaW * muscleShareFor(deltaW);
+  const fat = deltaW - lean;
+  return (fat * FAT_KCAL_PER_LB + lean * LEAN_KCAL_PER_LB) / days;
+}
 
 // Estimates current body fat % by assuming a user-set split of any weight change
 // (since the DEXA scan) between lean/muscle mass and fat mass — using the
