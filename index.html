@@ -83,6 +83,7 @@
   body.light .meal-row{border-bottom-color:#c8c1b8;}
   body.light .meal-desc{color:#2c2820;}
   body.light .meal-meta{color:#7a7168;}
+  body.light .meal-running{color:#a89d8f;}
   body.light .total-row{color:#7a7168;border-top-color:#c8c1b8;}
   body.light .show-more-btn{border-color:#c8c1b8;color:#7a7168;}
   body.light .sec{color:#9e9689;}
@@ -273,6 +274,7 @@
   .meal-row:hover{background:#0e0e0e;}
   .meal-desc{font-size:13px;color:#ccc;flex:1;}
   .meal-meta{font-family:'DM Mono',monospace;font-size:10px;color:#777;margin-top:1px;}
+  .meal-running{font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:1px;}
   .kc{color:#f97316!important;}.pr{color:#a78bfa!important;}
   .icon-btn{background:none;border:none;color:#555;font-size:13px;cursor:pointer;padding:2px 5px;transition:color .15s;}
   .icon-btn:hover{color:#f87171;}.icon-btn.ed:hover{color:#f97316;}
@@ -1239,6 +1241,14 @@ function renderMeals() {
   const box = document.getElementById("meal-list");
   if (!meals.length) { box.innerHTML='<div class="no-meals">No meals logged yet</div>'; return; }
   const {cal:tc,pro:tp} = totals();
+  // Running total as of each meal, in the order meals were logged — computed
+  // before reversing so "so far" reads top-to-bottom the way the day happened.
+  let runCal = 0, runPro = 0;
+  const runningById = {};
+  meals.forEach(m => {
+    runCal += m.cal; runPro += m.pro;
+    runningById[m.id] = { cal: runCal, pro: runPro };
+  });
   // Sort newest first
   const sorted = [...meals].reverse();
   const SHOW = 3;
@@ -1259,6 +1269,7 @@ function renderMeals() {
         <div style="flex:1">
           <div class="meal-desc">${esc(m.desc)}</div>
           <div class="meal-meta">${m.time||''} · <span class="kc">${m.cal} kcal</span> · <span class="pr">${m.pro}g prot</span></div>
+          <div class="meal-running">${runningById[m.id].cal} kcal · ${runningById[m.id].pro}g so far</div>
         </div>
         <button class="icon-btn ed" onclick="startEdit('${m.id}')" title="Edit">✎</button>
         <button class="icon-btn" onclick="delMeal('${m.id}')" title="Delete">✕</button>
