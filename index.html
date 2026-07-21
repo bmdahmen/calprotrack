@@ -130,6 +130,7 @@
   body.light .qty-val{color:#2c2820;}
   body.light .fi-log-btn{background:#c8621a;color:#fff;}
   body.light .chip{background:#d5cec5;border-color:#c0b9b0;color:#4a4540;}
+  body.light input.chip-qty{border-bottom-color:#a89f93;color:#c8621a;}
   body.light .chip-add{background:#d5cec5;border-color:#c0b9b0;color:#4a4540;}
   body.light .chip-add:hover{border-color:#c8621a;color:#c8621a;}
   body.light .preset-card{background:#dbd4ca;border-color:#c8c1b8;}
@@ -296,6 +297,9 @@
   .fi-log-btn:hover{background:#fb923c;}
   .chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
   .chip{display:inline-flex;align-items:center;gap:6px;background:#1a1a1a;border:1px solid #2a2a2a;color:#ccc;border-radius:20px;padding:4px 10px;font-family:'DM Mono',monospace;font-size:10px;}
+  input.chip-qty{width:32px;background:none;border:none;border-bottom:1px solid #444;color:#f97316;font-family:'DM Mono',monospace;font-size:10px;text-align:center;padding:0 0 1px;border-radius:0;-moz-appearance:textfield;}
+  input.chip-qty::-webkit-outer-spin-button,input.chip-qty::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  input.chip-qty:focus{outline:none;border-bottom-color:#f97316;}
   .chip-add{background:#161616;border:1px solid #2a2a2a;color:#ccc;border-radius:20px;padding:5px 12px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;transition:all .15s;}
   .chip-add:hover{border-color:#f97316;color:#f97316;}
   .chip-x{background:none;border:none;color:#666;cursor:pointer;font-size:10px;padding:0;line-height:1;}
@@ -1548,6 +1552,14 @@ function removePresetBuilderItem(idx) {
   renderPresetBuilderItems();
 }
 
+function setPresetBuilderItemQty(idx, value) {
+  const it = presetBuilderItems[idx];
+  if (!it) return;
+  const qty = parseFloat(value);
+  it.qty = (isFinite(qty) && qty > 0) ? Math.round(qty * 100) / 100 : it.qty;
+  renderPresetBuilderItems();
+}
+
 function renderPresetBuilderItems() {
   const box = document.getElementById('pb-items');
   const totalsEl = document.getElementById('pb-totals');
@@ -1559,7 +1571,7 @@ function renderPresetBuilderItems() {
   if (!box) return;
   if (!presetBuilderItems.length) { box.innerHTML = '<span class="no-meals" style="padding:0">Nothing added yet</span>'; return; }
   box.innerHTML = presetBuilderItems.map((it, idx) => `
-    <span class="chip">${esc(it.name)}${it.qty>1?' ×'+it.qty:''}
+    <span class="chip">${esc(it.name)} ×<input type="number" inputmode="decimal" step="0.1" min="0.1" class="chip-qty" value="${it.qty}" onclick="this.select()" onchange="setPresetBuilderItemQty(${idx}, this.value)">
       <button type="button" class="chip-x" onclick="decPresetBuilderItem(${idx})" title="Remove one">－</button>
       <button type="button" class="chip-x" onclick="removePresetBuilderItem(${idx})" title="Remove">✕</button>
     </span>`).join('');
