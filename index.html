@@ -82,6 +82,8 @@
   body.light .meal-box{background:#dbd4ca;border-color:#c8c1b8;}
   body.light .meal-row{border-bottom-color:#c8c1b8;}
   body.light .meal-desc{color:#2c2820;}
+  body.light .fi-row{border-bottom-color:#c8c1b8;}
+  body.light .fi-name{color:#2c2820;}
   body.light .meal-meta{color:#7a7168;}
   body.light .meal-running{color:#a89d8f;}
   body.light .total-row{color:#7a7168;border-top-color:#c8c1b8;}
@@ -312,6 +314,11 @@
   /* Food Log: presets + reusable quick-add items */
   .fe-go-muted{background:#1a1a1a;color:#888;}
   .fe-go-muted:hover{background:#222;}
+  .fi-row{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-bottom:1px solid #111;}
+  .fi-row:hover{background:#0e0e0e;}
+  .fi-name{font-size:15px;font-weight:600;color:#eee;}
+  .fi-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .fi-controls .meal-meta{margin-top:0;margin-right:auto;}
   .qty-stepper{display:flex;align-items:center;gap:6px;flex-shrink:0;}
   .qty-btn{background:#1a1a1a;border:1px solid #2a2a2a;color:#ccc;width:22px;height:22px;border-radius:5px;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;}
   .qty-btn:hover{border-color:#f97316;color:#f97316;}
@@ -1419,20 +1426,20 @@ function renderFoodItems() {
     }
     const qty = foodItemQty[f.id] || 1;
     return `
-    <div class="meal-row fade" id="fi-row-${f.id}">
-      <div style="flex:1">
-        <div class="meal-desc">${esc(f.name)}</div>
+    <div class="fi-row fade" id="fi-row-${f.id}">
+      <div class="fi-name">${esc(f.name)}</div>
+      <div class="fi-controls">
         <div class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</div>
+        <div class="qty-stepper">
+          <button type="button" class="qty-btn" onclick="bumpFoodItemQty('${f.id}',-1)">－</button>
+          <input type="number" inputmode="decimal" step="0.1" min="0.1" class="qty-val-input" id="fi-qty-${f.id}" value="${qty}" onclick="this.select()" onchange="setFoodItemQty('${f.id}', this.value)">
+          <button type="button" class="qty-btn" onclick="bumpFoodItemQty('${f.id}',1)">＋</button>
+        </div>
+        <button type="button" class="fi-log-btn" onclick="logFoodItem('${f.id}')">+ Log</button>
+        <button class="icon-btn" onclick="openFoodItemServingWizard('${f.id}')" title="Adjust servings">🎚️</button>
+        <button class="icon-btn ed" onclick="startEditFoodItem('${f.id}')" title="Edit">✎</button>
+        <button class="icon-btn" onclick="deleteFoodItem('${f.id}')" title="Delete">✕</button>
       </div>
-      <div class="qty-stepper">
-        <button type="button" class="qty-btn" onclick="bumpFoodItemQty('${f.id}',-1)">－</button>
-        <input type="number" inputmode="decimal" step="0.1" min="0.1" class="qty-val-input" id="fi-qty-${f.id}" value="${qty}" onclick="this.select()" onchange="setFoodItemQty('${f.id}', this.value)">
-        <button type="button" class="qty-btn" onclick="bumpFoodItemQty('${f.id}',1)">＋</button>
-      </div>
-      <button type="button" class="fi-log-btn" onclick="logFoodItem('${f.id}')">+ Log</button>
-      <button class="icon-btn" onclick="openFoodItemServingWizard('${f.id}')" title="Adjust servings">🎚️</button>
-      <button class="icon-btn ed" onclick="startEditFoodItem('${f.id}')" title="Edit">✎</button>
-      <button class="icon-btn" onclick="deleteFoodItem('${f.id}')" title="Delete">✕</button>
     </div>`;
   }).join('');
 }
