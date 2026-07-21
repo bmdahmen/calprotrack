@@ -1272,7 +1272,7 @@ function updateUI() {
   // Header stats — use today's wt-am input first, then latest history entry
   const histWeights = historyData.filter(e=>e.weightAM).sort((a,b)=>a.date>b.date?1:-1);
   const lastW = todayWt0 || (histWeights.length ? histWeights[histWeights.length-1].weightAM : null);
-  const rec = historyData.filter(e=>e.calories).slice(-7);
+  const rec = historyData.filter(e=>e.calories && e.date < todayKey()).slice(-7);
   const avgCal = rec.length?Math.round(rec.reduce((s,e)=>s+e.calories,0)/rec.length):null;
   const avgPro = rec.length?Math.round(rec.reduce((s,e)=>s+(e.protein||0),0)/rec.length):null;
   const bodyCompNow = lastW ? estimateBodyComp(lastW) : null;
@@ -1430,6 +1430,7 @@ function renderFoodItems() {
         <button type="button" class="qty-btn" onclick="bumpFoodItemQty('${f.id}',1)">＋</button>
       </div>
       <button type="button" class="fi-log-btn" onclick="logFoodItem('${f.id}')">+ Log</button>
+      <button class="icon-btn" onclick="openFoodItemServingWizard('${f.id}')" title="Adjust servings">🎚️</button>
       <button class="icon-btn ed" onclick="startEditFoodItem('${f.id}')" title="Edit">✎</button>
       <button class="icon-btn" onclick="deleteFoodItem('${f.id}')" title="Delete">✕</button>
     </div>`;
@@ -1698,15 +1699,32 @@ async function logPreset(id, mult = 1) {
   toast(`Logged "${p.name}" ✓`);
 }
 
-// -- Serving-size wizard: a mobile-friendly slider for scaling an entire
-// preset up/down at log time, with calories/protein/weight updating live. --
+// -- Serving-size wizard: a mobile-friendly slider for scaling a preset or a
+// single food item up/down at log time, with calories/protein/weight
+// updating live. Both kinds render through the same "items" shape — a food
+// item is just a one-item list with a base qty of 1 — so the drawing code
+// below doesn't need to know which kind it's showing. --
 
-let servingWizardPresetId = null;
+let servingWizardKind = null; // 'preset' | 'fooditem'
+let servingWizardId = null;
+
+function wizardItems() {
+  if (servingWizardKind === 'preset') {
+    const p = presets.find(p => p.id == servingWizardId);
+    return p ? p.items : null;
+  }
+  if (servingWizardKind === 'fooditem') {
+    const f = foodItems.find(f => f.id == servingWizardId);
+    return f ? [{ name: f.name, cal: f.cal, pro: f.pro||0, weight_g: f.weight_g||null, qty: 1 }] : null;
+  }
+  return null;
+}
 
 function openServingWizard(id) {
   const p = presets.find(p => p.id == id);
   if (!p) return;
-  servingWizardPresetId = id;
+  servingWizardKind = 'preset';
+  servingWizardId = id;
   document.getElementById('sw-preset-name').textContent = p.name;
   document.getElementById('sw-log-btn').textContent = `▶ Log to ${activeDayShortLabel()}`;
   const slider = document.getElementById('sw-slider');
@@ -1715,9 +1733,23 @@ function openServingWizard(id) {
   document.getElementById('serving-modal').style.display = 'flex';
 }
 
+function openFoodItemServingWizard(id) {
+  const f = foodItems.find(f => f.id == id);
+  if (!f) return;
+  servingWizardKind = 'fooditem';
+  servingWizardId = id;
+  document.getElementById('sw-preset-name').textContent = f.name;
+  document.getElementById('sw-log-btn').textContent = `▶ Log to ${activeDayShortLabel()}`;
+  const slider = document.getElementById('sw-slider');
+  slider.value = foodItemQty[id] || 1;
+  renderServingWizard(parseFloat(slider.value));
+  document.getElementById('serving-modal').style.display = 'flex';
+}
+
 function closeServingWizard() {
   document.getElementById('serving-modal').style.display = 'none';
-  servingWizardPresetId = null;
+  servingWizardKind = null;
+  servingWizardId = null;
 }
 
 function onServingSliderInput(value) {
@@ -1725,12 +1757,12 @@ function onServingSliderInput(value) {
 }
 
 function renderServingWizard(mult) {
-  const p = presets.find(p => p.id == servingWizardPresetId);
-  if (!p) return;
+  const items = wizardItems();
+  if (!items) return;
   const multStr = (Math.round(mult * 100) / 100).toString();
   document.getElementById('sw-mult').textContent = multStr + '×';
   let totalCal = 0, totalPro = 0, totalWt = 0, anyWt = false;
-  const itemsHtml = p.items.map(it => {
+  const itemsHtml = items.map(it => {
     const qty = it.qty * mult;
     const cal = Math.round(it.cal * qty);
     const pro = Math.round((it.pro||0) * qty);
@@ -1743,7 +1775,9 @@ function renderServingWizard(mult) {
     }
     return `<div class="sw-item"><span class="sw-item-name">${esc(it.name)}</span><span class="sw-item-vals"><span class="kc">${cal}</span> · <span class="pr">${pro}g</span>${wtHtml}</span></div>`;
   }).join('');
-  document.getElementById('sw-items').innerHTML = itemsHtml;
+  const itemsEl = document.getElementById('sw-items');
+  itemsEl.style.display = items.length > 1 ? '' : 'none';
+  itemsEl.innerHTML = items.length > 1 ? itemsHtml : '';
   document.getElementById('sw-cal').textContent = totalCal;
   document.getElementById('sw-pro').textContent = totalPro + 'g';
   const wtStat = document.getElementById('sw-wt-stat');
@@ -1756,10 +1790,15 @@ function renderServingWizard(mult) {
 }
 
 async function confirmServingWizard() {
-  const id = servingWizardPresetId;
+  const kind = servingWizardKind;
+  const id = servingWizardId;
   const mult = parseFloat(document.getElementById('sw-slider').value);
   closeServingWizard();
-  await logPreset(id, mult);
+  if (kind === 'preset') await logPreset(id, mult);
+  else if (kind === 'fooditem') {
+    foodItemQty[id] = Math.round(mult * 100) / 100;
+    await logFoodItem(id);
+  }
 }
 
 // ── Measurements ───────────────────────────────────────────────────────────
@@ -3110,10 +3149,11 @@ async function refreshHistInsight() {
     currentGoalMode || 'deficit',
     dexaFP,
   ].join(':');
-  // v4: bumped for the est-deficit block — cached v3 rate-row HTML predates it
-  // and would replay without the new stat for up to 24h. (v3 bump before this
-  // orphaned entries poisoned by a since-fixed range race.)
-  const histCacheKey = 'insight-hist-v4-' + range;
+  // v5: bumped for the avg kcal/protein blocks — cached v4 rate-row HTML
+  // predates them and would replay without the new stats for up to 24h.
+  // (v4 bump before this was for the est-deficit block; v3 for a since-fixed
+  // range race that had poisoned entries.)
+  const histCacheKey = 'insight-hist-v5-' + range;
 
   // Check DB cache — capped to one real generation per 24h regardless of
   // whether the underlying data changed (weight/waist entries, DEXA, etc.).
@@ -3196,6 +3236,26 @@ async function refreshHistInsight() {
       <div class="hist-rate-window">${showImpliedTdee ? `ate ~${Math.round(avgEaten)}/day → TDEE ≈ ${Math.round(avgEaten - imbalance)}` : 'from weight change'}</div>
     </div>` : '';
 
+  // Plain intake averages over the window — same date range and same
+  // today/future exclusion as the deficit estimate above, just without the
+  // TDEE math. Colored to match the calories/protein trend-chart legend
+  // (orange/purple) rather than the loss/gain green-red scale, since these
+  // aren't "good or bad" — just what was logged.
+  const proDaysArr = pts.filter(e => e.protein && e.date < todayKey());
+  const avgProEaten = proDaysArr.length ? proDaysArr.reduce((s, e) => s + e.protein, 0) / proDaysArr.length : null;
+  const avgCalBlock = avgEaten != null ? `
+    <div class="hist-rate-block">
+      <div class="hist-rate-num kc">${Math.round(avgEaten)}</div>
+      <div class="hist-rate-lbl">AVG KCAL/DAY</div>
+      <div class="hist-rate-window">${calDaysArr.length} of ${range}D logged</div>
+    </div>` : '';
+  const avgProBlock = avgProEaten != null ? `
+    <div class="hist-rate-block">
+      <div class="hist-rate-num pr">${Math.round(avgProEaten)}g</div>
+      <div class="hist-rate-lbl">AVG PROTEIN/DAY</div>
+      <div class="hist-rate-window">${proDaysArr.length} of ${range}D logged</div>
+    </div>` : '';
+
   rateRow.innerHTML = `
     <div class="hist-rate-caption">${range}D WINDOW</div>
     <div class="hist-rate-blocks">
@@ -3212,6 +3272,8 @@ async function refreshHistInsight() {
       </div>` : ''}
       ${bfBlock}
       ${defBlock}
+      ${avgCalBlock}
+      ${avgProBlock}
     </div>`;
 
   // Build AI prompt
