@@ -155,6 +155,7 @@
   body.light .insight-bar.surplus-fat{color:#7a1a1a;background:#edd5d5;}
   body.light .kc{color:#b05010!important;}
   body.light .pr{color:#5a3a9a!important;}
+  body.light .wt{color:#8a8074;}
   body.light .prog-val{color:#2c2820!important;font-weight:600;}
   body.light .prog-meta span{color:#4a4540;}
   body.light .hist-rate-num.loss{color:#1a6b2a;}
@@ -246,6 +247,7 @@
   .fe-g{width:78px;flex:none;}
   .fe-kcal{width:82px;flex:none;}
   .fe-pro{width:74px;flex:none;}
+  .fe-wt{width:74px;flex:none;}
   .fe-suffix{position:relative;}
   .fe-suffix input{padding-right:28px;text-align:right;font-variant-numeric:tabular-nums;}
   .fe-suffix>span{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:10px;color:#666;letter-spacing:1px;pointer-events:none;}
@@ -276,7 +278,7 @@
   .meal-desc{font-size:13px;color:#ccc;flex:1;}
   .meal-meta{font-family:'DM Mono',monospace;font-size:10px;color:#777;margin-top:1px;}
   .meal-running{font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:1px;}
-  .kc{color:#f97316!important;}.pr{color:#a78bfa!important;}
+  .kc{color:#f97316!important;}.pr{color:#a78bfa!important;}.wt{color:#666;}
   .icon-btn{background:none;border:none;color:#555;font-size:19px;cursor:pointer;padding:6px 9px;transition:color .15s;}
   .icon-btn:last-child{margin-left:4px;}
   .icon-btn:hover{color:#f87171;}.icon-btn.ed:hover{color:#f97316;}
@@ -293,6 +295,9 @@
   .qty-btn{background:#1a1a1a;border:1px solid #2a2a2a;color:#ccc;width:22px;height:22px;border-radius:5px;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;}
   .qty-btn:hover{border-color:#f97316;color:#f97316;}
   .qty-val{font-family:'DM Mono',monospace;font-size:12px;color:#eee;min-width:14px;text-align:center;}
+  input.qty-val-input{width:36px;background:none;border:none;border-bottom:1px solid #333;color:#eee;font-family:'DM Mono',monospace;font-size:12px;text-align:center;padding:0 0 1px;border-radius:0;-moz-appearance:textfield;}
+  input.qty-val-input::-webkit-outer-spin-button,input.qty-val-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  input.qty-val-input:focus{outline:none;border-bottom-color:#f97316;}
   .fi-log-btn{background:#f97316;border:none;color:#000;padding:6px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0;}
   .fi-log-btn:hover{background:#fb923c;}
   .chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
@@ -669,6 +674,9 @@
             <div class="fe-row" style="margin-top:8px">
               <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="fi-cal" inputmode="numeric" step="1" min="0" placeholder="40" onkeydown="if(event.key==='Enter')addFoodItem()"><span>kc</span></div></div>
               <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="fi-pro" inputmode="numeric" step="1" min="0" placeholder="1" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
+              <div class="fe-col fe-wt"><label class="field-lbl">Weight</label><div class="fe-suffix"><input type="number" id="fi-wt" inputmode="decimal" step="0.1" min="0" placeholder="150" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
+            </div>
+            <div class="fe-row" style="margin-top:8px">
               <button class="fe-go grow" id="fi-btn" onclick="addFoodItem()">Add Item</button>
             </div>
           </div>
@@ -1362,6 +1370,7 @@ function renderFoodItems() {
           <input type="text" id="efi-n-${f.id}" value="${esc(f.name)}" style="flex:2;min-width:100px;padding:5px 8px;font-size:12px">
           <input type="number" id="efi-c-${f.id}" value="${f.cal}" placeholder="kcal" inputmode="numeric" style="width:68px;padding:5px 8px;font-size:12px">
           <input type="number" id="efi-p-${f.id}" value="${f.pro||0}" placeholder="g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
+          <input type="number" id="efi-w-${f.id}" value="${f.weight_g||''}" placeholder="wt g" inputmode="decimal" step="0.1" style="width:55px;padding:5px 8px;font-size:12px">
           <button class="save-btn" onclick="saveEditFoodItem('${f.id}')">SAVE</button>
           <button class="cancel-btn" onclick="editFoodItemId=null;renderFoodItems()">✕</button>
         </div>
@@ -1372,11 +1381,11 @@ function renderFoodItems() {
     <div class="meal-row fade" id="fi-row-${f.id}">
       <div style="flex:1">
         <div class="meal-desc">${esc(f.name)}</div>
-        <div class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span></div>
+        <div class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</div>
       </div>
       <div class="qty-stepper">
         <button type="button" class="qty-btn" onclick="bumpFoodItemQty('${f.id}',-1)">－</button>
-        <span class="qty-val" id="fi-qty-${f.id}">${qty}</span>
+        <input type="number" inputmode="decimal" step="0.1" min="0.1" class="qty-val-input" id="fi-qty-${f.id}" value="${qty}" onclick="this.select()" onchange="setFoodItemQty('${f.id}', this.value)">
         <button type="button" class="qty-btn" onclick="bumpFoodItemQty('${f.id}',1)">＋</button>
       </div>
       <button type="button" class="fi-log-btn" onclick="logFoodItem('${f.id}')">+ Log</button>
@@ -1386,25 +1395,51 @@ function renderFoodItems() {
   }).join('');
 }
 
+function scaledWeightText(weightG, qty) {
+  const scaled = weightG * qty;
+  const rounded = Math.round(scaled * 10) / 10;
+  return `${rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)}g`;
+}
+
+function updateFoodItemWeightDisplay(id, qty) {
+  const f = foodItems.find(f => f.id == id);
+  if (!f || !f.weight_g) return;
+  const el = document.getElementById('fi-wt-' + id);
+  if (el) el.textContent = scaledWeightText(f.weight_g, qty);
+}
+
 function bumpFoodItemQty(id, delta) {
   const cur = foodItemQty[id] || 1;
-  const next = Math.max(1, Math.min(20, cur + delta));
+  const next = Math.round(Math.max(0.1, Math.min(20, cur + delta)) * 100) / 100;
   foodItemQty[id] = next;
   const el = document.getElementById('fi-qty-' + id);
-  if (el) el.textContent = next;
+  if (el) el.value = next;
+  updateFoodItemWeightDisplay(id, next);
+}
+
+function setFoodItemQty(id, value) {
+  const qty = parseFloat(value);
+  const cur = foodItemQty[id] || 1;
+  const next = (isFinite(qty) && qty > 0) ? Math.round(Math.min(20, qty) * 100) / 100 : cur;
+  foodItemQty[id] = next;
+  const el = document.getElementById('fi-qty-' + id);
+  if (el) el.value = next;
+  updateFoodItemWeightDisplay(id, next);
 }
 
 async function addFoodItem() {
   const nameEl = document.getElementById('fi-name');
   const calEl = document.getElementById('fi-cal');
   const proEl = document.getElementById('fi-pro');
+  const wtEl = document.getElementById('fi-wt');
   const name = nameEl.value.trim();
   const cal = parseInt(calEl.value);
   const pro = parseInt(proEl.value) || 0;
+  const weight_g = parseFloat(wtEl.value) || null;
   if (!name) { nameEl.focus(); return; }
   if (!cal || cal <= 0) { calEl.focus(); return; }
-  foodItems.push({ id: newLocalId(), name, cal, pro, created_at: new Date().toISOString() });
-  nameEl.value = ''; calEl.value = ''; proEl.value = ''; nameEl.focus();
+  foodItems.push({ id: newLocalId(), name, cal, pro, weight_g, created_at: new Date().toISOString() });
+  nameEl.value = ''; calEl.value = ''; proEl.value = ''; wtEl.value = ''; nameEl.focus();
   renderFoodItems();
   renderPresetBuilderPicker();
   try { await saveFoodItems(); toast('Food item added ✓'); }
@@ -1417,8 +1452,9 @@ async function saveEditFoodItem(id) {
   const name = document.getElementById(`efi-n-${id}`).value.trim();
   const cal = parseInt(document.getElementById(`efi-c-${id}`).value) || 0;
   const pro = parseInt(document.getElementById(`efi-p-${id}`).value) || 0;
+  const weight_g = parseFloat(document.getElementById(`efi-w-${id}`).value) || null;
   if (!name || cal <= 0) return;
-  foodItems = foodItems.map(f => f.id == id ? { ...f, name, cal, pro } : f);
+  foodItems = foodItems.map(f => f.id == id ? { ...f, name, cal, pro, weight_g } : f);
   editFoodItemId = null;
   renderFoodItems();
   renderPresetBuilderPicker();
@@ -1445,7 +1481,7 @@ async function logFoodItem(id) {
   await logMeal(desc, cal, pro);
   foodItemQty[id] = 1;
   const el = document.getElementById('fi-qty-' + id);
-  if (el) el.textContent = 1;
+  if (el) el.value = 1;
   toast(`Logged: ${cal} kcal · ${pro}g protein`);
 }
 
