@@ -406,11 +406,11 @@
   body.light .hist-coach-toggle{color:#9e9689;}
   .hist-rate-row{margin-bottom:10px;}
   .hist-rate-caption{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:2px;color:#444;margin-bottom:8px;}
-  .hist-rate-blocks{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 14px;}
-  .hist-rate-block{text-align:left;min-width:0;}
+  .hist-rate-blocks{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 8px;}
+  .hist-rate-block{text-align:center;min-width:0;}
   .hist-rate-num{font-size:18px;font-weight:500;font-family:'DM Mono',monospace;line-height:1;letter-spacing:-0.02em;}
-  .hist-rate-lbl{font-family:'DM Mono',monospace;font-size:7px;letter-spacing:1px;opacity:.5;margin-top:2px;white-space:nowrap;}
-  .hist-rate-window{font-family:'DM Mono',monospace;font-size:8px;color:#555;margin-top:4px;white-space:nowrap;}
+  .hist-rate-lbl{font-family:'DM Mono',monospace;font-size:7px;letter-spacing:1px;opacity:.5;margin-top:2px;}
+  .hist-rate-window{font-family:'DM Mono',monospace;font-size:8px;color:#555;margin-top:4px;}
   .hist-rate-num.loss{color:#4ade80;}
   .hist-rate-num.slow{color:#fbbf24;}
   .hist-rate-num.gain{color:#f87171;}
@@ -3177,11 +3177,11 @@ async function refreshHistInsight() {
     currentGoalMode || 'deficit',
     dexaFP,
   ].join(':');
-  // v6: bumped for the compacted stat-block sizing/text — cached v5 HTML
-  // predates it and would replay the old wider layout for up to 24h. (v5
-  // bump was for the avg kcal/protein blocks; v4 for the est-deficit block;
-  // v3 for a since-fixed range race that had poisoned entries.)
-  const histCacheKey = 'insight-hist-v6-' + range;
+  // v7: bumped for the 3-column centered grid + shortened deficit label —
+  // cached v6 HTML predates it and would replay the old left-aligned wrap
+  // for up to 24h. (v6 was the compacted sizing; v5 the avg kcal/protein
+  // blocks; v4 the est-deficit block; v3 a since-fixed range race.)
+  const histCacheKey = 'insight-hist-v7-' + range;
 
   // Check DB cache — capped to one real generation per 24h regardless of
   // whether the underlying data changed (weight/waist entries, DEXA, etc.).
@@ -3260,7 +3260,7 @@ async function refreshHistInsight() {
   const defBlock = imbalance != null ? `
     <div class="hist-rate-block">
       <div class="hist-rate-num ${defClass}">${imbalance > 0 ? '+' : ''}${Math.round(imbalance)}</div>
-      <div class="hist-rate-lbl">EST KCAL/DAY ${imbalance <= 0 ? 'DEFICIT' : 'SURPLUS'}</div>
+      <div class="hist-rate-lbl">KCAL ${imbalance <= 0 ? 'DEFICIT' : 'SURPLUS'}</div>
       <div class="hist-rate-window">${showImpliedTdee ? `TDEE ≈ ${Math.round(avgEaten - imbalance)}` : 'from weight change'}</div>
     </div>` : '';
 
