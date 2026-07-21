@@ -200,6 +200,27 @@
   .modal-close{background:none;border:1px solid #222;color:#555;padding:8px 16px;border-radius:6px;cursor:pointer;font-family:'DM Mono',monospace;font-size:10px;margin-top:16px;width:100%;transition:all .15s;}
   .modal-close:hover{border-color:#444;color:#aaa;}
 
+  /* Serving size wizard modal */
+  .sw-modal{max-width:380px;}
+  .sw-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+  .sw-title{font-size:15px;font-weight:700;color:#fff;}
+  .sw-x{background:none;border:none;color:#555;font-size:16px;cursor:pointer;padding:4px 6px;line-height:1;}
+  .sw-x:hover{color:#f97316;}
+  .sw-mult{font-family:'DM Mono',monospace;font-size:34px;font-weight:700;color:#f97316;text-align:center;margin:10px 0 2px;}
+  .sw-slider{-webkit-appearance:none;appearance:none;width:100%;height:36px;background:transparent;margin:6px 0 16px;cursor:pointer;touch-action:pan-y;}
+  .sw-slider::-webkit-slider-runnable-track{height:8px;border-radius:4px;background:#2a2a2a;}
+  .sw-slider::-moz-range-track{height:8px;border-radius:4px;background:#2a2a2a;}
+  .sw-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:32px;height:32px;border-radius:50%;background:#f97316;border:3px solid #0f0f0f;margin-top:-12px;box-shadow:0 1px 4px #0006;}
+  .sw-slider::-moz-range-thumb{width:32px;height:32px;border-radius:50%;background:#f97316;border:3px solid #0f0f0f;box-shadow:0 1px 4px #0006;}
+  .sw-totals{display:flex;justify-content:center;gap:24px;margin-bottom:14px;}
+  .sw-stat{text-align:center;}
+  .sw-stat-num{font-family:'DM Mono',monospace;font-size:17px;font-weight:700;}
+  .sw-stat-lbl{font-family:'DM Mono',monospace;font-size:9px;color:#666;letter-spacing:.05em;margin-top:1px;}
+  .sw-items{max-height:160px;overflow-y:auto;border-top:1px solid #1e1e1e;padding-top:8px;margin-bottom:4px;}
+  .sw-item{display:flex;justify-content:space-between;gap:8px;font-family:'DM Mono',monospace;font-size:11px;padding:5px 0;color:#aaa;}
+  .sw-item-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sw-item-vals{flex-shrink:0;white-space:nowrap;}
+
   /* Progress */
   .prog-wrap{margin-bottom:13px;}
   .prog-meta{display:flex;justify-content:space-between;margin-bottom:4px;}
@@ -869,6 +890,26 @@
   </div>
 </div>
 
+<!-- Serving Size Wizard Modal -->
+<div class="modal-overlay" id="serving-modal" style="display:none" onclick="if(event.target===this)closeServingWizard()">
+  <div class="modal sw-modal">
+    <div class="sw-header">
+      <div class="sw-title" id="sw-preset-name"></div>
+      <button class="sw-x" onclick="closeServingWizard()">✕</button>
+    </div>
+    <div class="sw-mult" id="sw-mult">1×</div>
+    <input type="range" id="sw-slider" class="sw-slider" min="0.25" max="3" step="0.05" value="1" oninput="onServingSliderInput(this.value)">
+    <div class="sw-totals">
+      <div class="sw-stat"><div class="sw-stat-num kc" id="sw-cal">0</div><div class="sw-stat-lbl">kcal</div></div>
+      <div class="sw-stat"><div class="sw-stat-num pr" id="sw-pro">0g</div><div class="sw-stat-lbl">protein</div></div>
+      <div class="sw-stat" id="sw-wt-stat" style="display:none"><div class="sw-stat-num wt" id="sw-wt">0g</div><div class="sw-stat-lbl">weight</div></div>
+    </div>
+    <div class="sw-items" id="sw-items"></div>
+    <button class="fe-go grow" id="sw-log-btn" onclick="confirmServingWizard()">▶ Log</button>
+    <button class="modal-close" onclick="closeServingWizard()">Cancel</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1507,6 +1548,7 @@ function renderPresets() {
       <div class="chip-row">${chips}</div>
       <div class="preset-actions">
         <button class="fe-go" onclick="logPreset('${p.id}')">▶ Log to ${esc(dayLbl)}</button>
+        <button class="icon-btn" onclick="openServingWizard('${p.id}')" title="Adjust servings">🎚️</button>
         <button class="icon-btn ed" onclick="openPresetBuilder('${p.id}')" title="Edit">✎</button>
         <button class="icon-btn" onclick="deletePreset('${p.id}')" title="Delete">✕</button>
       </div>
@@ -1555,7 +1597,7 @@ function addToPresetBuilder(foodItemId) {
   if (!f) return;
   const existing = presetBuilderItems.find(it => it.food_item_id == foodItemId);
   if (existing) existing.qty += 1;
-  else presetBuilderItems.push({ food_item_id: f.id, name: f.name, cal: f.cal, pro: f.pro||0, qty: 1 });
+  else presetBuilderItems.push({ food_item_id: f.id, name: f.name, cal: f.cal, pro: f.pro||0, weight_g: f.weight_g||null, qty: 1 });
   renderPresetBuilderItems();
 }
 
@@ -1639,18 +1681,85 @@ async function deletePreset(id) {
 // Logs every line item in the preset as its own meal row (not a single
 // combined row), so a component can still be edited/deleted individually
 // afterwards — e.g. swap the granola out without touching the rest.
-async function logPreset(id) {
+// mult scales every item's saved qty uniformly — the serving-size wizard's
+// slider — defaulting to 1 for the plain one-tap "Log to TODAY" button.
+async function logPreset(id, mult = 1) {
   const p = presets.find(p => p.id == id);
   if (!p || !p.items.length) return;
   for (const it of p.items) {
-    const desc = it.qty > 1 ? `${it.name} ×${it.qty}` : it.name;
-    meals.push({ id: newLocalId(), desc, cal: Math.round(it.cal*it.qty), pro: Math.round((it.pro||0)*it.qty), time: timeNow() });
+    const qty = Math.round(it.qty * mult * 100) / 100;
+    const desc = qty !== 1 ? `${it.name} ×${qty}` : it.name;
+    meals.push({ id: newLocalId(), desc, cal: Math.round(it.cal*qty), pro: Math.round((it.pro||0)*qty), time: timeNow() });
   }
   await api('/meals/save', { date: dateKey(activeDate), meals });
   updateUI();
   refreshInsight();
   autoSaveDay();
   toast(`Logged "${p.name}" ✓`);
+}
+
+// -- Serving-size wizard: a mobile-friendly slider for scaling an entire
+// preset up/down at log time, with calories/protein/weight updating live. --
+
+let servingWizardPresetId = null;
+
+function openServingWizard(id) {
+  const p = presets.find(p => p.id == id);
+  if (!p) return;
+  servingWizardPresetId = id;
+  document.getElementById('sw-preset-name').textContent = p.name;
+  document.getElementById('sw-log-btn').textContent = `▶ Log to ${activeDayShortLabel()}`;
+  const slider = document.getElementById('sw-slider');
+  slider.value = 1;
+  renderServingWizard(1);
+  document.getElementById('serving-modal').style.display = 'flex';
+}
+
+function closeServingWizard() {
+  document.getElementById('serving-modal').style.display = 'none';
+  servingWizardPresetId = null;
+}
+
+function onServingSliderInput(value) {
+  renderServingWizard(parseFloat(value));
+}
+
+function renderServingWizard(mult) {
+  const p = presets.find(p => p.id == servingWizardPresetId);
+  if (!p) return;
+  const multStr = (Math.round(mult * 100) / 100).toString();
+  document.getElementById('sw-mult').textContent = multStr + '×';
+  let totalCal = 0, totalPro = 0, totalWt = 0, anyWt = false;
+  const itemsHtml = p.items.map(it => {
+    const qty = it.qty * mult;
+    const cal = Math.round(it.cal * qty);
+    const pro = Math.round((it.pro||0) * qty);
+    totalCal += cal; totalPro += pro;
+    let wtHtml = '';
+    if (it.weight_g) {
+      const wt = it.weight_g * qty;
+      totalWt += wt; anyWt = true;
+      wtHtml = ` · <span class="wt">${scaledWeightText(wt, 1)}</span>`;
+    }
+    return `<div class="sw-item"><span class="sw-item-name">${esc(it.name)}</span><span class="sw-item-vals"><span class="kc">${cal}</span> · <span class="pr">${pro}g</span>${wtHtml}</span></div>`;
+  }).join('');
+  document.getElementById('sw-items').innerHTML = itemsHtml;
+  document.getElementById('sw-cal').textContent = totalCal;
+  document.getElementById('sw-pro').textContent = totalPro + 'g';
+  const wtStat = document.getElementById('sw-wt-stat');
+  if (anyWt) {
+    wtStat.style.display = '';
+    document.getElementById('sw-wt').textContent = scaledWeightText(totalWt, 1);
+  } else {
+    wtStat.style.display = 'none';
+  }
+}
+
+async function confirmServingWizard() {
+  const id = servingWizardPresetId;
+  const mult = parseFloat(document.getElementById('sw-slider').value);
+  closeServingWizard();
+  await logPreset(id, mult);
 }
 
 // ── Measurements ───────────────────────────────────────────────────────────
