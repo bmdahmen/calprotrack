@@ -918,6 +918,13 @@
 <script>
 const WORKER = "https://calorie.bmdahmen.workers.dev";
 const CAL_T = 1800, PRO_T = 120;
+// Bump whenever refreshHistInsight()'s cached HTML shape or prompt changes,
+// so stale cache/get entries don't replay for up to 24h. Referenced by both
+// the cache read/write in refreshHistInsight() and the invalidation calls
+// in setAggressiveness()/setGoalMode() — those two were pointing at a
+// years-stale 'v4' literal that no longer matched the live key, so goal or
+// aggressiveness changes silently stopped invalidating the history insight.
+const HIST_CACHE_VERSION = 'v9';
 
 const SEED_HISTORY = [
   {date:"2019-12-01",weightAM:147,notes:"Baseline adult weight"},
@@ -1678,7 +1685,7 @@ function renderPresetBuilderItems() {
   if (!box) return;
   if (!presetBuilderItems.length) { box.innerHTML = '<span class="no-meals" style="padding:0">Nothing added yet</span>'; return; }
   box.innerHTML = presetBuilderItems.map((it, idx) => `
-    <span class="chip">${esc(it.name)} ×<input type="number" inputmode="decimal" step="0.1" min="0.1" class="chip-qty" value="${it.qty}" onclick="this.select()" onchange="setPresetBuilderItemQty(${idx}, this.value)">
+    <span class="chip">${esc(it.name)} ×<input type="number" inputmode="decimal" step="0.1" min="0.1" class="chip-qty" value="${it.qty}" onchange="setPresetBuilderItemQty(${idx}, this.value)">
       <button type="button" class="chip-x" onclick="decPresetBuilderItem(${idx})" title="Remove one">－</button>
       <button type="button" class="chip-x" onclick="removePresetBuilderItem(${idx})" title="Remove">✕</button>
     </span>`).join('');
@@ -2456,6 +2463,19 @@ function handleSwipeEnd(e) {
 document.addEventListener('touchstart', handleSwipeStart, { passive: true });
 document.addEventListener('touchend', handleSwipeEnd, { passive: true });
 
+// Tapping into any number field selects its current value, so typing a
+// replacement doesn't require erasing it first. 'focus' doesn't bubble, so
+// this needs the capture phase to catch it delegated from document. The
+// select() call is deferred a tick because a mouse/touch-driven focus is
+// followed by the browser's own "place cursor at click position" handling,
+// which runs after 'focus' and would otherwise collapse our selection.
+document.addEventListener('focus', (e) => {
+  if (e.target.matches && e.target.matches('input[type=number]')) {
+    const el = e.target;
+    setTimeout(() => el.select(), 0);
+  }
+}, true);
+
 // ── Toast ──────────────────────────────────────────────────────────────────
 function toast(msg) {
   const t = document.getElementById("toast");
@@ -2516,7 +2536,7 @@ Goal mode: ${currentGoalMode}. TDEE: ${TDEE_USER} kcal. Target: ${CAL_T_USER} kc
 
 Answer the user's question specifically and practically, referencing their actual numbers. Keep responses under 3 sentences. Be direct.`;
     const data = await api('/', {
-      max_tokens: 200, thinking: { type: 'disabled' }, _type: 'ai_coach',
+      max_tokens: 400, thinking: { type: 'disabled' }, _type: 'ai_coach',
       system: sysPrompt,
       messages: histChatHistory,
     });
@@ -3105,7 +3125,7 @@ Audit today's intake and name the single most useful gap or improvement you can 
 
   try {
     const data = await api('/', {
-      max_tokens: 160, thinking: { type: 'disabled' }, _type: 'ai_coach',
+      max_tokens: 300, thinking: { type: 'disabled' }, _type: 'ai_coach',
       system: sysPrompt,
       messages: [{role: 'user', content: prompt}],
     });
@@ -3177,12 +3197,11 @@ async function refreshHistInsight() {
     currentGoalMode || 'deficit',
     dexaFP,
   ].join(':');
-  // v8: bumped for centering the "NNND WINDOW" caption above the grid —
-  // cached v7 HTML predates it and would replay left-aligned for up to 24h.
-  // (v7 was the 3-column grid + shortened deficit label; v6 the compacted
-  // sizing; v5 the avg kcal/protein blocks; v4 the est-deficit block; v3 a
-  // since-fixed range race.)
-  const histCacheKey = 'insight-hist-v8-' + range;
+  // See HIST_CACHE_VERSION at top of script — bumped here to v9 because the
+  // ai_coach max_tokens was too low (150) and routinely truncated the
+  // response mid-sentence; a stale cached truncation would otherwise keep
+  // replaying for up to 24h even after the fix.
+  const histCacheKey = 'insight-hist-' + HIST_CACHE_VERSION + '-' + range;
 
   // Check DB cache — capped to one real generation per 24h regardless of
   // whether the underlying data changed (weight/waist entries, DEXA, etc.).
@@ -3321,7 +3340,7 @@ Write 2-3 encouraging but factual sentences evaluating this progress given their
 
   try {
     const data = await api('/', {
-      max_tokens: 150, thinking: { type: 'disabled' }, _type: 'ai_coach',
+      max_tokens: 400, thinking: { type: 'disabled' }, _type: 'ai_coach',
       messages: [{ role: 'user', content: prompt }],
     });
     if (data.rate_limited) throw new Error(data.error.message);
@@ -3503,7 +3522,7 @@ function setAggressiveness(level, btn) {
   updateUI();
   if (currentUser) {
     api('/cache/set', { key: 'insight-day-' + dateKey(activeDate), value: '', fingerprint: 'invalidated' }).catch(() => {});
-    api('/cache/set', { key: 'insight-hist-v4-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
+    api('/cache/set', { key: 'insight-hist-' + HIST_CACHE_VERSION + '-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
   }
   refreshInsight();
 }
@@ -3714,7 +3733,7 @@ function setGoalMode(mode, btn) {
   updateUI();
   if (currentUser) {
     api('/cache/set', { key: 'insight-day-' + dateKey(activeDate), value: '', fingerprint: 'invalidated' }).catch(() => {});
-    api('/cache/set', { key: 'insight-hist-v4-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
+    api('/cache/set', { key: 'insight-hist-' + HIST_CACHE_VERSION + '-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
   }
   refreshInsight();
 }
