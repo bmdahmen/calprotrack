@@ -82,8 +82,11 @@
   body.light .meal-box{background:#dbd4ca;border-color:#c8c1b8;}
   body.light .meal-row{border-bottom-color:#c8c1b8;}
   body.light .meal-desc{color:#2c2820;}
-  body.light .fi-row{border-bottom-color:#c8c1b8;}
+  body.light .fi-swipe-wrap{border-bottom-color:#c8c1b8;}
+  body.light .fi-row{background:#dbd4ca;}
+  body.light .fi-row:hover{background:#d5cec5;}
   body.light .fi-name{color:#2c2820;}
+  body.light .fi-actions-tray{background:#c8b8b8;}
   body.light .meal-meta{color:#7a7168;}
   body.light .meal-running{color:#a89d8f;}
   body.light .total-row{color:#7a7168;border-top-color:#c8c1b8;}
@@ -127,9 +130,6 @@
   body.light .prof-tdee-display{color:#7a7168;}
   body.light .no-meals{color:#9e9689;}
   body.light .fe-go-muted{background:#cfc8bf;color:#6e675e;}
-  body.light .qty-btn{background:#d5cec5;border-color:#c0b9b0;color:#4a4540;}
-  body.light .qty-btn:hover{border-color:#c8621a;color:#c8621a;}
-  body.light .qty-val{color:#2c2820;}
   body.light .fi-log-btn{background:#c8621a;color:#fff;}
   body.light .chip{background:#d5cec5;border-color:#c0b9b0;color:#4a4540;}
   body.light input.chip-qty{border-bottom-color:#a89f93;color:#c8621a;}
@@ -314,18 +314,14 @@
   /* Food Log: presets + reusable quick-add items */
   .fe-go-muted{background:#1a1a1a;color:#888;}
   .fe-go-muted:hover{background:#222;}
-  .fi-row{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-bottom:1px solid #111;}
-  .fi-row:hover{background:#0e0e0e;}
+  .fi-swipe-wrap{position:relative;overflow:hidden;border-bottom:1px solid #111;}
+  .fi-actions-tray{position:absolute;top:0;left:0;bottom:0;width:76px;display:flex;align-items:center;justify-content:center;gap:2px;background:#1c1414;}
+  .fi-row{position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:#111;transition:transform .2s ease;touch-action:pan-y;}
+  .fi-row.revealed{transform:translateX(76px);}
+  .fi-row:hover{background:#161010;}
   .fi-name{font-size:15px;font-weight:600;color:#eee;}
   .fi-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .fi-controls .meal-meta{margin-top:0;margin-right:auto;}
-  .qty-stepper{display:flex;align-items:center;gap:6px;flex-shrink:0;}
-  .qty-btn{background:#1a1a1a;border:1px solid #2a2a2a;color:#ccc;width:22px;height:22px;border-radius:5px;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;}
-  .qty-btn:hover{border-color:#f97316;color:#f97316;}
-  .qty-val{font-family:'DM Mono',monospace;font-size:12px;color:#eee;min-width:14px;text-align:center;}
-  input.qty-val-input{width:36px;background:none;border:none;border-bottom:1px solid #333;color:#eee;font-family:'DM Mono',monospace;font-size:12px;text-align:center;padding:0 0 1px;border-radius:0;-moz-appearance:textfield;}
-  input.qty-val-input::-webkit-outer-spin-button,input.qty-val-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
-  input.qty-val-input:focus{outline:none;border-bottom-color:#f97316;}
   .fi-log-btn{background:#f97316;border:none;color:#000;padding:6px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0;}
   .fi-log-btn:hover{background:#fb923c;}
   .chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
@@ -410,11 +406,11 @@
   body.light .hist-coach-toggle{color:#9e9689;}
   .hist-rate-row{margin-bottom:10px;}
   .hist-rate-caption{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:2px;color:#444;margin-bottom:8px;}
-  .hist-rate-blocks{display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px 28px;}
-  .hist-rate-block{text-align:left;}
-  .hist-rate-num{font-size:23px;font-weight:500;font-family:'DM Mono',monospace;line-height:1;letter-spacing:-0.02em;}
-  .hist-rate-lbl{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:2px;opacity:.5;margin-top:2px;}
-  .hist-rate-window{font-family:'DM Mono',monospace;font-size:9px;color:#555;margin-top:5px;}
+  .hist-rate-blocks{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 14px;}
+  .hist-rate-block{text-align:left;min-width:0;}
+  .hist-rate-num{font-size:18px;font-weight:500;font-family:'DM Mono',monospace;line-height:1;letter-spacing:-0.02em;}
+  .hist-rate-lbl{font-family:'DM Mono',monospace;font-size:7px;letter-spacing:1px;opacity:.5;margin-top:2px;white-space:nowrap;}
+  .hist-rate-window{font-family:'DM Mono',monospace;font-size:8px;color:#555;margin-top:4px;white-space:nowrap;}
   .hist-rate-num.loss{color:#4ade80;}
   .hist-rate-num.slow{color:#fbbf24;}
   .hist-rate-num.gain{color:#f87171;}
@@ -1426,54 +1422,81 @@ function renderFoodItems() {
     }
     const qty = foodItemQty[f.id] || 1;
     return `
-    <div class="fi-row fade" id="fi-row-${f.id}">
-      <div class="fi-name">${esc(f.name)}</div>
-      <div class="fi-controls">
-        <div class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</div>
-        <div class="qty-stepper">
-          <button type="button" class="qty-btn" onclick="bumpFoodItemQty('${f.id}',-1)">－</button>
-          <input type="number" inputmode="decimal" step="0.1" min="0.1" class="qty-val-input" id="fi-qty-${f.id}" value="${qty}" onclick="this.select()" onchange="setFoodItemQty('${f.id}', this.value)">
-          <button type="button" class="qty-btn" onclick="bumpFoodItemQty('${f.id}',1)">＋</button>
-        </div>
-        <button type="button" class="fi-log-btn" onclick="logFoodItem('${f.id}')">+ Log</button>
-        <button class="icon-btn" onclick="openFoodItemServingWizard('${f.id}')" title="Adjust servings">🎚️</button>
+    <div class="fi-swipe-wrap no-swipe fade" id="fi-wrap-${f.id}">
+      <div class="fi-actions-tray">
         <button class="icon-btn ed" onclick="startEditFoodItem('${f.id}')" title="Edit">✎</button>
         <button class="icon-btn" onclick="deleteFoodItem('${f.id}')" title="Delete">✕</button>
+      </div>
+      <div class="fi-row" id="fi-row-${f.id}" ontouchstart="fiRowTouchStart(event,'${f.id}')" ontouchend="fiRowTouchEnd(event,'${f.id}')" onclick="fiRowClick('${f.id}')">
+        <div class="fi-name">${esc(f.name)}</div>
+        <div class="fi-controls">
+          <div class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</div>
+          <button type="button" class="fi-log-btn" onclick="event.stopPropagation();logFoodItem('${f.id}')">+ Log</button>
+          <button class="icon-btn" onclick="event.stopPropagation();openFoodItemServingWizard('${f.id}')" title="Adjust servings">🎚️</button>
+        </div>
       </div>
     </div>`;
   }).join('');
 }
 
+// -- Swipe-right-to-reveal edit/delete on a food item row. Only reacts on
+// touchend (measuring net drag distance), matching the tab-swipe pattern
+// above — the row itself carries .no-swipe so that global handler ignores
+// it entirely rather than double-processing the same gesture. --
+let fiRevealedId = null;
+let fiTouchId = null, fiTouchStartX = 0, fiTouchStartY = 0, fiTouchTracking = false;
+
+function fiRowTouchStart(e, id) {
+  if (e.touches.length !== 1) { fiTouchTracking = false; return; }
+  fiTouchId = id;
+  fiTouchStartX = e.touches[0].clientX;
+  fiTouchStartY = e.touches[0].clientY;
+  fiTouchTracking = true;
+}
+
+function fiRowTouchEnd(e, id) {
+  if (!fiTouchTracking || fiTouchId !== id) { fiTouchTracking = false; return; }
+  fiTouchTracking = false;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - fiTouchStartX;
+  const dy = t.clientY - fiTouchStartY;
+  const MIN = 40;
+  if (Math.abs(dx) < MIN || Math.abs(dx) < Math.abs(dy) * 1.5) return; // not a clear horizontal swipe
+  if (dx > 0) openFoodItemSwipe(id);
+  else closeFoodItemSwipe();
+}
+
+// Tapping (not swiping) a row that's currently revealed closes it, instead
+// of triggering whatever's underneath — a plain click elsewhere leaves
+// fiTouchTracking untouched, so this only fires for real taps/clicks.
+function fiRowClick(id) {
+  if (fiRevealedId === id) closeFoodItemSwipe();
+}
+
+function openFoodItemSwipe(id) {
+  if (fiRevealedId && fiRevealedId !== id) closeFoodItemSwipe();
+  fiRevealedId = id;
+  const row = document.getElementById('fi-row-' + id);
+  if (row) row.classList.add('revealed');
+}
+
+function closeFoodItemSwipe() {
+  if (!fiRevealedId) return;
+  const row = document.getElementById('fi-row-' + fiRevealedId);
+  if (row) row.classList.remove('revealed');
+  fiRevealedId = null;
+}
+
+document.addEventListener('click', (e) => {
+  if (!fiRevealedId) return;
+  const wrap = document.getElementById('fi-wrap-' + fiRevealedId);
+  if (wrap && !wrap.contains(e.target)) closeFoodItemSwipe();
+});
+
 function scaledWeightText(weightG, qty) {
   const scaled = weightG * qty;
   const rounded = Math.round(scaled * 10) / 10;
   return `${rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)}g`;
-}
-
-function updateFoodItemWeightDisplay(id, qty) {
-  const f = foodItems.find(f => f.id == id);
-  if (!f || !f.weight_g) return;
-  const el = document.getElementById('fi-wt-' + id);
-  if (el) el.textContent = scaledWeightText(f.weight_g, qty);
-}
-
-function bumpFoodItemQty(id, delta) {
-  const cur = foodItemQty[id] || 1;
-  const next = Math.round(Math.max(0.1, Math.min(20, cur + delta)) * 100) / 100;
-  foodItemQty[id] = next;
-  const el = document.getElementById('fi-qty-' + id);
-  if (el) el.value = next;
-  updateFoodItemWeightDisplay(id, next);
-}
-
-function setFoodItemQty(id, value) {
-  const qty = parseFloat(value);
-  const cur = foodItemQty[id] || 1;
-  const next = (isFinite(qty) && qty > 0) ? Math.round(Math.min(20, qty) * 100) / 100 : cur;
-  foodItemQty[id] = next;
-  const el = document.getElementById('fi-qty-' + id);
-  if (el) el.value = next;
-  updateFoodItemWeightDisplay(id, next);
 }
 
 async function addFoodItem() {
@@ -1529,8 +1552,6 @@ async function logFoodItem(id) {
   const desc = qty > 1 ? `${item.name} ×${qty}` : item.name;
   await logMeal(desc, cal, pro);
   foodItemQty[id] = 1;
-  const el = document.getElementById('fi-qty-' + id);
-  if (el) el.value = 1;
   toast(`Logged: ${cal} kcal · ${pro}g protein`);
 }
 
@@ -3156,11 +3177,11 @@ async function refreshHistInsight() {
     currentGoalMode || 'deficit',
     dexaFP,
   ].join(':');
-  // v5: bumped for the avg kcal/protein blocks — cached v4 rate-row HTML
-  // predates them and would replay without the new stats for up to 24h.
-  // (v4 bump before this was for the est-deficit block; v3 for a since-fixed
-  // range race that had poisoned entries.)
-  const histCacheKey = 'insight-hist-v5-' + range;
+  // v6: bumped for the compacted stat-block sizing/text — cached v5 HTML
+  // predates it and would replay the old wider layout for up to 24h. (v5
+  // bump was for the avg kcal/protein blocks; v4 for the est-deficit block;
+  // v3 for a since-fixed range race that had poisoned entries.)
+  const histCacheKey = 'insight-hist-v6-' + range;
 
   // Check DB cache — capped to one real generation per 24h regardless of
   // whether the underlying data changed (weight/waist entries, DEXA, etc.).
@@ -3240,7 +3261,7 @@ async function refreshHistInsight() {
     <div class="hist-rate-block">
       <div class="hist-rate-num ${defClass}">${imbalance > 0 ? '+' : ''}${Math.round(imbalance)}</div>
       <div class="hist-rate-lbl">EST KCAL/DAY ${imbalance <= 0 ? 'DEFICIT' : 'SURPLUS'}</div>
-      <div class="hist-rate-window">${showImpliedTdee ? `ate ~${Math.round(avgEaten)}/day → TDEE ≈ ${Math.round(avgEaten - imbalance)}` : 'from weight change'}</div>
+      <div class="hist-rate-window">${showImpliedTdee ? `TDEE ≈ ${Math.round(avgEaten - imbalance)}` : 'from weight change'}</div>
     </div>` : '';
 
   // Plain intake averages over the window — same date range and same
