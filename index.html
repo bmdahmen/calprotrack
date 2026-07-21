@@ -87,6 +87,9 @@
   body.light .fi-row:hover{background:#d5cec5;}
   body.light .fi-name{color:#2c2820;}
   body.light .fi-actions-tray{background:#c8b8b8;}
+  body.light .qty-btn{background:#d5cec5;border-color:#c0b9b0;color:#4a4540;}
+  body.light .qty-btn:hover{border-color:#c8621a;color:#c8621a;}
+  body.light input.qty-val-input{color:#2c2820;border-bottom-color:#a89f93;}
   body.light .meal-meta{color:#7a7168;}
   body.light .meal-running{color:#a89d8f;}
   body.light .total-row{color:#7a7168;border-top-color:#c8c1b8;}
@@ -315,13 +318,19 @@
   .fe-go-muted{background:#1a1a1a;color:#888;}
   .fe-go-muted:hover{background:#222;}
   .fi-swipe-wrap{position:relative;overflow:hidden;border-bottom:1px solid #111;}
-  .fi-actions-tray{position:absolute;top:0;left:0;bottom:0;width:76px;display:flex;align-items:center;justify-content:center;gap:2px;background:#1c1414;}
+  .fi-actions-tray{position:absolute;top:0;left:0;bottom:0;width:112px;display:flex;align-items:center;justify-content:center;gap:2px;background:#1c1414;}
   .fi-row{position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:#111;transition:transform .2s ease;touch-action:pan-y;}
-  .fi-row.revealed{transform:translateX(76px);}
+  .fi-row.revealed{transform:translateX(112px);}
   .fi-row:hover{background:#161010;}
   .fi-name{font-size:15px;font-weight:600;color:#eee;}
   .fi-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
   .fi-controls .meal-meta{margin-top:0;margin-right:auto;}
+  .qty-stepper{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .qty-btn{background:#1a1a1a;border:1px solid #2a2a2a;color:#ccc;width:22px;height:22px;border-radius:5px;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;}
+  .qty-btn:hover{border-color:#f97316;color:#f97316;}
+  input.qty-val-input{width:36px;background:none;border:none;border-bottom:1px solid #333;color:#eee;font-family:'DM Mono',monospace;font-size:12px;text-align:center;padding:0 0 1px;border-radius:0;-moz-appearance:textfield;}
+  input.qty-val-input::-webkit-outer-spin-button,input.qty-val-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  input.qty-val-input:focus{outline:none;border-bottom-color:#f97316;}
   .fi-log-btn{background:#f97316;border:none;color:#000;padding:6px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;font-family:'DM Mono',monospace;white-space:nowrap;flex-shrink:0;}
   .fi-log-btn:hover{background:#fb923c;}
   .chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
@@ -1431,6 +1440,7 @@ function renderFoodItems() {
     return `
     <div class="fi-swipe-wrap no-swipe fade" id="fi-wrap-${f.id}">
       <div class="fi-actions-tray">
+        <button class="icon-btn" onclick="openFoodItemServingWizard('${f.id}')" title="Adjust servings">🎚️</button>
         <button class="icon-btn ed" onclick="startEditFoodItem('${f.id}')" title="Edit">✎</button>
         <button class="icon-btn" onclick="deleteFoodItem('${f.id}')" title="Delete">✕</button>
       </div>
@@ -1438,8 +1448,12 @@ function renderFoodItems() {
         <div class="fi-name">${esc(f.name)}</div>
         <div class="fi-controls">
           <div class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</div>
+          <div class="qty-stepper">
+            <button type="button" class="qty-btn" onclick="event.stopPropagation();bumpFoodItemQty('${f.id}',-1)">－</button>
+            <input type="number" inputmode="decimal" step="0.1" min="0.1" class="qty-val-input" id="fi-qty-${f.id}" value="${qty}" onclick="event.stopPropagation()" onchange="setFoodItemQty('${f.id}', this.value)">
+            <button type="button" class="qty-btn" onclick="event.stopPropagation();bumpFoodItemQty('${f.id}',1)">＋</button>
+          </div>
           <button type="button" class="fi-log-btn" onclick="event.stopPropagation();logFoodItem('${f.id}')">+ Log</button>
-          <button class="icon-btn" onclick="event.stopPropagation();openFoodItemServingWizard('${f.id}')" title="Adjust servings">🎚️</button>
         </div>
       </div>
     </div>`;
@@ -1506,6 +1520,32 @@ function scaledWeightText(weightG, qty) {
   return `${rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1)}g`;
 }
 
+function updateFoodItemWeightDisplay(id, qty) {
+  const f = foodItems.find(f => f.id == id);
+  if (!f || !f.weight_g) return;
+  const el = document.getElementById('fi-wt-' + id);
+  if (el) el.textContent = scaledWeightText(f.weight_g, qty);
+}
+
+function bumpFoodItemQty(id, delta) {
+  const cur = foodItemQty[id] || 1;
+  const next = Math.round(Math.max(0.1, Math.min(20, cur + delta)) * 100) / 100;
+  foodItemQty[id] = next;
+  const el = document.getElementById('fi-qty-' + id);
+  if (el) el.value = next;
+  updateFoodItemWeightDisplay(id, next);
+}
+
+function setFoodItemQty(id, value) {
+  const qty = parseFloat(value);
+  const cur = foodItemQty[id] || 1;
+  const next = (isFinite(qty) && qty > 0) ? Math.round(Math.min(20, qty) * 100) / 100 : cur;
+  foodItemQty[id] = next;
+  const el = document.getElementById('fi-qty-' + id);
+  if (el) el.value = next;
+  updateFoodItemWeightDisplay(id, next);
+}
+
 async function addFoodItem() {
   const nameEl = document.getElementById('fi-name');
   const calEl = document.getElementById('fi-cal');
@@ -1559,6 +1599,9 @@ async function logFoodItem(id) {
   const desc = qty > 1 ? `${item.name} ×${qty}` : item.name;
   await logMeal(desc, cal, pro);
   foodItemQty[id] = 1;
+  const el = document.getElementById('fi-qty-' + id);
+  if (el) el.value = 1;
+  updateFoodItemWeightDisplay(id, 1);
   toast(`Logged: ${cal} kcal · ${pro}g protein`);
 }
 
