@@ -2496,11 +2496,12 @@ function drawChart() {
   // Daily calorie/protein intake — already raw fields on each point (unlike
   // bodyFat, which is derived), so no extra computation needed beyond
   // collecting the ones present in range. Each gets its own axis column,
-  // same stacking pattern as bodyFat. Today is excluded: the day isn't over
-  // yet, so its running total would plot as a misleadingly low dip.
+  // same stacking pattern as bodyFat. Today and any future-dated entries
+  // (e.g. food logged ahead of time on tomorrow's date) are excluded: those
+  // days aren't over yet, so their running totals would plot as misleading dips.
   const today = todayKey();
-  const calPts = points.filter(p => p.calories && p.date !== today).map(p => ({ date: p.date, value: p.calories, p }));
-  const proPts = points.filter(p => p.protein && p.date !== today).map(p => ({ date: p.date, value: p.protein, p }));
+  const calPts = points.filter(p => p.calories && p.date < today).map(p => ({ date: p.date, value: p.calories, p }));
+  const proPts = points.filter(p => p.protein && p.date < today).map(p => ({ date: p.date, value: p.protein, p }));
   const calActive = chartSeriesOn.calories && calPts.length > 0;
   const proActive = chartSeriesOn.protein && proPts.length > 0;
 
@@ -3073,7 +3074,7 @@ async function refreshHistInsight() {
   // change (fat/lean energy densities + muscle split), and — when intake was
   // logged for enough of the window — the maintenance intake it implies.
   const imbalance = dailyEnergyImbalance(weightChangeLbs, daySpanW);
-  const calDaysArr = pts.filter(e => e.calories && e.date !== todayKey());
+  const calDaysArr = pts.filter(e => e.calories && e.date < todayKey());
   const avgEaten = calDaysArr.length ? calDaysArr.reduce((s, e) => s + e.calories, 0) / calDaysArr.length : null;
   const showImpliedTdee = avgEaten != null && calDaysArr.length >= 5;
   let defClass;
