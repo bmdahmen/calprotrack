@@ -37,7 +37,7 @@
   .avatar-btn img{width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #f97316;display:block;}
   .avatar-btn .av-placeholder{width:32px;height:32px;border-radius:50%;background:#1a1a1a;border:2px solid #f97316;display:flex;align-items:center;justify-content:center;font-family:"DM Mono",monospace;font-size:13px;color:#f97316;}
   .avatar-label{font-family:"DM Mono",monospace;font-size:8px;color:#555;letter-spacing:.08em;text-transform:uppercase;}
-  body.light .avatar-label{color:#9e9689;}
+  body.light .avatar-label{color:#5c5349;}
   /* Meals collapsed */
   .meals-collapsed .meal-row:nth-child(n+4){display:none;}
   .show-more-btn{width:100%;background:none;border:1px solid #2a2a2a;border-radius:6px;color:#555;font-family:"DM Mono",monospace;font-size:10px;padding:7px;cursor:pointer;margin-top:4px;transition:all .15s;}
@@ -59,14 +59,15 @@
   /* ── LIGHT MODE ── */
   body.light{background:#e8e2d9;color:#2c2820;}
   body.light .header{background:#dfd9cf;border-bottom-color:#c8c1b8;}
+  body.light .logo{color:#2c2820;}
   body.light .tab-btn{color:#7a7168;}
   body.light .tab-btn.on{color:#c8621a;}
   body.light .tab-btn:hover:not(.on){color:#4a4540;}
   body.light .insight-bar{background:#dbd4ca;border-color:#c8c1b8;}
-  body.light .insight-bar .insight-label{color:#c8621a;opacity:.7;}
+  body.light .insight-bar .insight-label{color:#a8501a;opacity:1;}
   body.light .stats-row .stat{background:#dfd9cf;border-color:#c8c1b8;}
   body.light .stats-row .val{color:#2c2820;}
-  body.light .stats-row .lbl{color:#9e9689;}
+  body.light .stats-row .lbl{color:#5c5349;}
   body.light .pane{background:#e8e2d9;}
   body.light .day-nav{background:#dfd9cf;border-color:#c8c1b8;}
   body.light .day-label{color:#2c2820;}
@@ -74,7 +75,7 @@
   body.light .today-btn{border-color:#c8c1b8;color:#7a7168;}
   body.light .chat-wrap{background:#dbd4ca;border-color:#c8c1b8;}
   body.light .chat-msgs{background:#dbd4ca;}
-  body.light .chat-empty{color:#9e9689;}
+  body.light .chat-empty{color:#5c5349;}
   body.light .bubble{background:#cfc8bf;color:#2c2820;}
   body.light .msg-ai .ai-av{background:#dfd9cf;color:#c8621a;border-color:#c8c1b8;}
   body.light .ai-text{color:#3a3530;}
@@ -86,15 +87,17 @@
   body.light .fi-row{background:#dbd4ca;}
   body.light .fi-row:hover{background:#d5cec5;}
   body.light .fi-name{color:#2c2820;}
-  body.light .fi-actions-tray{background:#c8b8b8;}
+  body.light .fi-actions-tray{background:#d8c4c4;}
+  body.light .fi-actions-tray .icon-btn{color:#4a3535;}
   body.light .qty-btn{background:#d5cec5;border-color:#c0b9b0;color:#4a4540;}
   body.light .qty-btn:hover{border-color:#c8621a;color:#c8621a;}
   body.light input.qty-val-input{color:#2c2820;border-bottom-color:#a89f93;}
   body.light .meal-meta{color:#7a7168;}
   body.light .meal-running{color:#a89d8f;}
-  body.light .total-row{color:#7a7168;border-top-color:#c8c1b8;}
-  body.light .show-more-btn{border-color:#c8c1b8;color:#7a7168;}
-  body.light .sec{color:#9e9689;}
+  body.light .total-row{color:#4a4540;background:#cfc6b8;border-top-color:#c8c1b8;}
+  body.light .total-lbl{color:#4a4540;}
+  body.light .show-more-btn{border-color:#c8c1b8;color:#5c5349;}
+  body.light .sec{color:#5c5349;}
   body.light .field-lbl{color:#7a7168;}
   body.light input[type=number],body.light input[type=text]{background:#d5cec5;border-color:#c0b9b0;color:#2c2820;}
   body.light .meas-grid input{background:#d5cec5;}
@@ -110,6 +113,12 @@
   body.light .legend-item{color:#7a7168;}
   body.light #pane-profile{background:#e8e2d9;}
   body.light .prof-card{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .profile-panel{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .profile-name{color:#2c2820;}
+  body.light .profile-email{color:#7a7168;}
+  body.light .profile-avatar-placeholder{background:#dfd9cf;border-color:#c0b9b0;color:#7a7168;}
+  body.light .logout-btn{border-color:#c0b9b0;color:#7a7168;}
+  body.light .logout-btn:hover{border-color:#c8621a;color:#c8621a;}
   body.light .act-btn{border-color:#c8c1b8;color:#7a7168;}
   body.light .act-btn.on{border-color:#c8621a;color:#c8621a;}
   body.light .goal-btn{border-color:#c8c1b8;color:#7a7168;}
@@ -119,6 +128,12 @@
   body.light .auth-logo{color:#2c2820;}
   body.light .auth-title{color:#2c2820;}
   body.light .auth-sub{color:#7a7168;}
+  body.light .onboard-box{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .onboard-title{color:#2c2820;}
+  body.light .onboard-sub{color:#7a7168;}
+  body.light .onboard-act-btn{border-color:#c0b9b0;color:#7a7168;}
+  body.light .onboard-act-btn.on{border-color:#c8621a;color:#c8621a;}
+  body.light .onboard-tdee{color:#7a7168;}
   body.light .theme-btn{border-color:#c8c1b8;color:#7a7168;}
   body.light .theme-btn.on{border-color:#c8621a;color:#c8621a;}
   body.light .avatar-btn img{border-color:#c8621a;}
@@ -131,7 +146,11 @@
   body.light .btn-save-food{background:#c8621a;color:#fff;}
   body.light .btn-discuss{border-color:#c8c1b8;color:#7a7168;}
   body.light .prof-tdee-display{color:#7a7168;}
-  body.light .no-meals{color:#9e9689;}
+  .tdee-target-val{color:#fff;}
+  body.light .tdee-target-val{color:#2c2820;}
+  .tdee-pct-note{opacity:.6;}
+  body.light .tdee-pct-note{color:#5c5349;opacity:1;}
+  body.light .no-meals{color:#5c5349;}
   body.light .fe-go-muted{background:#cfc8bf;color:#6e675e;}
   body.light .fi-log-btn{background:#c8621a;color:#fff;}
   body.light .chip{background:#d5cec5;border-color:#c0b9b0;color:#4a4540;}
@@ -140,17 +159,18 @@
   body.light .chip-add:hover{border-color:#c8621a;color:#c8621a;}
   body.light .preset-card{background:#dbd4ca;border-color:#c8c1b8;}
   body.light .preset-name{color:#2c2820;}
-  body.light .hist-insight-bar{background:#dbd4ca;border-color:#c8c1b8;}
+  body.light .hist-insight-bar{background:#dbd4ca;border-color:#c8c1b8;color:#2c2820;}
+  body.light .hist-insight-bar .insight-label{color:#a8501a;opacity:1;}
   body.light .history-row{border-bottom-color:#c8c1b8;color:#4a4540;}
   body.light .toast{background:#2c2820;color:#e8e2d9;}
-  body.light .goal-btn.deficit.on{background:#3a2010;color:#c8621a;border-color:#c8621a;}
-  body.light .goal-btn.maintain.on{background:#2a2a10;color:#a09020;border-color:#a09020;}
-  body.light .goal-btn.bulk.on{background:#102a18;color:#2a8040;border-color:#2a8040;}
+  body.light .goal-btn.deficit.on{background:#edd8c8;color:#7a3510;border-color:#c8621a;}
+  body.light .goal-btn.maintain.on{background:#ede8d0;color:#5c4a10;border-color:#a09020;}
+  body.light .goal-btn.bulk.on{background:#d5ead8;color:#1a5c28;border-color:#2a8040;}
   body.light .send-btn:hover{background:#b55818;}
-  body.light .char-count{color:#9e9689;}
+  body.light .char-count{color:#5c5349;}
   .migrate-status-txt{color:#4ade80;}
   body.light .migrate-status-txt{color:#1a6b2a;}
-  body.light .aggr-desc{color:#9e9689;}
+  body.light .aggr-desc{color:#5c5349;}
   /* Green text overrides — #4ade80 is unreadable on light backgrounds */
   body.light .val.good{color:#1a6b2a!important;}
   body.light .insight-bar.deficit-deep{color:#1a5c28;background:#d5ead8;}
@@ -291,7 +311,7 @@
   body.light .food-entry-head>span:first-child{color:#2c2820;}
   body.light .fe-hint.ai{color:#8a5a1a;}
   body.light .fe-hint.noai{color:#1a6b2a;}
-  body.light .fe-est-link{color:#9e9689;}
+  body.light .fe-est-link{color:#5c5349;}
   body.light .fe-go{background:#c8621a;color:#fff;}
   body.light .fe-go:hover{background:#b55818;}
   @media (prefers-reduced-motion:reduce){.fe-est-link .chev{transition:none;}}
@@ -309,6 +329,7 @@
   .icon-btn:last-child{margin-left:4px;}
   .icon-btn:hover{color:#f87171;}.icon-btn.ed:hover{color:#f97316;}
   .total-row{display:flex;justify-content:space-between;padding:7px 12px;background:#0f0f0f;border-top:1px solid #151515;font-family:'DM Mono',monospace;font-size:11px;}
+  .total-lbl{color:#444;}
   .edit-wrap{flex:1;display:flex;gap:5px;flex-wrap:wrap;align-items:center;}
   .edit-wrap input{padding:5px 8px;font-size:12px;}
   .save-btn{background:#f97316;border:none;color:#000;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
@@ -412,7 +433,7 @@
   .hist-coach-toggle:hover{color:#f97316;}
   body.light .hist-chat-wrap{border-top-color:#c8c1b8;}
   body.light .hist-chat-input{background:#dbd4ca;border-color:#c8c1b8;color:#2c2820;}
-  body.light .hist-coach-toggle{color:#9e9689;}
+  body.light .hist-coach-toggle{color:#5c5349;}
   .hist-rate-row{margin-bottom:10px;}
   .hist-rate-caption{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:2px;color:#444;margin-bottom:8px;text-align:center;}
   .hist-rate-blocks{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 8px;}
@@ -1354,7 +1375,7 @@ function renderMeals() {
   </button>` : '';
 
   box.innerHTML = rows + showMoreBtn +
-    `<div class="total-row"><span style="color:#444">TOTAL</span><span><span class="kc">${tc} kcal</span> · <span class="pr">${tp}g</span></span></div>`;
+    `<div class="total-row"><span class="total-lbl">TOTAL</span><span><span class="kc">${tc} kcal</span> · <span class="pr">${tp}g</span></span></div>`;
 }
 
 function startEdit(id) { editId = id; renderMeals(); }
@@ -2078,8 +2099,8 @@ function renderHistory() {
       <td style="color:#444">${e.weightPM??'—'}</td>
       <td style="color:#444">${e.waistNavel??'—'}</td>
       <td style="color:#444">${e.waistSmallest??'—'}</td>
-      <td style="font-weight:600;color:${e.calories?(e.calories>CAL_T?(document.body.classList.contains('light')?'#8b1a1a':'#f87171'):(document.body.classList.contains('light')?'#1a6b2a':'#4ade80')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.calories??'—'}</td>
-      <td style="font-weight:600;color:${e.protein?(e.protein>=proteinTargetFor(e.date,e.weightAM)?(document.body.classList.contains('light')?'#1a6b2a':'#4ade80'):(document.body.classList.contains('light')?'#8b1a1a':'#f87171')):(document.body.classList.contains('light')?'#9e9689':'#2a2a2a')}">${e.protein?e.protein+'g':'—'}</td>
+      <td style="font-weight:600;color:${e.calories?(e.calories>CAL_T?(document.body.classList.contains('light')?'#8b1a1a':'#f87171'):(document.body.classList.contains('light')?'#1a6b2a':'#4ade80')):(document.body.classList.contains('light')?'#5c5349':'#2a2a2a')}">${e.calories??'—'}</td>
+      <td style="font-weight:600;color:${e.protein?(e.protein>=proteinTargetFor(e.date,e.weightAM)?(document.body.classList.contains('light')?'#1a6b2a':'#4ade80'):(document.body.classList.contains('light')?'#8b1a1a':'#f87171')):(document.body.classList.contains('light')?'#5c5349':'#2a2a2a')}">${e.protein?e.protein+'g':'—'}</td>
       <td style="color:#444">${e.chest??'—'}</td>
       <td style="color:#444">${e.neck??'—'}</td>
       <td style="color:#444">${e.thigh??'—'}</td>
@@ -2752,7 +2773,7 @@ function drawChart() {
   const xByDate = d => PAD_L + ((new Date(d) - cutoff) / rangeMs) * plotW;
 
   if (points.length < 1) {
-    ctx.fillStyle = isLight ? '#9e9689' : '#444';
+    ctx.fillStyle = isLight ? '#5c5349' : '#444';
     ctx.font = "11px 'DM Mono', monospace";
     ctx.textAlign = 'center';
     ctx.fillText('No data for this range', W/2, H/2);
@@ -3805,7 +3826,7 @@ function updateTDEEDisplay() {
     pctStr = pct === 0 ? 'maintenance' : (pct > 0 ? `+${pct}%` : `${pct}%`);
   }
   document.getElementById('prof-tdee-display').innerHTML =
-    `TDEE ${t.tdee} kcal &nbsp;·&nbsp; <span style="color:#fff">Target ${t.calTarget} kcal</span> <span style="opacity:.4">(${pctStr}${t.hasOverride ? ' · custom' : ''})</span>`;
+    `TDEE ${t.tdee} kcal &nbsp;·&nbsp; <span class="tdee-target-val">Target ${t.calTarget} kcal</span> <span class="tdee-pct-note">(${pctStr}${t.hasOverride ? ' · custom' : ''})</span>`;
 
   const sourceEl = document.getElementById('prof-tdee-source');
   if (sourceEl) sourceEl.textContent = t.rmr ? 'Using your entered RMR · updates automatically' : 'Mifflin-St Jeor estimate · updates automatically';
