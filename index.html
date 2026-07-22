@@ -322,8 +322,9 @@
   .fi-row{position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:#111;transition:transform .2s ease;touch-action:pan-y;}
   .fi-row.revealed{transform:translateX(76px);}
   .fi-row:hover{background:#161010;}
+  .fi-line{display:flex;align-items:baseline;flex-wrap:wrap;column-gap:6px;row-gap:2px;}
   .fi-name{font-size:13px;font-weight:600;color:#eee;}
-  .fi-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px;}
+  .fi-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;}
   .qty-stepper{display:flex;align-items:center;gap:6px;flex-shrink:0;}
   .qty-btn{background:#1a1a1a;border:1px solid #2a2a2a;color:#ccc;width:22px;height:22px;border-radius:5px;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;}
   .qty-btn:hover{border-color:#f97316;color:#f97316;}
@@ -1443,8 +1444,7 @@ function renderFoodItems() {
         <button class="icon-btn" onclick="deleteFoodItem('${f.id}')" title="Delete">✕</button>
       </div>
       <div class="fi-row" id="fi-row-${f.id}" ontouchstart="fiRowTouchStart(event,'${f.id}')" ontouchend="fiRowTouchEnd(event,'${f.id}')" onclick="fiRowClick('${f.id}')">
-        <div class="fi-name">${esc(f.name)}</div>
-        <div class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</div>
+        <div class="fi-line"><span class="fi-name">${esc(f.name)}</span> <span class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</span></div>
         <div class="fi-controls">
           <div class="qty-stepper">
             <button type="button" class="qty-btn" onclick="event.stopPropagation();bumpFoodItemQty('${f.id}',-1)">－</button>
