@@ -1616,7 +1616,9 @@ async function logFoodItem(id) {
   const qty = foodItemQty[id] || 1;
   const cal = Math.round(item.cal * qty);
   const pro = Math.round((item.pro||0) * qty);
-  const desc = qty > 1 ? `${item.name} ×${qty}` : item.name;
+  const desc = qty === 1 ? item.name
+    : item.weight_g ? `${item.name} (${scaledWeightText(item.weight_g, qty)})`
+    : `${item.name} ×${qty}`;
   await logMeal(desc, cal, pro);
   foodItemQty[id] = 1;
   const el = document.getElementById('fi-qty-' + id);
@@ -1826,11 +1828,14 @@ function openServingWizard(id) {
   document.getElementById('sw-preset-name').textContent = p.name;
   document.getElementById('sw-log-btn').textContent = `▶ Log to ${activeDayShortLabel()}`;
   const slider = document.getElementById('sw-slider');
+  slider.min = '0.2'; slider.max = '3';
   slider.value = 1;
   renderServingWizard(1);
   document.getElementById('serving-modal').style.display = 'flex';
 }
 
+// Food items cap at 2.25x — beyond that a fresh food item (or the +/- stepper,
+// which has its own wider range) is a better fit than the quick-log slider.
 function openFoodItemServingWizard(id) {
   const f = foodItems.find(f => f.id == id);
   if (!f) return;
@@ -1839,7 +1844,8 @@ function openFoodItemServingWizard(id) {
   document.getElementById('sw-preset-name').textContent = f.name;
   document.getElementById('sw-log-btn').textContent = `▶ Log to ${activeDayShortLabel()}`;
   const slider = document.getElementById('sw-slider');
-  slider.value = foodItemQty[id] || 1;
+  slider.min = '0'; slider.max = '2.25';
+  slider.value = Math.min(2.25, foodItemQty[id] || 1);
   renderServingWizard(parseFloat(slider.value));
   document.getElementById('serving-modal').style.display = 'flex';
 }
