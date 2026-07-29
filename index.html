@@ -335,6 +335,15 @@
   .edit-wrap input{padding:5px 8px;font-size:12px;}
   .save-btn{background:#f97316;border:none;color:#000;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
   .cancel-btn{background:none;border:1px solid #444;color:#aaa;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
+  .edit-slider-row{display:flex;align-items:center;gap:8px;flex:1 1 100%;}
+  .edit-mult-lbl{font-family:'DM Mono',monospace;font-size:11px;color:#f97316;font-weight:700;min-width:32px;text-align:right;flex-shrink:0;}
+  .meal-edit-slider{-webkit-appearance:none;appearance:none;flex:1;height:24px;background:transparent;cursor:pointer;touch-action:pan-y;}
+  .meal-edit-slider::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#2a2a2a;}
+  .meal-edit-slider::-moz-range-track{height:6px;border-radius:3px;background:#2a2a2a;}
+  .meal-edit-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:#f97316;border:2px solid #0f0f0f;margin-top:-7px;box-shadow:0 1px 3px #0006;}
+  .meal-edit-slider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#f97316;border:2px solid #0f0f0f;box-shadow:0 1px 3px #0006;}
+  body.light .meal-edit-slider::-webkit-slider-runnable-track{background:#c8c1b8;}
+  body.light .meal-edit-slider::-moz-range-track{background:#c8c1b8;}
 
   /* Food Log: presets + reusable quick-add items */
   .fe-go-muted{background:#1a1a1a;color:#888;}
@@ -987,6 +996,7 @@ let meals = [];
 // period elapses, so it updates on its own without another user action.
 let insightRetryTimer = null;
 let editId = null;
+let editBaseCal = 0, editBasePro = 0; // meal's cal/pro at edit-open time — the slider's 1.0× reference
 let historyData = [];
 let datesWithData = new Set();
 let calViewDate = new Date();
@@ -1354,6 +1364,10 @@ function renderMeals() {
     <div class="meal-row fade" id="mr-${m.id}">
       ${editId==m.id?`
         <div class="edit-wrap">
+          <div class="edit-slider-row">
+            <input type="range" class="meal-edit-slider" id="ed-mult-${m.id}" min="0.2" max="3" step="0.1" value="1" oninput="onMealEditSliderInput('${m.id}', this.value)">
+            <span class="edit-mult-lbl" id="ed-mult-lbl-${m.id}">1.0×</span>
+          </div>
           <input type="text" id="ed-d-${m.id}" value="${esc(m.desc)}" style="flex:2;min-width:100px;padding:5px 8px;font-size:12px">
           <input type="number" id="ed-c-${m.id}" value="${m.cal}" placeholder="kcal" inputmode="numeric" style="width:68px;padding:5px 8px;font-size:12px">
           <input type="number" id="ed-p-${m.id}" value="${m.pro}" placeholder="g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
@@ -1379,7 +1393,26 @@ function renderMeals() {
     `<div class="total-row"><span class="total-lbl">TOTAL</span><span><span class="kc">${tc} kcal</span> · <span class="pr">${tp}g</span></span></div>`;
 }
 
-function startEdit(id) { editId = id; renderMeals(); }
+function startEdit(id) {
+  const m = meals.find(m => m.id == id);
+  editId = id;
+  editBaseCal = m ? m.cal : 0;
+  editBasePro = m ? m.pro : 0;
+  renderMeals();
+}
+
+// Slider scales cal/pro live off the values captured when edit mode opened,
+// writing straight into the same number inputs the SAVE button reads — so
+// the slider and typing an exact value are just two ways into one field.
+function onMealEditSliderInput(id, value) {
+  const mult = parseFloat(value);
+  const lbl = document.getElementById('ed-mult-lbl-' + id);
+  if (lbl) lbl.textContent = mult.toFixed(1) + '×';
+  const c = document.getElementById('ed-c-' + id);
+  const p = document.getElementById('ed-p-' + id);
+  if (c) c.value = Math.round(editBaseCal * mult);
+  if (p) p.value = Math.round(editBasePro * mult);
+}
 
 async function saveEdit(id) {
   const desc = document.getElementById(`ed-d-${id}`).value;
