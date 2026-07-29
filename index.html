@@ -335,9 +335,10 @@
   .edit-wrap input{padding:5px 8px;font-size:12px;}
   .save-btn{background:#f97316;border:none;color:#000;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
   .cancel-btn{background:none;border:1px solid #444;color:#aaa;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
-  .edit-slider-row{display:flex;align-items:center;gap:8px;flex:1 1 100%;}
-  .edit-mult-lbl{font-family:'DM Mono',monospace;font-size:11px;color:#f97316;font-weight:700;min-width:32px;text-align:right;flex-shrink:0;}
-  .meal-edit-slider{-webkit-appearance:none;appearance:none;flex:1;height:24px;background:transparent;cursor:pointer;touch-action:pan-y;}
+  .edit-vals-row{display:flex;align-items:center;gap:8px;flex:1 1 100%;}
+  .edit-btn-row{display:flex;gap:6px;flex:1 1 100%;justify-content:flex-end;}
+  .edit-mult-lbl{font-family:'DM Mono',monospace;font-size:11px;color:#f97316;font-weight:700;min-width:32px;text-align:right;flex-shrink:0;margin-left:auto;}
+  .meal-edit-slider{-webkit-appearance:none;appearance:none;flex:1 1 100%;width:100%;height:24px;background:transparent;cursor:pointer;touch-action:pan-y;}
   .meal-edit-slider::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#2a2a2a;}
   .meal-edit-slider::-moz-range-track{height:6px;border-radius:3px;background:#2a2a2a;}
   .meal-edit-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:#f97316;border:2px solid #0f0f0f;margin-top:-7px;box-shadow:0 1px 3px #0006;}
@@ -1364,15 +1365,17 @@ function renderMeals() {
     <div class="meal-row fade" id="mr-${m.id}">
       ${editId==m.id?`
         <div class="edit-wrap">
-          <div class="edit-slider-row">
-            <input type="range" class="meal-edit-slider" id="ed-mult-${m.id}" min="0.2" max="3" step="0.1" value="1" oninput="onMealEditSliderInput('${m.id}', this.value)">
+          <input type="text" id="ed-d-${m.id}" value="${esc(m.desc)}" style="flex:1 1 100%;padding:5px 8px;font-size:12px">
+          <div class="edit-vals-row">
+            <input type="number" id="ed-c-${m.id}" value="${m.cal}" placeholder="kcal" inputmode="numeric" style="width:68px;padding:5px 8px;font-size:12px">
+            <input type="number" id="ed-p-${m.id}" value="${m.pro}" placeholder="g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
             <span class="edit-mult-lbl" id="ed-mult-lbl-${m.id}">1.0×</span>
           </div>
-          <input type="text" id="ed-d-${m.id}" value="${esc(m.desc)}" style="flex:2;min-width:100px;padding:5px 8px;font-size:12px">
-          <input type="number" id="ed-c-${m.id}" value="${m.cal}" placeholder="kcal" inputmode="numeric" style="width:68px;padding:5px 8px;font-size:12px">
-          <input type="number" id="ed-p-${m.id}" value="${m.pro}" placeholder="g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
-          <button class="save-btn" onclick="saveEdit('${m.id}')">SAVE</button>
-          <button class="cancel-btn" onclick="editId=null;renderMeals()">✕</button>
+          <input type="range" class="meal-edit-slider" id="ed-mult-${m.id}" min="0.2" max="3" step="0.1" value="1" oninput="onMealEditSliderInput('${m.id}', this.value)">
+          <div class="edit-btn-row">
+            <button class="save-btn" onclick="saveEdit('${m.id}')">SAVE</button>
+            <button class="cancel-btn" onclick="editId=null;renderMeals()">✕</button>
+          </div>
         </div>
       `:`
         <div style="flex:1">
