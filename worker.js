@@ -305,8 +305,8 @@ export default {
       if (!user_id) return authError();
       await env.DB.prepare('DELETE FROM meals WHERE date=? AND user_id=?').bind(date, user_id).run();
       for (const m of meals) {
-        await env.DB.prepare('INSERT INTO meals (id,date,desc,cal,pro,time,user_id) VALUES (?,?,?,?,?,?,?)')
-          .bind(String(m.id), date, m.desc, m.cal, m.pro, m.time, user_id).run();
+        await env.DB.prepare('INSERT INTO meals (id,date,desc,cal,pro,weight_g,time,user_id) VALUES (?,?,?,?,?,?,?,?)')
+          .bind(String(m.id), date, m.desc, m.cal, m.pro, m.weight_g ?? null, m.time, user_id).run();
       }
       return json({ ok: true });
     }

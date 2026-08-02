@@ -246,6 +246,16 @@
   .sw-item-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .sw-item-vals{flex-shrink:0;white-space:nowrap;}
 
+  /* Meal edit wizard — same modal language as the serving wizard, but the
+     title and stats are editable so a slider drag and a typed exact value
+     are two ways into the same field, in one bigger interface. */
+  .sw-title-input{flex:1;min-width:0;background:none;border:none;border-bottom:1px solid #2a2a2a;color:#fff;font-size:15px;font-weight:700;padding:2px 0;font-family:inherit;}
+  .sw-title-input:focus{outline:none;border-bottom-color:#f97316;}
+  .sw-stat-input{width:100%;background:none;border:none;border-bottom:1px solid #2a2a2a;color:#eee;font-family:'DM Mono',monospace;font-size:17px;font-weight:700;text-align:center;padding:2px 0 4px;}
+  .sw-stat-input::-webkit-outer-spin-button,.sw-stat-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .sw-stat-input:focus{outline:none;border-bottom-color:#f97316;}
+  .sw-stat-input::placeholder{color:#444;}
+
   /* Progress */
   .prog-wrap{margin-bottom:13px;}
   .prog-meta{display:flex;justify-content:space-between;margin-bottom:4px;}
@@ -335,16 +345,6 @@
   .edit-wrap input{padding:5px 8px;font-size:12px;}
   .save-btn{background:#f97316;border:none;color:#000;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
   .cancel-btn{background:none;border:1px solid #444;color:#aaa;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
-  .edit-vals-row{display:flex;align-items:center;gap:8px;flex:1 1 100%;}
-  .edit-btn-row{display:flex;gap:6px;flex:1 1 100%;justify-content:flex-end;}
-  .edit-mult-lbl{font-family:'DM Mono',monospace;font-size:11px;color:#f97316;font-weight:700;min-width:32px;text-align:right;flex-shrink:0;margin-left:auto;}
-  .meal-edit-slider{-webkit-appearance:none;appearance:none;flex:1 1 100%;width:100%;height:24px;background:transparent;cursor:pointer;touch-action:pan-y;}
-  .meal-edit-slider::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#2a2a2a;}
-  .meal-edit-slider::-moz-range-track{height:6px;border-radius:3px;background:#2a2a2a;}
-  .meal-edit-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:#f97316;border:2px solid #0f0f0f;margin-top:-7px;box-shadow:0 1px 3px #0006;}
-  .meal-edit-slider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#f97316;border:2px solid #0f0f0f;box-shadow:0 1px 3px #0006;}
-  body.light .meal-edit-slider::-webkit-slider-runnable-track{background:#c8c1b8;}
-  body.light .meal-edit-slider::-moz-range-track{background:#c8c1b8;}
 
   /* Food Log: presets + reusable quick-add items */
   .fe-go-muted{background:#1a1a1a;color:#888;}
@@ -954,6 +954,25 @@
   </div>
 </div>
 
+<!-- Meal Edit Wizard Modal -->
+<div class="modal-overlay" id="meal-edit-modal" style="display:none" onclick="if(event.target===this)closeMealEditModal()">
+  <div class="modal sw-modal">
+    <div class="sw-header">
+      <input type="text" class="sw-title-input" id="mem-desc" maxlength="120" placeholder="Description">
+      <button class="sw-x" onclick="closeMealEditModal()">✕</button>
+    </div>
+    <div class="sw-mult" id="mem-mult">1.0×</div>
+    <div class="sw-totals">
+      <div class="sw-stat"><input type="number" class="sw-stat-input kc" id="mem-cal" inputmode="numeric"><div class="sw-stat-lbl">kcal</div></div>
+      <div class="sw-stat"><input type="number" class="sw-stat-input pr" id="mem-pro" inputmode="numeric"><div class="sw-stat-lbl">protein (g)</div></div>
+      <div class="sw-stat"><input type="number" class="sw-stat-input wt" id="mem-wt" inputmode="decimal" step="0.1" placeholder="—"><div class="sw-stat-lbl">weight (g)</div></div>
+    </div>
+    <input type="range" id="mem-slider" class="sw-slider" min="0.2" max="3" step="0.1" value="1" oninput="onMealEditModalSlider(this.value)">
+    <button class="fe-go grow" onclick="saveMealEditModal()">SAVE</button>
+    <button class="modal-close" onclick="closeMealEditModal()">Cancel</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -996,8 +1015,8 @@ let meals = [];
 // Timer that auto-retriggers the day AI coach once the post-edit quiet
 // period elapses, so it updates on its own without another user action.
 let insightRetryTimer = null;
-let editId = null;
-let editBaseCal = 0, editBasePro = 0; // meal's cal/pro at edit-open time — the slider's 1.0× reference
+let mealEditId = null;
+let mealEditBaseCal = 0, mealEditBasePro = 0, mealEditBaseWt = 0; // meal's values at edit-open time — the slider's 1.0× reference
 let historyData = [];
 let datesWithData = new Set();
 let calViewDate = new Date();
@@ -1093,7 +1112,7 @@ function handleAuthExpired() {
 // ── Load a day ─────────────────────────────────────────────────────────────
 async function loadDay(d) {
   activeDate = d;
-  editId = null;
+  closeMealEditModal();
 
   // Reset chat
   document.getElementById("chat-msgs").innerHTML = '<div class="chat-empty" id="chat-empty">Describe what you ate — I\'ll estimate and log it</div>';
@@ -1363,29 +1382,13 @@ function renderMeals() {
 
   const rows = visible.map(m=>`
     <div class="meal-row fade" id="mr-${m.id}">
-      ${editId==m.id?`
-        <div class="edit-wrap">
-          <input type="text" id="ed-d-${m.id}" value="${esc(m.desc)}" style="flex:1 1 100%;padding:5px 8px;font-size:12px">
-          <div class="edit-vals-row">
-            <input type="number" id="ed-c-${m.id}" value="${m.cal}" placeholder="kcal" inputmode="numeric" style="width:68px;padding:5px 8px;font-size:12px">
-            <input type="number" id="ed-p-${m.id}" value="${m.pro}" placeholder="g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
-            <span class="edit-mult-lbl" id="ed-mult-lbl-${m.id}">1.0×</span>
-          </div>
-          <input type="range" class="meal-edit-slider" id="ed-mult-${m.id}" min="0.2" max="3" step="0.1" value="1" oninput="onMealEditSliderInput('${m.id}', this.value)">
-          <div class="edit-btn-row">
-            <button class="save-btn" onclick="saveEdit('${m.id}')">SAVE</button>
-            <button class="cancel-btn" onclick="editId=null;renderMeals()">✕</button>
-          </div>
-        </div>
-      `:`
-        <div style="flex:1">
-          <div class="meal-desc">${esc(m.desc)}</div>
-          <div class="meal-meta">${m.time||''} · <span class="kc">${m.cal} kcal</span> · <span class="pr">${m.pro}g prot</span></div>
-          <div class="meal-running">${runningById[m.id].cal} kcal · ${runningById[m.id].pro}g so far</div>
-        </div>
-        <button class="icon-btn ed" onclick="startEdit('${m.id}')" title="Edit">✎</button>
-        <button class="icon-btn" onclick="delMeal('${m.id}')" title="Delete">✕</button>
-      `}
+      <div style="flex:1">
+        <div class="meal-desc">${esc(m.desc)}</div>
+        <div class="meal-meta">${m.time||''} · <span class="kc">${m.cal} kcal</span> · <span class="pr">${m.pro}g prot</span>${m.weight_g ? ` · <span class="wt">${scaledWeightText(m.weight_g, 1)}</span>` : ''}</div>
+        <div class="meal-running">${runningById[m.id].cal} kcal · ${runningById[m.id].pro}g so far</div>
+      </div>
+      <button class="icon-btn ed" onclick="openMealEditModal('${m.id}')" title="Edit">✎</button>
+      <button class="icon-btn" onclick="delMeal('${m.id}')" title="Delete">✕</button>
     </div>`).join("");
 
   const showMoreBtn = hasMore ? `<button class="show-more-btn" onclick="mealsExpanded=!mealsExpanded;renderMeals()">
@@ -1396,33 +1399,56 @@ function renderMeals() {
     `<div class="total-row"><span class="total-lbl">TOTAL</span><span><span class="kc">${tc} kcal</span> · <span class="pr">${tp}g</span></span></div>`;
 }
 
-function startEdit(id) {
+// -- Meal edit wizard: a bigger modal (matching the serving-size wizard's
+// language) for editing an already-logged meal. The slider scales cal/pro/
+// weight together off the values captured when the modal opened, writing
+// straight into the same kcal/g/weight inputs SAVE reads — so dragging the
+// slider and typing an exact number are just two ways into one field. --
+function openMealEditModal(id) {
   const m = meals.find(m => m.id == id);
-  editId = id;
-  editBaseCal = m ? m.cal : 0;
-  editBasePro = m ? m.pro : 0;
-  renderMeals();
+  if (!m) return;
+  mealEditId = id;
+  mealEditBaseCal = m.cal || 0;
+  mealEditBasePro = m.pro || 0;
+  mealEditBaseWt = m.weight_g || 0;
+  document.getElementById('mem-desc').value = m.desc;
+  document.getElementById('mem-cal').value = m.cal;
+  document.getElementById('mem-pro').value = m.pro;
+  document.getElementById('mem-wt').value = m.weight_g || '';
+  document.getElementById('mem-mult').textContent = '1.0×';
+  document.getElementById('mem-slider').value = 1;
+  document.getElementById('meal-edit-modal').style.display = 'flex';
 }
 
-// Slider scales cal/pro live off the values captured when edit mode opened,
-// writing straight into the same number inputs the SAVE button reads — so
-// the slider and typing an exact value are just two ways into one field.
-function onMealEditSliderInput(id, value) {
+function closeMealEditModal() {
+  document.getElementById('meal-edit-modal').style.display = 'none';
+  mealEditId = null;
+}
+
+function onMealEditModalSlider(value) {
   const mult = parseFloat(value);
-  const lbl = document.getElementById('ed-mult-lbl-' + id);
-  if (lbl) lbl.textContent = mult.toFixed(1) + '×';
-  const c = document.getElementById('ed-c-' + id);
-  const p = document.getElementById('ed-p-' + id);
-  if (c) c.value = Math.round(editBaseCal * mult);
-  if (p) p.value = Math.round(editBasePro * mult);
+  document.getElementById('mem-mult').textContent = mult.toFixed(1) + '×';
+  document.getElementById('mem-cal').value = Math.round(mealEditBaseCal * mult);
+  document.getElementById('mem-pro').value = Math.round(mealEditBasePro * mult);
+  // Only auto-scale weight if this meal already had one — otherwise leave
+  // the field alone so a manually-typed weight isn't clobbered by the slider.
+  if (mealEditBaseWt) {
+    document.getElementById('mem-wt').value = Math.round(mealEditBaseWt * mult * 10) / 10;
+  }
 }
 
-async function saveEdit(id) {
-  const desc = document.getElementById(`ed-d-${id}`).value;
-  const cal = parseInt(document.getElementById(`ed-c-${id}`).value)||0;
-  const pro = parseInt(document.getElementById(`ed-p-${id}`).value)||0;
-  meals = meals.map(m=>m.id==id?{...m,desc,cal,pro}:m);
-  editId = null;
+async function saveMealEditModal() {
+  const id = mealEditId;
+  if (!id) return;
+  const descEl = document.getElementById('mem-desc');
+  const desc = descEl.value.trim();
+  if (!desc) { descEl.focus(); return; }
+  const cal = parseInt(document.getElementById('mem-cal').value) || 0;
+  const pro = parseInt(document.getElementById('mem-pro').value) || 0;
+  const wtRaw = document.getElementById('mem-wt').value;
+  const weight_g = wtRaw !== '' ? (parseFloat(wtRaw) || null) : null;
+  meals = meals.map(m => m.id == id ? { ...m, desc, cal, pro, weight_g } : m);
+  closeMealEditModal();
   await api("/meals/save",{date:dateKey(activeDate),meals});
   updateUI();
   refreshInsight();
@@ -1653,10 +1679,11 @@ async function logFoodItem(id) {
   const qty = foodItemQty[id] || 1;
   const cal = Math.round(item.cal * qty);
   const pro = Math.round((item.pro||0) * qty);
+  const weight_g = item.weight_g ? Math.round(item.weight_g * qty * 10) / 10 : null;
   const desc = qty === 1 ? item.name
     : item.weight_g ? `${item.name} (${scaledWeightText(item.weight_g, qty)})`
     : `${item.name} ×${qty}`;
-  await logMeal(desc, cal, pro);
+  await logMeal(desc, cal, pro, weight_g);
   foodItemQty[id] = 1;
   const el = document.getElementById('fi-qty-' + id);
   if (el) el.value = 1;
@@ -1826,8 +1853,11 @@ async function logPreset(id, mult = 1) {
   if (!p || !p.items.length) return;
   for (const it of p.items) {
     const qty = Math.round(it.qty * mult * 100) / 100;
-    const desc = qty !== 1 ? `${it.name} ×${qty}` : it.name;
-    meals.push({ id: newLocalId(), desc, cal: Math.round(it.cal*qty), pro: Math.round((it.pro||0)*qty), time: timeNow() });
+    const weight_g = it.weight_g ? Math.round(it.weight_g * qty * 10) / 10 : null;
+    const desc = qty === 1 ? it.name
+      : it.weight_g ? `${it.name} (${scaledWeightText(it.weight_g, qty)})`
+      : `${it.name} ×${qty}`;
+    meals.push({ id: newLocalId(), desc, cal: Math.round(it.cal*qty), pro: Math.round((it.pro||0)*qty), weight_g, time: timeNow() });
   }
   await api('/meals/save', { date: dateKey(activeDate), meals });
   updateUI();
@@ -2198,8 +2228,8 @@ function updateCharCount() {
 }
 
 // Push a meal, persist, and refresh everything that depends on the day's totals.
-async function logMeal(desc, cal, pro) {
-  meals.push({ id: Date.now() + Math.random(), desc, cal, pro, time: timeNow() });
+async function logMeal(desc, cal, pro, weight_g = null) {
+  meals.push({ id: Date.now() + Math.random(), desc, cal, pro, weight_g, time: timeNow() });
   await api("/meals/save", { date: dateKey(activeDate), meals });
   updateUI();
   refreshInsight();
@@ -2243,7 +2273,7 @@ async function calcWeighed() {
       }
       const cal = Math.round(parsed.calories) || 0;
       const pro = Math.round(parsed.protein) || 0;
-      await logMeal(`${food} (${grams}g)`, cal, pro);
+      await logMeal(`${food} (${grams}g)`, cal, pro, grams);
       gramsEl.value = ''; foodEl.value = ''; gramsEl.focus();
       toast(`Logged: ${cal} kcal · ${pro}g protein`);
       break;
@@ -2309,7 +2339,7 @@ async function logCalToWeight() {
   const btn = document.getElementById('cw-log-btn');
   if (btn.disabled) return;
   btn.disabled = true;
-  await logMeal(`${food} (${grams}g)`, calories, protein);
+  await logMeal(`${food} (${grams}g)`, calories, protein, grams);
   toast(`Logged: ${calories} kcal · ${protein}g protein`);
   document.getElementById('cw-cal').value = ''; document.getElementById('cw-food').value = '';
   dismissCalToWeight();
