@@ -303,11 +303,14 @@ export default {
       const { meals, date } = body;
       const user_id = resolveUser(body.user_id);
       if (!user_id) return authError();
-      await env.DB.prepare('DELETE FROM meals WHERE date=? AND user_id=?').bind(date, user_id).run();
+      // batch() is atomic (all statements or none) — so a bad row (or a schema
+      // mismatch) can't leave the delete applied with nothing to replace it.
+      const stmts = [env.DB.prepare('DELETE FROM meals WHERE date=? AND user_id=?').bind(date, user_id)];
       for (const m of meals) {
-        await env.DB.prepare('INSERT INTO meals (id,date,desc,cal,pro,weight_g,time,user_id) VALUES (?,?,?,?,?,?,?,?)')
-          .bind(String(m.id), date, m.desc, m.cal, m.pro, m.weight_g ?? null, m.time, user_id).run();
+        stmts.push(env.DB.prepare('INSERT INTO meals (id,date,desc,cal,pro,weight_g,time,user_id) VALUES (?,?,?,?,?,?,?,?)')
+          .bind(String(m.id), date, m.desc, m.cal, m.pro, m.weight_g ?? null, m.time, user_id));
       }
+      await env.DB.batch(stmts);
       return json({ ok: true });
     }
     if (path === '/meals/load') {
@@ -322,12 +325,13 @@ export default {
       const { food_items } = body;
       const user_id = resolveUser(body.user_id);
       if (!user_id) return authError();
-      await env.DB.prepare('DELETE FROM food_items WHERE user_id=?').bind(user_id).run();
+      const stmts = [env.DB.prepare('DELETE FROM food_items WHERE user_id=?').bind(user_id)];
       for (let i = 0; i < food_items.length; i++) {
         const f = food_items[i];
-        await env.DB.prepare('INSERT INTO food_items (id,user_id,name,cal,pro,weight_g,sort_order,created_at) VALUES (?,?,?,?,?,?,?,?)')
-          .bind(String(f.id), user_id, f.name, f.cal, f.pro || 0, f.weight_g || null, i, f.created_at || new Date().toISOString()).run();
+        stmts.push(env.DB.prepare('INSERT INTO food_items (id,user_id,name,cal,pro,weight_g,sort_order,created_at) VALUES (?,?,?,?,?,?,?,?)')
+          .bind(String(f.id), user_id, f.name, f.cal, f.pro || 0, f.weight_g || null, i, f.created_at || new Date().toISOString()));
       }
+      await env.DB.batch(stmts);
       return json({ ok: true });
     }
     if (path === '/fooditems/load') {
@@ -341,12 +345,13 @@ export default {
       const { presets } = body;
       const user_id = resolveUser(body.user_id);
       if (!user_id) return authError();
-      await env.DB.prepare('DELETE FROM presets WHERE user_id=?').bind(user_id).run();
+      const stmts = [env.DB.prepare('DELETE FROM presets WHERE user_id=?').bind(user_id)];
       for (let i = 0; i < presets.length; i++) {
         const p = presets[i];
-        await env.DB.prepare('INSERT INTO presets (id,user_id,name,items,sort_order,created_at) VALUES (?,?,?,?,?,?)')
-          .bind(String(p.id), user_id, p.name, JSON.stringify(p.items || []), i, p.created_at || new Date().toISOString()).run();
+        stmts.push(env.DB.prepare('INSERT INTO presets (id,user_id,name,items,sort_order,created_at) VALUES (?,?,?,?,?,?)')
+          .bind(String(p.id), user_id, p.name, JSON.stringify(p.items || []), i, p.created_at || new Date().toISOString()));
       }
+      await env.DB.batch(stmts);
       return json({ ok: true });
     }
     if (path === '/presets/load') {
