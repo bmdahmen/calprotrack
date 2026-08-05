@@ -54,8 +54,8 @@
   .ai-suggest-msg{font-family:'DM Mono',monospace;font-size:11px;color:#aaa;line-height:1.6;margin-bottom:8px;}
   /* Theme toggle */
   .theme-toggle{display:flex;gap:8px;margin-top:4px;}
-  .theme-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:"DM Mono",monospace;font-size:9px;padding:8px;border-radius:6px;cursor:pointer;transition:all .15s;}
-  .theme-btn.on{border-color:#f97316;color:#f97316;}
+  .theme-btn,.coach-mode-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:"DM Mono",monospace;font-size:9px;padding:8px;border-radius:6px;cursor:pointer;transition:all .15s;}
+  .theme-btn.on,.coach-mode-btn.on{border-color:#f97316;color:#f97316;}
   /* ── LIGHT MODE ── */
   body.light{background:#e8e2d9;color:#2c2820;}
   body.light .header{background:#dfd9cf;border-bottom-color:#c8c1b8;}
@@ -134,8 +134,8 @@
   body.light .onboard-act-btn{border-color:#c0b9b0;color:#7a7168;}
   body.light .onboard-act-btn.on{border-color:#c8621a;color:#c8621a;}
   body.light .onboard-tdee{color:#7a7168;}
-  body.light .theme-btn{border-color:#c8c1b8;color:#7a7168;}
-  body.light .theme-btn.on{border-color:#c8621a;color:#c8621a;}
+  body.light .theme-btn,body.light .coach-mode-btn{border-color:#c8c1b8;color:#7a7168;}
+  body.light .theme-btn.on,body.light .coach-mode-btn.on{border-color:#c8621a;color:#c8621a;}
   body.light .avatar-btn img{border-color:#c8621a;}
   body.light .avatar-btn .av-placeholder{background:#dfd9cf;border-color:#c8621a;color:#c8621a;}
   body.light .icon-btn{color:#7a7168;}
@@ -429,6 +429,8 @@
   .insight-bar.surplus-fat{color:#f87171;background:#1a0808;}
   .insight-bar .insight-label{font-size:8px;letter-spacing:3px;opacity:.5;margin-right:8px;text-transform:uppercase;}
   .insight-bar .insight-spin{display:inline-block;width:10px;height:10px;border:1.5px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;opacity:.5;}
+  .coach-gen-btn{display:inline-block;margin-left:8px;background:none;border:1px solid currentColor;opacity:.7;color:inherit;font-family:'DM Mono',monospace;font-size:10px;padding:3px 9px;border-radius:5px;cursor:pointer;letter-spacing:.03em;vertical-align:middle;transition:opacity .15s;}
+  .coach-gen-btn:hover{opacity:1;}
 
   /* History AI insight */
   .hist-insight-wrap{margin-bottom:18px;}
@@ -908,6 +910,15 @@
             <button class="theme-btn on" id="theme-dark" onclick="setTheme('dark',this)">🌙 Dark</button>
             <button class="theme-btn" id="theme-light" onclick="setTheme('light',this)">☀️ Light</button>
           </div>
+        </div>
+
+        <div style="margin-top:14px">
+          <label class="field-lbl">AI Coach</label>
+          <div class="theme-toggle">
+            <button class="coach-mode-btn on" id="coach-mode-auto" onclick="setCoachMode('auto',this)">🔄 Auto</button>
+            <button class="coach-mode-btn" id="coach-mode-manual" onclick="setCoachMode('manual',this)">▶ Manual</button>
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">Auto comments on its own after food changes settle. Manual only comments when you tap Generate.</div>
         </div>
 
         <div id="migrate-section" style="display:none;margin-top:16px;border-top:1px solid #1e1e1e;padding-top:16px;">
@@ -3115,7 +3126,10 @@ function getDayFraction() {
   return (h - WAKE) / WINDOW;
 }
 
-async function refreshInsight() {
+// forceGenerate=true bypasses the manual-mode gate and the auto quiet-period
+// debounce below — used by the Generate button's onclick to call the AI
+// immediately regardless of coachMode.
+async function refreshInsight(forceGenerate = false) {
   const bar = document.getElementById('insight-bar');
   if (!bar) return;
 
@@ -3168,6 +3182,16 @@ async function refreshInsight() {
     bar.innerHTML = '<span class="insight-label">AI COACH</span>' + txt;
   };
 
+  // Manual mode: show whatever's still on hand (or nothing, on day one) plus
+  // a button that calls refreshInsight(true) to actually generate on tap.
+  const showGenerateButton = (c) => {
+    const cls = c && c.value.startsWith('cls:') ? c.value.split('|')[0].replace('cls:','') : 'deficit-deep';
+    const txt = c ? (c.value.includes('|') ? c.value.split('|').slice(1).join('|') : c.value) : '';
+    bar.className = 'insight-bar ' + cls;
+    const label = txt ? '↻ Update comment' : '▶ Generate comment';
+    bar.innerHTML = `<span class="insight-label">AI COACH</span>${txt}${txt ? ' ' : ''}<button type="button" class="coach-gen-btn" onclick="refreshInsight(true)">${label}</button>`;
+  };
+
   const FIVE_MIN_MS = 5 * 60 * 1000, FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
   // Re-evaluating now, so any timer from an earlier call is stale — drop it
   // to avoid a duplicate auto-retrigger stacking on top of this one.
@@ -3189,19 +3213,24 @@ async function refreshInsight() {
   const now = Date.now();
   const cachedAgeMs = cached ? now - new Date(cached.updated_at).getTime() : Infinity;
 
-  if (cached && cached.fingerprint === fp) {
+  if (!forceGenerate && cached && cached.fingerprint === fp) {
     // Food unchanged since the last generation — safe to reuse for up to 4
     // hours even if the hour-of-day (and thus meal context) has moved on.
     if (cachedAgeMs < FOUR_HOURS_MS) { showCached(cached); return; }
-    // Stale but unchanged — fall through and regenerate below.
-  } else if (cached) {
-    // A real response already exists but food changed since — wait for 5
-    // quiet minutes since the LAST edit, always showing that prior response
-    // in the meantime (never a placeholder). The pending marker stores the
-    // fingerprint it was written for; a newer edit (fingerprint no longer
-    // matches) resets the clock by rewriting it. A timer re-invokes this
-    // function once the quiet period should have elapsed, so the coach
-    // updates on its own with no further action needed.
+    // Stale but unchanged — in manual mode, wait for a tap rather than
+    // auto-regenerating; in auto mode, fall through and regenerate below.
+    if (coachMode === 'manual') { showGenerateButton(cached); return; }
+  } else if (!forceGenerate && cached) {
+    // Manual mode: food changed since the last comment — show it as-is
+    // (never silently update it) with a button to get a fresh one on tap.
+    if (coachMode === 'manual') { showGenerateButton(cached); return; }
+    // Auto mode: a real response already exists but food changed since —
+    // wait for 5 quiet minutes since the LAST edit, always showing that
+    // prior response in the meantime (never a placeholder). The pending
+    // marker stores the fingerprint it was written for; a newer edit
+    // (fingerprint no longer matches) resets the clock by rewriting it. A
+    // timer re-invokes this function once the quiet period should have
+    // elapsed, so the coach updates on its own with no further action needed.
     if (!pending || !pending.value || pending.fingerprint !== fp) {
       api('/cache/set', {key: pendingKey, value: String(now), fingerprint: fp}).catch(() => {});
       insightRetryTimer = setTimeout(refreshInsight, FIVE_MIN_MS + 250);
@@ -3216,10 +3245,15 @@ async function refreshInsight() {
       return;
     }
     // Quiet period elapsed — regenerate below.
+  } else if (!forceGenerate && !cached && coachMode === 'manual') {
+    // No response yet today, manual mode — wait for a tap instead of the
+    // auto-mode behavior of generating immediately on the first edit.
+    showGenerateButton(null);
+    return;
   }
-  // else: no real response exists yet today (cached is null) — nothing to
-  // show while debouncing, so the very first edit generates immediately
-  // rather than sitting behind a placeholder.
+  // else: no real response exists yet today (cached is null), auto mode —
+  // nothing to show while debouncing, so the very first edit generates
+  // immediately rather than sitting behind a placeholder.
 
   // Determine color class
   const TDEE = TDEE_USER || 2100;
@@ -3711,6 +3745,32 @@ function loadTheme(theme) {
   if (el) { document.querySelectorAll('.theme-btn').forEach(b=>b.classList.remove('on')); el.classList.add('on'); }
 }
 
+// ── AI Coach mode: 'auto' generates on its own once food changes settle
+// (the existing debounce in refreshInsight); 'manual' shows a Generate
+// button instead and only calls the AI when tapped. ──
+function setCoachMode(mode, btn) {
+  coachMode = mode;
+  document.querySelectorAll('.coach-mode-btn').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  else {
+    const el = document.getElementById('coach-mode-' + mode);
+    if (el) el.classList.add('on');
+  }
+  if (currentUser) {
+    const stored = JSON.parse(localStorage.getItem('bl_user') || '{}');
+    stored.coach_mode = mode;
+    localStorage.setItem('bl_user', JSON.stringify(stored));
+    scheduleProfileSave();
+  }
+  refreshInsight();
+}
+
+function loadCoachMode(mode) {
+  coachMode = mode || 'auto';
+  const el = document.getElementById('coach-mode-' + coachMode);
+  if (el) { document.querySelectorAll('.coach-mode-btn').forEach(b=>b.classList.remove('on')); el.classList.add('on'); }
+}
+
 function updateAvatarBtn() {
   const wrap = document.getElementById('avatar-img-wrap');
   if (!wrap) return;
@@ -3773,6 +3833,7 @@ function loginSuccess(user) {
   document.getElementById('app').style.display = 'block';
   const sub = document.querySelector('.logo-sub'); if(sub) sub.textContent = user.name.split(' ')[0].toUpperCase();
   loadTheme(user.theme || 'dark');
+  loadCoachMode(user.coach_mode || 'auto');
   updateAvatarBtn();
   boot();
 }
@@ -3816,6 +3877,7 @@ window.onGoogleLibraryLoad = initGoogleAuth;
 // ── Profile ────────────────────────────────────────────────────────────// ── Profile ────────────────────────────────────────────────────────────────
 let currentActivity = 'sedentary';
 let currentGoalMode = 'deficit';
+let coachMode = 'auto'; // 'auto' | 'manual' — see setCoachMode/loadCoachMode
 let CAL_T_USER = 1800; // 'deficit' | 'maintain' | 'bulk'
 let PRO_T_USER = 120;
 let PRO_RATIO_USER = 1.0; // g protein per lb bodyweight — used to recompute each day's target off that day's weight
@@ -3965,7 +4027,8 @@ async function saveProfile() {
     aggressiveness: currentAggressiveness,
     rmr: t.rmr, cal_target_override: calOverride,
     dexa_date: dexaDate, dexa_weight: dexaWeight, dexa_bf_pct: dexaBF,
-    muscle_loss_pct: musclePct, muscle_gain_pct: muscleGainPct, muscle_maintain_pct: muscleMaintainPct
+    muscle_loss_pct: musclePct, muscle_gain_pct: muscleGainPct, muscle_maintain_pct: muscleMaintainPct,
+    coach_mode: coachMode
   });
   // Update stored user
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
@@ -3979,6 +4042,7 @@ async function saveProfile() {
   stored.dexa_bf_pct = dexaBF; stored.muscle_loss_pct = musclePct;
   stored.muscle_gain_pct = muscleGainPct;
   stored.muscle_maintain_pct = muscleMaintainPct;
+  stored.coach_mode = coachMode;
   localStorage.setItem('bl_user', JSON.stringify(stored));
   updateUI();
   refreshHistInsight();
@@ -4024,6 +4088,8 @@ function loadProfilePane() {
   document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('on'));
   const themeBtn = document.getElementById('theme-' + storedTheme);
   if (themeBtn) themeBtn.classList.add('on');
+  // Load AI Coach mode
+  loadCoachMode(stored.coach_mode || 'auto');
 
   ['deficit','maintain','bulk'].forEach(mode => {
     const btn = document.querySelector(`#goal-btns .goal-btn.${mode}`);
