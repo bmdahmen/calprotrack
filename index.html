@@ -3213,47 +3213,54 @@ async function refreshInsight(forceGenerate = false) {
   const now = Date.now();
   const cachedAgeMs = cached ? now - new Date(cached.updated_at).getTime() : Infinity;
 
-  if (!forceGenerate && cached && cached.fingerprint === fp) {
-    // Food unchanged since the last generation — safe to reuse for up to 4
-    // hours even if the hour-of-day (and thus meal context) has moved on.
-    if (cachedAgeMs < FOUR_HOURS_MS) { showCached(cached); return; }
-    // Stale but unchanged — in manual mode, wait for a tap rather than
-    // auto-regenerating; in auto mode, fall through and regenerate below.
-    if (coachMode === 'manual') { showGenerateButton(cached); return; }
-  } else if (!forceGenerate && cached) {
-    // Manual mode: food changed since the last comment — show it as-is
-    // (never silently update it) with a button to get a fresh one on tap.
-    if (coachMode === 'manual') { showGenerateButton(cached); return; }
-    // Auto mode: a real response already exists but food changed since —
-    // wait for 5 quiet minutes since the LAST edit, always showing that
-    // prior response in the meantime (never a placeholder). The pending
-    // marker stores the fingerprint it was written for; a newer edit
-    // (fingerprint no longer matches) resets the clock by rewriting it. A
-    // timer re-invokes this function once the quiet period should have
-    // elapsed, so the coach updates on its own with no further action needed.
-    if (!pending || !pending.value || pending.fingerprint !== fp) {
-      api('/cache/set', {key: pendingKey, value: String(now), fingerprint: fp}).catch(() => {});
-      insightRetryTimer = setTimeout(refreshInsight, FIVE_MIN_MS + 250);
-      showCached(cached);
+  // forceGenerate (the Generate/Update button) skips this whole block and
+  // falls straight through to actually calling the AI below — no cache
+  // check, no manual-mode gate, no debounce. Everything inside only runs
+  // for a "passive" refreshInsight() call (tab switch, meal edit, the
+  // 5-minute poll, etc.).
+  if (!forceGenerate) {
+    // Manual mode: always show whatever's cached (fresh, stale, mismatched,
+    // or nothing at all) plus a button — never auto-call the AI on its own.
+    // This has to be checked before the freshness/fingerprint logic below,
+    // not nested inside it, or an already-fresh cached comment would skip
+    // past it and the button would never appear.
+    if (coachMode === 'manual') {
+      showGenerateButton(cached);
       return;
     }
-    const lastEditMs = parseInt(pending.value, 10) || now;
-    const sinceLastEdit = now - lastEditMs;
-    if (sinceLastEdit < FIVE_MIN_MS) {
-      insightRetryTimer = setTimeout(refreshInsight, FIVE_MIN_MS - sinceLastEdit + 250);
-      showCached(cached);
-      return;
+
+    if (cached && cached.fingerprint === fp) {
+      // Food unchanged since the last generation — safe to reuse for up to 4
+      // hours even if the hour-of-day (and thus meal context) has moved on.
+      if (cachedAgeMs < FOUR_HOURS_MS) { showCached(cached); return; }
+      // Stale but unchanged — fall through and regenerate below.
+    } else if (cached) {
+      // A real response already exists but food changed since — wait for 5
+      // quiet minutes since the LAST edit, always showing that prior response
+      // in the meantime (never a placeholder). The pending marker stores the
+      // fingerprint it was written for; a newer edit (fingerprint no longer
+      // matches) resets the clock by rewriting it. A timer re-invokes this
+      // function once the quiet period should have elapsed, so the coach
+      // updates on its own with no further action needed.
+      if (!pending || !pending.value || pending.fingerprint !== fp) {
+        api('/cache/set', {key: pendingKey, value: String(now), fingerprint: fp}).catch(() => {});
+        insightRetryTimer = setTimeout(refreshInsight, FIVE_MIN_MS + 250);
+        showCached(cached);
+        return;
+      }
+      const lastEditMs = parseInt(pending.value, 10) || now;
+      const sinceLastEdit = now - lastEditMs;
+      if (sinceLastEdit < FIVE_MIN_MS) {
+        insightRetryTimer = setTimeout(refreshInsight, FIVE_MIN_MS - sinceLastEdit + 250);
+        showCached(cached);
+        return;
+      }
+      // Quiet period elapsed — regenerate below.
     }
-    // Quiet period elapsed — regenerate below.
-  } else if (!forceGenerate && !cached && coachMode === 'manual') {
-    // No response yet today, manual mode — wait for a tap instead of the
-    // auto-mode behavior of generating immediately on the first edit.
-    showGenerateButton(null);
-    return;
+    // else: no real response exists yet today (cached is null) — nothing to
+    // show while debouncing, so the very first edit generates immediately
+    // rather than sitting behind a placeholder.
   }
-  // else: no real response exists yet today (cached is null), auto mode —
-  // nothing to show while debouncing, so the very first edit generates
-  // immediately rather than sitting behind a placeholder.
 
   // Determine color class
   const TDEE = TDEE_USER || 2100;
