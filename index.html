@@ -79,6 +79,7 @@
   body.light .bubble{background:#cfc8bf;color:#2c2820;}
   body.light .msg-ai .ai-av{background:#dfd9cf;color:#c8621a;border-color:#c8c1b8;}
   body.light .ai-text{color:#3a3530;}
+  body.light .ai-suggest-msg{color:#3a3530;}
   body.light .ai-suggest-card{background:#d5cec5;border-color:#c0b9b0;}
   body.light .meal-box{background:#dbd4ca;border-color:#c8c1b8;}
   body.light .meal-row{border-bottom-color:#c8c1b8;}
@@ -446,6 +447,10 @@
   .hist-coach-toggle:hover{color:#f97316;}
   body.light .hist-chat-wrap{border-top-color:#c8c1b8;}
   body.light .hist-chat-input{background:#dbd4ca;border-color:#c8c1b8;color:#2c2820;}
+  .qa-bubble{background:#1a1a1a;padding:6px 10px;border-radius:8px 8px 2px 8px;font-size:11px;color:#ccc;max-width:85%;}
+  body.light .qa-bubble{background:#cfc8bf;color:#2c2820;}
+  .qa-reply{font-family:'DM Mono',monospace;font-size:11px;color:#aaa;line-height:1.6;}
+  body.light .qa-reply{color:#3a3530;}
   body.light .hist-coach-toggle{color:#5c5349;}
   .hist-rate-row{margin-bottom:10px;}
   .hist-rate-caption{font-family:'DM Mono',monospace;font-size:8px;letter-spacing:2px;color:#444;margin-bottom:8px;text-align:center;}
@@ -2686,7 +2691,7 @@ async function sendHistChat() {
     return p.join(' ');
   }).join(', ');
 
-  msgs.insertAdjacentHTML('beforeend', `<div class="msg-user fade" style="justify-content:flex-end;display:flex;margin-bottom:6px;"><div class="bubble" style="background:#1a1a1a;padding:6px 10px;border-radius:8px 8px 2px 8px;font-size:11px;color:#ccc;max-width:85%;">${esc(text)}</div></div>`);
+  msgs.insertAdjacentHTML('beforeend', `<div class="msg-user fade" style="justify-content:flex-end;display:flex;margin-bottom:6px;"><div class="qa-bubble">${esc(text)}</div></div>`);
   const spId = 'hsp-'+Date.now();
   msgs.insertAdjacentHTML('beforeend', `<div id="${spId}" style="display:flex;gap:8px;margin-bottom:6px;align-items:flex-start;"><div class="ai-av" style="flex-shrink:0;">AI</div><div class="spinner"></div></div>`);
   msgs.scrollTop = msgs.scrollHeight;
@@ -2709,7 +2714,7 @@ Answer the user's question specifically and practically, referencing their actua
     const reply = (data.content||[]).map(b=>b.text||'').join('').trim();
     histChatHistory.push({ role: 'assistant', content: reply });
     document.getElementById(spId)?.remove();
-    msgs.insertAdjacentHTML('beforeend', `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;"><div class="ai-av" style="flex-shrink:0;">AI</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:#aaa;line-height:1.6;">${esc(reply)}</div></div>`);
+    msgs.insertAdjacentHTML('beforeend', `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;"><div class="ai-av" style="flex-shrink:0;">AI</div><div class="qa-reply">${esc(reply)}</div></div>`);
   } catch(e) {
     document.getElementById(spId)?.remove();
     msgs.insertAdjacentHTML('beforeend', `<div style="color:#f87171;font-family:'DM Mono',monospace;font-size:10px;margin-bottom:6px;">Error: ${esc(e.message)}</div>`);
@@ -3377,7 +3382,7 @@ async function sendDayChat() {
   const TDEE = TDEE_USER || 2100;
   const CAL_TARGET = CAL_T_USER || TDEE;
 
-  msgs.insertAdjacentHTML('beforeend', `<div class="msg-user fade" style="justify-content:flex-end;display:flex;margin-bottom:6px;"><div class="bubble" style="background:#1a1a1a;padding:6px 10px;border-radius:8px 8px 2px 8px;font-size:11px;color:#ccc;max-width:85%;">${esc(text)}</div></div>`);
+  msgs.insertAdjacentHTML('beforeend', `<div class="msg-user fade" style="justify-content:flex-end;display:flex;margin-bottom:6px;"><div class="qa-bubble">${esc(text)}</div></div>`);
   const spId = 'dsp-'+Date.now();
   msgs.insertAdjacentHTML('beforeend', `<div id="${spId}" style="display:flex;gap:8px;margin-bottom:6px;align-items:flex-start;"><div class="ai-av" style="flex-shrink:0;">AI</div><div class="spinner"></div></div>`);
   msgs.scrollTop = msgs.scrollHeight;
@@ -3397,7 +3402,7 @@ Answer the user's question specifically and practically, referencing their actua
     const reply = (data.content||[]).map(b=>b.text||'').join('').trim();
     dayChatHistory.push({ role: 'assistant', content: reply });
     document.getElementById(spId)?.remove();
-    msgs.insertAdjacentHTML('beforeend', `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;"><div class="ai-av" style="flex-shrink:0;">AI</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:#aaa;line-height:1.6;">${esc(reply)}</div></div>`);
+    msgs.insertAdjacentHTML('beforeend', `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;"><div class="ai-av" style="flex-shrink:0;">AI</div><div class="qa-reply">${esc(reply)}</div></div>`);
   } catch(e) {
     document.getElementById(spId)?.remove();
     msgs.insertAdjacentHTML('beforeend', `<div style="color:#f87171;font-family:'DM Mono',monospace;font-size:10px;margin-bottom:6px;">Error: ${esc(e.message)}</div>`);
