@@ -788,6 +788,14 @@
       <div class="meal-box" id="meal-list"></div>
 
       <div class="insight-bar deficit-deep" id="insight-bar" style="margin-top:20px;border-radius:8px;border-top:none;"><span class="insight-label">AI COACH</span><span class="insight-spin"></span></div>
+      <button class="hist-coach-toggle" id="day-coach-toggle" onclick="toggleDayChat()">+ Ask AI Coach a question</button>
+      <div class="hist-chat-wrap" id="day-chat-wrap">
+        <div class="hist-chat-msgs" id="day-chat-msgs"></div>
+        <div class="hist-chat-input-row">
+          <input type="text" class="hist-chat-input" id="day-chat-input" placeholder="Ask about today's food…" maxlength="500" onkeydown="if(event.key==='Enter')sendDayChat()">
+          <button class="hist-chat-btn" onclick="sendDayChat()">ASK →</button>
+        </div>
+      </div>
     </div>
 
     <!-- HISTORY -->
@@ -1127,6 +1135,16 @@ async function loadDay(d) {
 
   // Reset chat
   document.getElementById("chat-msgs").innerHTML = '<div class="chat-empty" id="chat-empty">Describe what you ate — I\'ll estimate and log it</div>';
+  // Reset the "Ask AI Coach a question" chat too — it's scoped to this day's
+  // food, so switching days should start a fresh conversation.
+  dayChatOpen = false;
+  dayChatHistory = [];
+  const dayChatWrap = document.getElementById('day-chat-wrap');
+  if (dayChatWrap) dayChatWrap.classList.remove('open');
+  const dayChatToggle = document.getElementById('day-coach-toggle');
+  if (dayChatToggle) dayChatToggle.textContent = '+ Ask AI Coach a question';
+  const dayChatMsgs = document.getElementById('day-chat-msgs');
+  if (dayChatMsgs) dayChatMsgs.innerHTML = '';
   mealsExpanded = false;
   pendingSuggestion = null;
   chatContext = null;
@@ -3324,6 +3342,67 @@ Audit today's intake and name the single most useful gap or improvement you can 
     logFailure('ai_coach_insight', 'ai_coach', e.message);
     bar.innerHTML = '<span class="insight-label">AI COACH</span><span style="opacity:.3">—</span>';
   }
+}
+
+// ── Day AI Coach Chat — ask a free-form question about today's food, same
+// pattern as the History "Ask AI Coach a question" chat below, scoped to
+// today's meals/targets instead of long-term trend data. ──────────────────
+let dayChatOpen = false;
+let dayChatHistory = []; // conversation history, reset on day switch (see loadDay)
+
+function toggleDayChat() {
+  dayChatOpen = !dayChatOpen;
+  const wrap = document.getElementById('day-chat-wrap');
+  const toggle = document.getElementById('day-coach-toggle');
+  if (wrap) wrap.classList.toggle('open', dayChatOpen);
+  if (toggle) toggle.textContent = dayChatOpen ? '− Close chat' : '+ Ask AI Coach a question';
+  if (dayChatOpen) setTimeout(() => document.getElementById('day-chat-input')?.focus(), 300);
+}
+
+async function sendDayChat() {
+  const input = document.getElementById('day-chat-input');
+  const msgs = document.getElementById('day-chat-msgs');
+  if (!input || !msgs) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  const {cal, pro} = totals();
+  const todayWtEl = document.getElementById('wt-am');
+  const todayWt = todayWtEl ? parseFloat(todayWtEl.value) || null : null;
+  const PRO_T_TODAY = proteinTargetFor(dateKey(activeDate), todayWt);
+  const foodList = meals.length
+    ? meals.map(m => `${m.desc} (${m.cal}kcal, ${m.pro}g pro)`).join('; ')
+    : 'nothing logged yet';
+  const TDEE = TDEE_USER || 2100;
+  const CAL_TARGET = CAL_T_USER || TDEE;
+
+  msgs.insertAdjacentHTML('beforeend', `<div class="msg-user fade" style="justify-content:flex-end;display:flex;margin-bottom:6px;"><div class="bubble" style="background:#1a1a1a;padding:6px 10px;border-radius:8px 8px 2px 8px;font-size:11px;color:#ccc;max-width:85%;">${esc(text)}</div></div>`);
+  const spId = 'dsp-'+Date.now();
+  msgs.insertAdjacentHTML('beforeend', `<div id="${spId}" style="display:flex;gap:8px;margin-bottom:6px;align-items:flex-start;"><div class="ai-av" style="flex-shrink:0;">AI</div><div class="spinner"></div></div>`);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  dayChatHistory.push({ role: 'user', content: text });
+
+  try {
+    const sysPrompt = `You are a registered-dietitian-style nutrition coach helping the user with TODAY's food log specifically. Foods eaten so far today: ${foodList}. Totals: ${cal} kcal, ${pro}g protein. Goal: ${CAL_TARGET} kcal and ${PRO_T_TODAY}g protein minimum. TDEE (maintenance): ${TDEE} kcal. Goal mode: ${currentGoalMode}.
+
+Answer the user's question specifically and practically, referencing their actual foods and numbers where relevant. Keep responses under 3 sentences. Be direct.`;
+    const data = await api('/', {
+      max_tokens: 400, thinking: { type: 'disabled' }, _type: 'ai_coach',
+      system: sysPrompt,
+      messages: dayChatHistory,
+    });
+    if (data.error) throw new Error(data.error.message);
+    const reply = (data.content||[]).map(b=>b.text||'').join('').trim();
+    dayChatHistory.push({ role: 'assistant', content: reply });
+    document.getElementById(spId)?.remove();
+    msgs.insertAdjacentHTML('beforeend', `<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start;"><div class="ai-av" style="flex-shrink:0;">AI</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:#aaa;line-height:1.6;">${esc(reply)}</div></div>`);
+  } catch(e) {
+    document.getElementById(spId)?.remove();
+    msgs.insertAdjacentHTML('beforeend', `<div style="color:#f87171;font-family:'DM Mono',monospace;font-size:10px;margin-bottom:6px;">Error: ${esc(e.message)}</div>`);
+  }
+  msgs.scrollTop = msgs.scrollHeight;
 }
 
 
