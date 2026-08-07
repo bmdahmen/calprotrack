@@ -193,6 +193,7 @@ export default {
       await env.DB.prepare("UPDATE cache SET user_id=? WHERE user_id='default'").bind(user_id).run();
       await env.DB.prepare("UPDATE food_items SET user_id=? WHERE user_id='default'").bind(user_id).run();
       await env.DB.prepare("UPDATE presets SET user_id=? WHERE user_id='default'").bind(user_id).run();
+      await env.DB.prepare("UPDATE phases SET user_id=? WHERE user_id='default'").bind(user_id).run();
       return json({ ok: true });
     }
 
@@ -358,6 +359,25 @@ export default {
       const user_id = resolveUser(body.user_id);
       if (!user_id) return authError();
       const { results } = await env.DB.prepare('SELECT * FROM presets WHERE user_id=? ORDER BY sort_order, rowid').bind(user_id).all();
+      return json(results);
+    }
+
+    if (path === '/phases/save') {
+      const { phases } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
+      const stmts = [env.DB.prepare('DELETE FROM phases WHERE user_id=?').bind(user_id)];
+      for (const p of phases) {
+        stmts.push(env.DB.prepare('INSERT INTO phases (id,user_id,mode,start_date,end_date,created_at) VALUES (?,?,?,?,?,?)')
+          .bind(String(p.id), user_id, p.mode, p.start_date, p.end_date || null, p.created_at || new Date().toISOString()));
+      }
+      await env.DB.batch(stmts);
+      return json({ ok: true });
+    }
+    if (path === '/phases/load') {
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
+      const { results } = await env.DB.prepare('SELECT * FROM phases WHERE user_id=? ORDER BY start_date, rowid').bind(user_id).all();
       return json(results);
     }
 

@@ -346,6 +346,11 @@
   .edit-wrap input{padding:5px 8px;font-size:12px;}
   .save-btn{background:#f97316;border:none;color:#000;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
   .cancel-btn{background:none;border:1px solid #444;color:#aaa;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
+  .phase-row-fields{flex:1;display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+  .phase-mode-sel,.phase-date-input{background:#1a1a1a;border:1px solid #333;color:#f0f0f0;padding:6px 8px;border-radius:6px;font-size:11px;font-family:'DM Mono',monospace;outline:none;color-scheme:dark;}
+  .phase-arrow{color:#555;font-family:'DM Mono',monospace;font-size:10px;}
+  body.light .phase-mode-sel,body.light .phase-date-input{background:#d5cec5;border-color:#c0b9b0;color:#2c2820;color-scheme:light;}
+  body.light .phase-arrow{color:#8a8178;}
 
   /* Food Log: presets + reusable quick-add items */
   .fe-go-muted{background:#1a1a1a;color:#888;}
@@ -653,6 +658,7 @@
               <button class="range-btn" onclick="setRange(90,this)">90D</button>
               <button class="range-btn" onclick="setRange(180,this)">6M</button>
               <button class="range-btn" onclick="setRange(365,this)">1Y</button>
+              <button class="range-btn" id="range-phase-btn" onclick="setRangeSincePhaseStart(this)" style="display:none">Phase</button>
             </div>
           </div>
         </div>
@@ -868,6 +874,11 @@
             <button class="goal-btn maintain" onclick="setGoalMode('maintain',this)">⚖️ Maintain</button>
             <button class="goal-btn bulk" onclick="setGoalMode('bulk',this)">📈 Bulk</button>
           </div>
+          <button type="button" class="fe-est-link" id="phases-toggle" aria-expanded="false" onclick="toggleCollapse('phases-toggle','phases-body')" style="margin-top:8px"><span class="chev">▶</span> 📅 <span id="phases-toggle-label">Phase History</span></button>
+          <div class="fe-est-body" id="phases-body">
+            <div id="phase-list" style="margin-top:8px"></div>
+            <button type="button" class="show-more-btn" onclick="addPhase()" style="margin-top:8px">+ Add Phase</button>
+          </div>
         </div>
 
         <div style="margin-top:10px" id="aggr-section">
@@ -1042,6 +1053,7 @@ let insightRetryTimer = null;
 let mealEditId = null;
 let mealEditBaseCal = 0, mealEditBasePro = 0, mealEditBaseWt = 0; // meal's values at edit-open time — the slider's 1.0× reference
 let historyData = [];
+let phases = []; // goal-mode phase history: {id, mode, start_date, end_date|null, created_at}
 let datesWithData = new Set();
 let calViewDate = new Date();
 let saveMeasTimer = null;
@@ -1520,6 +1532,17 @@ async function loadFoodLog() {
 
 async function saveFoodItems() { await api('/fooditems/save', { food_items: foodItems }); }
 async function savePresetsToServer() { await api('/presets/save', { presets }); }
+
+async function loadPhases() {
+  try {
+    const ph = await api('/phases/load', {});
+    phases = Array.isArray(ph) ? ph : [];
+  } catch (e) {
+    phases = [];
+  }
+}
+
+async function savePhases() { await api('/phases/save', { phases }); }
 
 function activeDayShortLabel() {
   const lbl = document.getElementById('day-label');
@@ -2743,6 +2766,35 @@ function setRange(days, btn) {
   refreshHistInsight(); // histFP includes data fingerprint — cache handles dedup
 }
 
+// The current (most recently started) phase, regardless of whether it has
+// an end_date — a phase logged ahead of time still counts as "current" once
+// it's the latest one on the timeline.
+function currentPhase() {
+  if (!phases.length) return null;
+  return [...phases].sort((a,b) => a.start_date.localeCompare(b.start_date)).at(-1);
+}
+
+// Sets chartRange to the day-count since the current phase started, reusing
+// setRange's exact rendering path — "Phase" is just a dynamically computed
+// day count, not a separate chart mode.
+function setRangeSincePhaseStart(btn) {
+  const p = currentPhase();
+  if (!p) return;
+  const start = new Date(p.start_date + 'T00:00:00');
+  const days = Math.max(1, Math.ceil((new Date() - start) / 86400000));
+  setRange(days, btn);
+}
+
+// Shows/hides the "Phase" range button based on whether there's any phase
+// to measure from — called after every phase edit and on load.
+function updateSincePhaseBtn() {
+  const btn = document.getElementById('range-phase-btn');
+  if (!btn) return;
+  const p = currentPhase();
+  btn.style.display = p ? '' : 'none';
+  btn.textContent = p ? `Since ${p.mode[0].toUpperCase()+p.mode.slice(1)}` : 'Phase';
+}
+
 // Trailing N-day moving average over whatever date/value pairs are supplied.
 // Averages only the values actually present within each trailing window, so gaps in logging don't skew it.
 function movingAverage(entries, windowDays) {
@@ -2932,6 +2984,39 @@ function drawChart() {
     const y = PAD_T + (i / ticks) * plotH;
     ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
   }
+
+  // Phase boundaries — a dashed vertical line + label at each phase's
+  // start_date that falls in the visible range, colored to match that
+  // phase's mode (same palette as the Goal buttons in Profile). The first
+  // phase ever recorded is skipped: there's nothing to transition FROM.
+  const phaseLineColors = {
+    deficit: isLight ? '#c8621a' : '#60a5fa',
+    maintain: isLight ? '#a09020' : '#fbbf24',
+    bulk: isLight ? '#2a8040' : '#4ade80',
+  };
+  const phaseModeLabel = { deficit: 'Deficit', maintain: 'Maintain', bulk: 'Bulk' };
+  const sortedPhases = [...phases].sort((a,b) => a.start_date.localeCompare(b.start_date));
+  sortedPhases.forEach((p, idx) => {
+    if (idx === 0) return;
+    const d = new Date(p.start_date + 'T00:00:00');
+    if (d < cutoff || d > rangeEnd) return;
+    const x = xByDate(p.start_date);
+    const color = phaseLineColors[p.mode] || (isLight ? '#7a7168' : '#888');
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, PAD_T);
+    ctx.lineTo(x, PAD_T + plotH);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = color;
+    ctx.font = "8px 'DM Mono', monospace";
+    const nearRightEdge = x > W - PAD_R - 44;
+    ctx.textAlign = nearRightEdge ? 'right' : 'left';
+    ctx.fillText('→ ' + (phaseModeLabel[p.mode] || p.mode), x + (nearRightEdge ? -4 : 4), PAD_T + 9);
+  });
 
   // Y axis labels
   const bfColor = isLight ? '#b8860b' : '#fbbf24';
@@ -4013,6 +4098,7 @@ function setActivity(act, btn) {
 }
 
 function setGoalMode(mode, btn) {
+  if (currentUser && mode !== currentGoalMode) recordPhaseTransition(mode);
   currentGoalMode = mode;
   document.querySelectorAll('#goal-btns .goal-btn').forEach(b => b.classList.remove('on'));
   if (btn) btn.classList.add('on');
@@ -4025,6 +4111,85 @@ function setGoalMode(mode, btn) {
     api('/cache/set', { key: 'insight-hist-' + HIST_CACHE_VERSION + '-' + chartRange, value: '', fingerprint: 'invalidated' }).catch(() => {});
   }
   refreshInsight();
+}
+
+// Auto-records a phase-history entry whenever the goal mode actually
+// changes, so the History chart can annotate deficit/maintain/bulk
+// transitions without the user logging them by hand — dates can still be
+// corrected afterward in the Phase History editor (see renderPhases below).
+function recordPhaseTransition(newMode) {
+  const today = todayKey();
+  const open = phases.find(p => !p.end_date);
+  if (open && open.start_date === today) {
+    // Already switched today — relabel in place rather than leaving a
+    // zero-length phase from an earlier click.
+    open.mode = newMode;
+  } else {
+    if (open) {
+      const y = new Date(today + 'T00:00:00');
+      y.setDate(y.getDate() - 1);
+      open.end_date = dateKey(y);
+    }
+    phases.push({ id: newLocalId(), mode: newMode, start_date: today, end_date: null, created_at: new Date().toISOString() });
+  }
+  phases.sort((a,b) => a.start_date.localeCompare(b.start_date));
+  savePhases();
+  renderPhases();
+  drawChart();
+  updateSincePhaseBtn();
+}
+
+// -- Phase History editor (Profile) — manual CRUD on top of the same
+// `phases` array recordPhaseTransition maintains automatically, so a
+// mode switch and a hand-entered correction both feed the same timeline. --
+function renderPhases() {
+  const box = document.getElementById('phase-list');
+  if (!box) return;
+  const label = document.getElementById('phases-toggle-label');
+  if (label) label.textContent = phases.length ? `Phase History (${phases.length})` : 'Phase History';
+  if (!phases.length) {
+    box.innerHTML = '<div class="no-meals">No phases yet — switching Goal above starts one automatically, or add one manually.</div>';
+    return;
+  }
+  const sorted = [...phases].sort((a,b) => b.start_date.localeCompare(a.start_date)); // newest first
+  box.innerHTML = sorted.map(p => `
+    <div class="meal-row fade" id="phase-row-${p.id}">
+      <div class="phase-row-fields">
+        <select class="phase-mode-sel" onchange="updatePhaseField('${p.id}','mode',this.value)">
+          <option value="deficit" ${p.mode==='deficit'?'selected':''}>🔻 Deficit</option>
+          <option value="maintain" ${p.mode==='maintain'?'selected':''}>⚖️ Maintain</option>
+          <option value="bulk" ${p.mode==='bulk'?'selected':''}>📈 Bulk</option>
+        </select>
+        <input type="date" class="phase-date-input" value="${p.start_date}" onchange="updatePhaseField('${p.id}','start_date',this.value)">
+        <span class="phase-arrow">→</span>
+        <input type="date" class="phase-date-input" value="${p.end_date||''}" onchange="updatePhaseField('${p.id}','end_date',this.value)">
+      </div>
+      <button class="icon-btn" onclick="deletePhase('${p.id}')" title="Delete">✕</button>
+    </div>`).join('');
+}
+
+function addPhase() {
+  phases.push({ id: newLocalId(), mode: currentGoalMode || 'deficit', start_date: todayKey(), end_date: null, created_at: new Date().toISOString() });
+  savePhases();
+  renderPhases();
+  drawChart();
+  updateSincePhaseBtn();
+}
+
+function updatePhaseField(id, field, value) {
+  phases = phases.map(p => p.id == id ? { ...p, [field]: field === 'end_date' ? (value || null) : value } : p);
+  savePhases();
+  renderPhases();
+  drawChart();
+  updateSincePhaseBtn();
+}
+
+function deletePhase(id) {
+  phases = phases.filter(p => p.id != id);
+  savePhases();
+  renderPhases();
+  drawChart();
+  updateSincePhaseBtn();
 }
 
 function goalCalTarget(tdee, mode) {
@@ -4298,7 +4463,10 @@ async function boot() {
   await loadHistory();
   await loadDay(new Date());
   await loadFoodLog();
+  await loadPhases();
   renderFoodLog(); // Food Log is the default tab, so paint it without waiting for a tab click
+  renderPhases();
+  updateSincePhaseBtn();
   drawChart();
   window.addEventListener("resize", drawChart);
   refreshInsight();
