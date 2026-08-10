@@ -194,6 +194,7 @@ export default {
       await env.DB.prepare("UPDATE food_items SET user_id=? WHERE user_id='default'").bind(user_id).run();
       await env.DB.prepare("UPDATE presets SET user_id=? WHERE user_id='default'").bind(user_id).run();
       await env.DB.prepare("UPDATE phases SET user_id=? WHERE user_id='default'").bind(user_id).run();
+      await env.DB.prepare("UPDATE dexa_scans SET user_id=? WHERE user_id='default'").bind(user_id).run();
       return json({ ok: true });
     }
 
@@ -378,6 +379,25 @@ export default {
       const user_id = resolveUser(body.user_id);
       if (!user_id) return authError();
       const { results } = await env.DB.prepare('SELECT * FROM phases WHERE user_id=? ORDER BY start_date, rowid').bind(user_id).all();
+      return json(results);
+    }
+
+    if (path === '/dexa/save') {
+      const { dexa_scans } = body;
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
+      const stmts = [env.DB.prepare('DELETE FROM dexa_scans WHERE user_id=?').bind(user_id)];
+      for (const s of dexa_scans) {
+        stmts.push(env.DB.prepare('INSERT INTO dexa_scans (id,user_id,date,weight,bf_pct,created_at) VALUES (?,?,?,?,?,?)')
+          .bind(String(s.id), user_id, s.date, s.weight, s.bf_pct, s.created_at || new Date().toISOString()));
+      }
+      await env.DB.batch(stmts);
+      return json({ ok: true });
+    }
+    if (path === '/dexa/load') {
+      const user_id = resolveUser(body.user_id);
+      if (!user_id) return authError();
+      const { results } = await env.DB.prepare('SELECT * FROM dexa_scans WHERE user_id=? ORDER BY date, rowid').bind(user_id).all();
       return json(results);
     }
 

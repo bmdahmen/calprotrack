@@ -347,9 +347,10 @@
   .save-btn{background:#f97316;border:none;color:#000;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
   .cancel-btn{background:none;border:1px solid #444;color:#aaa;padding:5px 10px;border-radius:5px;font-size:10px;cursor:pointer;}
   .phase-row-fields{flex:1;display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
-  .phase-mode-sel,.phase-date-input{background:#1a1a1a;border:1px solid #333;color:#f0f0f0;padding:6px 8px;border-radius:6px;font-size:11px;font-family:'DM Mono',monospace;outline:none;color-scheme:dark;}
+  .phase-mode-sel,.phase-date-input,.dexa-num-input{background:#1a1a1a;border:1px solid #333;color:#f0f0f0;padding:6px 8px;border-radius:6px;font-size:11px;font-family:'DM Mono',monospace;outline:none;color-scheme:dark;}
+  input.dexa-num-input{width:64px;}
   .phase-arrow{color:#555;font-family:'DM Mono',monospace;font-size:10px;}
-  body.light .phase-mode-sel,body.light .phase-date-input{background:#d5cec5;border-color:#c0b9b0;color:#2c2820;color-scheme:light;}
+  body.light .phase-mode-sel,body.light .phase-date-input,body.light .dexa-num-input{background:#d5cec5;border-color:#c0b9b0;color:#2c2820;color-scheme:light;}
   body.light .phase-arrow{color:#8a8178;}
 
   /* Food Log: presets + reusable quick-add items */
@@ -903,11 +904,17 @@
         </div>
 
         <div class="sec" style="margin-top:18px;margin-bottom:10px">Body Composition (DEXA)</div>
-        <div class="settings-grid">
-          <div><label class="field-lbl">Scan Date</label><input type="date" id="prof-dexa-date" oninput="scheduleDexaSave()"></div>
-          <div><label class="field-lbl">Scan Weight (lbs)</label><input type="number" id="prof-dexa-weight" inputmode="decimal" placeholder="160" step="0.1" oninput="scheduleDexaSave()"></div>
-          <div><label class="field-lbl">Scan Body Fat %</label><input type="number" id="prof-dexa-bf" inputmode="decimal" placeholder="15" step="0.1" min="0" max="80" oninput="scheduleDexaSave()"></div>
-          <div><label class="field-lbl">RMR (kcal/day)</label><input type="number" id="prof-rmr" inputmode="numeric" placeholder="1650" step="1" min="0" oninput="scheduleProfileSave()"></div>
+        <div style="margin-top:0">
+          <label class="field-lbl">RMR (kcal/day)</label>
+          <input type="number" id="prof-rmr" inputmode="numeric" placeholder="1650" step="1" min="0" oninput="scheduleProfileSave()">
+        </div>
+        <div style="margin-top:12px">
+          <label class="field-lbl">DEXA Scans</label>
+          <div id="dexa-scan-list" style="margin-top:8px"></div>
+          <button type="button" class="show-more-btn" onclick="addDexaScan()" style="margin-top:8px">+ Add Scan</button>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;line-height:1.5;">
+            History interpolates between two scans within ~2 weeks of each other, and otherwise extrapolates from whichever scan is closest to the date, using the phase (deficit/maintain/bulk) recorded for that date.
+          </div>
         </div>
         <div style="margin-top:10px" id="muscle-split-section">
           <label class="field-lbl">Assumed Muscle Share of Weight Change (Deficit)</label>
@@ -925,7 +932,7 @@
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;" id="muscle-gain-split-desc"></div>
         </div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:#333;margin-top:6px;line-height:1.5;">
-          Used to estimate current body fat % in History as your weight moves away from your DEXA baseline — the deficit split applies when you're clearly below your DEXA weight, the bulk split when clearly above, and the maintain split when you're within a pound of it either way.
+          Used to estimate body fat % in History as weight moves away from a DEXA anchor — the deficit split applies on dates recorded as a deficit phase, the bulk split for bulk, maintain for maintain; dates before any recorded phase fall back to whether weight was clearly below/above/near the anchor.
         </div>
 
         <div style="margin-top:14px">
@@ -1057,6 +1064,7 @@ let mealEditId = null;
 let mealEditBaseCal = 0, mealEditBasePro = 0, mealEditBaseWt = 0; // meal's values at edit-open time — the slider's 1.0× reference
 let historyData = [];
 let phases = []; // goal-mode phase history: {id, mode, start_date, end_date|null, created_at}
+let dexaScans = []; // {id, date, weight, bf_pct, created_at} — kept sorted by date
 let datesWithData = new Set();
 let calViewDate = new Date();
 let saveMeasTimer = null;
@@ -1392,10 +1400,11 @@ function updateUI() {
   // Header stats — use today's wt-am input first, then latest history entry
   const histWeights = historyData.filter(e=>e.weightAM).sort((a,b)=>a.date>b.date?1:-1);
   const lastW = todayWt0 || (histWeights.length ? histWeights[histWeights.length-1].weightAM : null);
+  const lastWDate = todayWt0 ? dateKey(activeDate) : (histWeights.length ? histWeights[histWeights.length-1].date : null);
   const rec = historyData.filter(e=>e.calories && e.date < todayKey()).slice(-7);
   const avgCal = rec.length?Math.round(rec.reduce((s,e)=>s+e.calories,0)/rec.length):null;
   const avgPro = rec.length?Math.round(rec.reduce((s,e)=>s+(e.protein||0),0)/rec.length):null;
-  const bodyCompNow = lastW ? estimateBodyComp(lastW) : null;
+  const bodyCompNow = lastW ? estimateBodyCompOn(lastWDate, lastW) : null;
   document.getElementById("stats-row").innerHTML = [
     {l:"LAST WEIGHT",v:lastW?lastW+" lbs":"—",c:""},
     bodyCompNow && bodyCompNow.bfPctNow!=null ? {l:"BODY FAT %",v:bodyCompNow.bfPctNow.toFixed(1)+"%",c:""} : null,
@@ -1546,6 +1555,17 @@ async function loadPhases() {
 }
 
 async function savePhases() { await api('/phases/save', { phases }); }
+
+async function loadDexaScans() {
+  try {
+    const s = await api('/dexa/load', {});
+    dexaScans = (Array.isArray(s) ? s : []).sort((a,b) => a.date.localeCompare(b.date));
+  } catch (e) {
+    dexaScans = [];
+  }
+}
+
+async function saveDexaScansToServer() { await api('/dexa/save', { dexa_scans: dexaScans }); }
 
 function activeDayShortLabel() {
   const lbl = document.getElementById('day-label');
@@ -2905,12 +2925,12 @@ function drawChart() {
   const weightAvgPts = weightAvgFull.filter(inRange);
   const waistAvgPts  = waistAvgFull.filter(inRange);
 
-  // Estimated body fat % per day, derived from that day's weightAM vs. the DEXA baseline.
+  // Estimated body fat % per day, derived from that day's weightAM against
+  // whichever DEXA scan(s) are relevant to that date (see estimateBodyCompOn).
   // Independent of the weight/waist axes — gets its own scale and, when toggled on,
   // its own axis column to the left of the weight axis.
-  const dexaBaseline = getDexaBaseline();
-  const bfPts = dexaBaseline
-    ? points.filter(p => p.weightAM).map(p => ({ date: p.date, value: estimateBodyComp(p.weightAM).bfPctNow, p }))
+  const bfPts = dexaScans.length
+    ? points.filter(p => p.weightAM).map(p => ({ date: p.date, value: estimateBodyCompOn(p.date, p.weightAM).bfPctNow, p }))
     : [];
   const bfActive = chartSeriesOn.bodyFat && bfPts.length > 0;
 
@@ -3598,10 +3618,10 @@ async function refreshHistInsight() {
   // headline — e.g. viewing 90D while 60 of those days were a prior phase.
   const phaseSegs = phases.length ? segmentByPhase(pts).map(segmentStats).filter(Boolean) : [];
 
-  // Fingerprint: range + first/last weight + first/last waist + DEXA baseline
-  // + phase state (so a phase edit invalidates the cached prose, not just a
-  // goal-mode flip).
-  const dexaFP = JSON.stringify(getDexaBaseline());
+  // Fingerprint: range + first/last weight + first/last waist + DEXA scans
+  // + phase state (so a phase or scan edit invalidates the cached prose, not
+  // just a goal-mode flip).
+  const dexaFP = dexaScans.map(s => `${s.id}:${s.date}:${s.weight}:${s.bf_pct}`).join(',');
   const phasesFP = phases.map(p => `${p.id}:${p.mode}:${p.start_date}:${p.end_date||''}`).join(',');
   const histFP = [
     range,
@@ -3677,11 +3697,11 @@ async function refreshHistInsight() {
   const { wStr, cls: wClass, label: wLabel } = weeklyRateClass(currentGoalMode, weightPerWeek);
   const curRate = curStats ? weeklyRateClass(curStats.mode, curStats.perWeek) : null;
 
-  // Estimated body fat % vs. DEXA baseline, if one is set
-  const bodyComp = estimateBodyComp(lastW.weightAM);
-  const bodyCompStart = estimateBodyComp(firstW.weightAM);
-  const bfStartPct = bodyCompStart && bodyCompStart.bfPctNow != null ? bodyCompStart.bfPctNow : (bodyComp && bodyComp.dexa.bfPct);
-  const bfChangePerWeek = bodyComp && bodyComp.bfPctNow != null ? ((bodyComp.bfPctNow - bfStartPct) / daySpanW) * 7 : null;
+  // Estimated body fat % vs. DEXA scan(s), if any are recorded
+  const bodyComp = estimateBodyCompOn(lastW.date, lastW.weightAM);
+  const bodyCompStart = estimateBodyCompOn(firstW.date, firstW.weightAM);
+  const bfStartPct = bodyCompStart ? bodyCompStart.bfPctNow : null;
+  const bfChangePerWeek = bodyComp && bfStartPct != null ? ((bodyComp.bfPctNow - bfStartPct) / daySpanW) * 7 : null;
   const bfStr = bfChangePerWeek != null ? (bfChangePerWeek > 0 ? '+' : '') + bfChangePerWeek.toFixed(2) : '';
   const bfBlock = bodyComp && bodyComp.bfPctNow != null ? `
     <div class="hist-rate-block">
@@ -4300,6 +4320,51 @@ function deletePhase(id) {
   updateSincePhaseBtn();
 }
 
+// -- DEXA Scans editor (Profile) — same CRUD pattern as Phase History,
+// feeding estimateBodyCompOn's multi-scan blend/nearest-anchor logic. --
+function renderDexaScans() {
+  const box = document.getElementById('dexa-scan-list');
+  if (!box) return;
+  if (!dexaScans.length) {
+    box.innerHTML = '<div class="no-meals">No scans yet — add your DEXA results below.</div>';
+    return;
+  }
+  const sorted = [...dexaScans].sort((a,b) => b.date.localeCompare(a.date)); // newest first
+  box.innerHTML = sorted.map(s => `
+    <div class="meal-row fade" id="dexa-row-${s.id}">
+      <div class="phase-row-fields">
+        <input type="date" class="phase-date-input" value="${s.date}" onchange="updateDexaField('${s.id}','date',this.value)">
+        <input type="number" class="dexa-num-input" inputmode="decimal" step="0.1" min="0" value="${s.weight}" placeholder="lbs" onchange="updateDexaField('${s.id}','weight',this.value)">
+        <input type="number" class="dexa-num-input" inputmode="decimal" step="0.1" min="0" max="80" value="${s.bf_pct}" placeholder="BF%" onchange="updateDexaField('${s.id}','bf_pct',this.value)">
+      </div>
+      <button class="icon-btn" onclick="deleteDexaScan('${s.id}')" title="Delete">✕</button>
+    </div>`).join('');
+}
+
+function addDexaScan() {
+  const lastWeighed = [...historyData].filter(e => e.weightAM).sort((a,b) => a.date.localeCompare(b.date)).pop();
+  dexaScans.push({ id: newLocalId(), date: todayKey(), weight: lastWeighed ? lastWeighed.weightAM : 0, bf_pct: 0, created_at: new Date().toISOString() });
+  dexaScans.sort((a,b) => a.date.localeCompare(b.date));
+  saveDexaScansToServer();
+  renderDexaScans();
+  drawChart();
+}
+
+function updateDexaField(id, field, value) {
+  dexaScans = dexaScans.map(s => s.id == id ? { ...s, [field]: field === 'date' ? value : parseFloat(value) || 0 } : s);
+  dexaScans.sort((a,b) => a.date.localeCompare(b.date));
+  saveDexaScansToServer();
+  renderDexaScans();
+  drawChart();
+}
+
+function deleteDexaScan(id) {
+  dexaScans = dexaScans.filter(s => s.id != id);
+  saveDexaScansToServer();
+  renderDexaScans();
+  drawChart();
+}
+
 function goalCalTarget(tdee, mode) {
   return goalCalTargetFull(tdee, mode, currentAggressiveness || 'moderate');
 }
@@ -4374,9 +4439,6 @@ async function saveProfile() {
   PRO_RATIO_USER = proteinRatio;
   CAL_T_USER = t.calTarget;
   const calOverride = t.hasOverride ? t.calTarget : null;
-  const dexaDate = document.getElementById('prof-dexa-date').value || null;
-  const dexaWeight = parseFloat(document.getElementById('prof-dexa-weight').value) || null;
-  const dexaBF = parseFloat(document.getElementById('prof-dexa-bf').value) || null;
   const muscleRaw = parseFloat(document.getElementById('prof-muscle-pct').value);
   const musclePct = isNaN(muscleRaw) ? 20 : Math.min(100, Math.max(0, muscleRaw));
   const muscleGainRaw = parseFloat(document.getElementById('prof-muscle-gain-pct').value);
@@ -4390,7 +4452,6 @@ async function saveProfile() {
     activity: currentActivity, goal_mode: currentGoalMode,
     aggressiveness: currentAggressiveness,
     rmr: t.rmr, cal_target_override: calOverride,
-    dexa_date: dexaDate, dexa_weight: dexaWeight, dexa_bf_pct: dexaBF,
     muscle_loss_pct: musclePct, muscle_gain_pct: muscleGainPct, muscle_maintain_pct: muscleMaintainPct,
     coach_mode: coachMode
   });
@@ -4402,8 +4463,7 @@ async function saveProfile() {
   stored.activity = currentActivity;
   stored.aggressiveness = currentAggressiveness;
   stored.rmr = t.rmr; stored.cal_target_override = calOverride;
-  stored.dexa_date = dexaDate; stored.dexa_weight = dexaWeight;
-  stored.dexa_bf_pct = dexaBF; stored.muscle_loss_pct = musclePct;
+  stored.muscle_loss_pct = musclePct;
   stored.muscle_gain_pct = muscleGainPct;
   stored.muscle_maintain_pct = muscleMaintainPct;
   stored.coach_mode = coachMode;
@@ -4431,9 +4491,6 @@ function loadProfilePane() {
     PRO_RATIO_USER = stored.pro_target / stored.weight_lbs;
     document.getElementById('prof-protein-ratio').value = PRO_RATIO_USER.toFixed(2);
   }
-  if (stored.dexa_date) document.getElementById('prof-dexa-date').value = stored.dexa_date;
-  if (stored.dexa_weight) document.getElementById('prof-dexa-weight').value = stored.dexa_weight;
-  if (stored.dexa_bf_pct) document.getElementById('prof-dexa-bf').value = stored.dexa_bf_pct;
   if (stored.rmr) document.getElementById('prof-rmr').value = stored.rmr;
   if (stored.cal_target_override) document.getElementById('prof-cal-override').value = stored.cal_target_override;
   document.getElementById('prof-muscle-pct').value = stored.muscle_loss_pct != null ? stored.muscle_loss_pct : 20;
@@ -4472,10 +4529,10 @@ function loadProfilePane() {
   if (migrateSection) migrateSection.style.display = hasData ? 'none' : 'block';
 }
 
-// ── Body Composition (DEXA baseline) ────────────────────────────────────────
-// Stored locally (in bl_user, alongside other cached profile fields) rather than
-// synced server-side via /auth/profile (dexa_date, dexa_weight, dexa_bf_pct, muscle_loss_pct
-// columns on users) — same debounced save pipeline as the rest of the profile fields.
+// ── Body Composition (DEXA scans) ───────────────────────────────────────────
+// Scans themselves live in the dexa_scans table (loadDexaScans/saveDexaScansToServer,
+// same pattern as phases/food_items). The muscle-share percentages below are
+// still single global settings, synced via /auth/profile's debounced save.
 function updateMuscleSplitDesc() {
   const el = document.getElementById('muscle-split-desc');
   if (el) {
@@ -4502,22 +4559,35 @@ function scheduleDexaSave() {
   scheduleProfileSave();
 }
 
-function getDexaBaseline() {
-  const stored = JSON.parse(localStorage.getItem('bl_user') || '{}');
-  if (!stored.dexa_weight || !stored.dexa_bf_pct) return null;
-  return {
-    date: stored.dexa_date || null,
-    weight: stored.dexa_weight,
-    bfPct: stored.dexa_bf_pct,
-    muscleLossPct: stored.muscle_loss_pct != null ? stored.muscle_loss_pct : 20,
-    muscleGainPct: stored.muscle_gain_pct != null ? stored.muscle_gain_pct : 20,
-    muscleMaintainPct: stored.muscle_maintain_pct != null ? stored.muscle_maintain_pct : 20,
-  };
-}
-
-// Within this many lbs of the DEXA baseline, weight is treated as "maintaining"
-// rather than clearly bulking/cutting, and uses the maintain split instead.
+// Within this many lbs of a DEXA anchor, weight is treated as "maintaining"
+// rather than clearly bulking/cutting when no phase is recorded for the date
+// (the weight-delta-sign fallback in muscleSplitForDate below).
 const MAINTAIN_BAND_LBS = 1;
+
+// Two DEXA scans this close together (days) are treated as bracketing the
+// same short window — a date between them blends both anchors' estimates
+// (weighted by proximity) rather than extrapolating from just the nearer
+// one, since two real scans that close together are both good evidence for
+// what happened in between.
+const DEXA_BLEND_WINDOW_DAYS = 14;
+
+// Which muscle-share percentage to use for a given historical date: the
+// split for whatever phase (deficit/maintain/bulk) was actually recorded as
+// active on that date, if any — a fact, not a guess. Falls back to the old
+// weight-delta-sign heuristic (above/below/near the anchor weight) only for
+// dates that predate any recorded phase.
+function muscleSplitForDate(dateStr, deltaWeight) {
+  const stored = JSON.parse(localStorage.getItem('bl_user') || '{}');
+  const lossPct = stored.muscle_loss_pct != null ? stored.muscle_loss_pct : 20;
+  const gainPct = stored.muscle_gain_pct != null ? stored.muscle_gain_pct : 20;
+  const maintainPct = stored.muscle_maintain_pct != null ? stored.muscle_maintain_pct : 20;
+  const today = todayKey();
+  const phase = phases.find(p => p.start_date <= dateStr && dateStr <= (p.end_date || today));
+  const pct = phase
+    ? (phase.mode === 'bulk' ? gainPct : phase.mode === 'maintain' ? maintainPct : lossPct)
+    : (Math.abs(deltaWeight) < MAINTAIN_BAND_LBS ? maintainPct : (deltaWeight >= 0 ? gainPct : lossPct));
+  return Math.min(100, Math.max(0, pct)) / 100;
+}
 
 // ── Energy-balance estimation ───────────────────────────────────────────────
 // Converts an observed weight change into an average daily energy imbalance:
@@ -4547,23 +4617,48 @@ function dailyEnergyImbalance(deltaW, days) {
   return (fat * FAT_KCAL_PER_LB + lean * LEAN_KCAL_PER_LB) / days;
 }
 
-// Estimates current body fat % by assuming a user-set split of any weight change
-// (since the DEXA scan) between lean/muscle mass and fat mass — using the
-// deficit split clearly below the DEXA baseline weight, the bulk split
-// clearly above it, and the maintain split within MAINTAIN_BAND_LBS of it.
-function estimateBodyComp(currentWeight) {
-  const dexa = getDexaBaseline();
-  if (!dexa || !currentWeight) return null;
-  const fatMassDexa = dexa.weight * (dexa.bfPct / 100);
-  const leanMassDexa = dexa.weight - fatMassDexa;
-  const deltaWeight = currentWeight - dexa.weight;
-  const muscleFrac = (Math.abs(deltaWeight) < MAINTAIN_BAND_LBS
-    ? dexa.muscleMaintainPct
-    : (deltaWeight >= 0 ? dexa.muscleGainPct : dexa.muscleLossPct)) / 100;
+// Extrapolates body fat % on a given date/weight from a single DEXA scan,
+// using the phase-aware (or weight-delta-sign fallback) muscle split for
+// that date.
+function bodyCompFromAnchor(scan, dateStr, weightOnDate) {
+  const fatMassDexa = scan.weight * (scan.bf_pct / 100);
+  const leanMassDexa = scan.weight - fatMassDexa;
+  const deltaWeight = weightOnDate - scan.weight;
+  const muscleFrac = muscleSplitForDate(dateStr, deltaWeight);
   const leanMassNow = Math.max(0, leanMassDexa + deltaWeight * muscleFrac);
   const fatMassNow = Math.max(0, fatMassDexa + deltaWeight * (1 - muscleFrac));
-  const bfPctNow = currentWeight > 0 ? (fatMassNow / currentWeight) * 100 : null;
-  return { dexa, deltaWeight, leanMassDexa, fatMassDexa, leanMassNow, fatMassNow, bfPctNow };
+  return weightOnDate > 0 ? (fatMassNow / weightOnDate) * 100 : null;
+}
+
+// Estimates body fat % on a given date/weight using whichever DEXA scan(s)
+// are relevant to that date:
+//  - if it falls between two scans no more than DEXA_BLEND_WINDOW_DAYS
+//    apart, blend both anchors' estimates, weighted by proximity (exactly
+//    halfway between them is a straight average);
+//  - otherwise, extrapolate from whichever single scan is closest in time.
+// Returns null with no scans recorded, or no weight to estimate from.
+function estimateBodyCompOn(dateStr, weightOnDate) {
+  if (!dexaScans.length || !weightOnDate || !dateStr) return null;
+  const t = new Date(dateStr + 'T00:00:00').getTime();
+  let before = null, after = null;
+  for (const s of dexaScans) {
+    const st = new Date(s.date + 'T00:00:00').getTime();
+    if (st <= t && (!before || st > new Date(before.date + 'T00:00:00').getTime())) before = s;
+    if (st >= t && (!after || st < new Date(after.date + 'T00:00:00').getTime())) after = s;
+  }
+  if (before && after && before.id !== after.id) {
+    const spanDays = (new Date(after.date) - new Date(before.date)) / 86400000;
+    if (spanDays <= DEXA_BLEND_WINDOW_DAYS) {
+      const bfBefore = bodyCompFromAnchor(before, dateStr, weightOnDate);
+      const bfAfter = bodyCompFromAnchor(after, dateStr, weightOnDate);
+      const frac = spanDays > 0 ? (t - new Date(before.date + 'T00:00:00').getTime()) / (spanDays * 86400000) : 0.5;
+      const bfPctNow = bfBefore * (1 - frac) + bfAfter * frac;
+      return { anchor: before, blendedWith: after, bfPctNow };
+    }
+  }
+  const distTo = (s) => Math.abs(t - new Date(s.date + 'T00:00:00').getTime());
+  const anchor = !before ? after : !after ? before : (distTo(before) <= distTo(after) ? before : after);
+  return { anchor, blendedWith: null, bfPctNow: bodyCompFromAnchor(anchor, dateStr, weightOnDate) };
 }
 
 // ── Leaderboard ────────────────────────────────────────────────────────────
@@ -4572,8 +4667,10 @@ async function boot() {
   await loadDay(new Date());
   await loadFoodLog();
   await loadPhases();
+  await loadDexaScans();
   renderFoodLog(); // Food Log is the default tab, so paint it without waiting for a tab click
   renderPhases();
+  renderDexaScans();
   updateSincePhaseBtn();
   drawChart();
   window.addEventListener("resize", drawChart);
