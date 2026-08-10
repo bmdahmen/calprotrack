@@ -1019,7 +1019,10 @@ const CAL_T = 1800, PRO_T = 120;
 // in setAggressiveness()/setGoalMode() — those two were pointing at a
 // years-stale 'v4' literal that no longer matched the live key, so goal or
 // aggressiveness changes silently stopped invalidating the history insight.
-const HIST_CACHE_VERSION = 'v9';
+// v10: prompt now leads with phase-segmented stats (since-current-phase-start
+// headline + per-phase breakdown of the window) instead of one blended rate
+// over the whole window — old cached text wouldn't reflect that framing.
+const HIST_CACHE_VERSION = 'v10';
 
 const SEED_HISTORY = [
   {date:"2019-12-01",weightAM:147,notes:"Baseline adult weight"},
@@ -3504,6 +3507,57 @@ Answer the user's question specifically and practically, referencing their actua
 // with stale numbers/caption for a range that isn't even selected anymore.
 let histInsightSeq = 0;
 
+// Splits a date-sorted point list into contiguous runs sharing the same
+// recorded phase (by date, phase.start_date <= date <= phase.end_date||today).
+// Points whose date falls before any recorded phase started are grouped
+// under mode=null ("no phase recorded") rather than dropped, so pre-phase-
+// tracking history still shows up as context.
+function segmentByPhase(sortedPts) {
+  if (!sortedPts.length) return [];
+  const today = todayKey();
+  const phaseFor = (d) => phases.find(p => p.start_date <= d && d <= (p.end_date || today)) || null;
+  const segments = [];
+  let cur = null;
+  for (const pt of sortedPts) {
+    const p = phaseFor(pt.date);
+    const phaseId = p ? p.id : null;
+    if (!cur || cur.phaseId !== phaseId) {
+      cur = { mode: p ? p.mode : null, phaseId, pts: [] };
+      segments.push(cur);
+    }
+    cur.pts.push(pt);
+  }
+  return segments;
+}
+
+// Weight-change stats for one segment's points, or null if there isn't
+// enough weight data in it to compute a rate.
+function segmentStats(seg) {
+  const weightPts = seg.pts.filter(p => p.weightAM);
+  if (weightPts.length < 2) return null;
+  const first = weightPts[0], last = weightPts[weightPts.length - 1];
+  const days = Math.max(1, (new Date(last.date) - new Date(first.date)) / 86400000);
+  const change = last.weightAM - first.weightAM;
+  return { mode: seg.mode, startDate: first.date, endDate: last.date, days: Math.round(days), startWeight: first.weightAM, endWeight: last.weightAM, change, perWeek: (change / days) * 7 };
+}
+
+// The headline stat: weight change since the CURRENT phase's own
+// start_date, using full history back that far — independent of whatever
+// chart range is selected, since "how is this phase going" shouldn't
+// change just because someone's viewing 7D vs 1Y. Returns null if there's
+// no current phase or not enough weight data logged since it started.
+function currentPhaseStats(allSorted) {
+  const p = currentPhase();
+  if (!p) return null;
+  const endBound = p.end_date || todayKey();
+  const weightPts = allSorted.filter(e => e.weightAM && e.date >= p.start_date && e.date <= endBound);
+  if (weightPts.length < 2) return null;
+  const first = weightPts[0], last = weightPts[weightPts.length - 1];
+  const days = Math.max(1, (new Date(last.date) - new Date(first.date)) / 86400000);
+  const change = last.weightAM - first.weightAM;
+  return { mode: p.mode, startDate: p.start_date, days: Math.round(days), startWeight: first.weightAM, endWeight: last.weightAM, change, perWeek: (change / days) * 7 };
+}
+
 async function refreshHistInsight() {
   const seq = ++histInsightSeq;
   const bar = document.getElementById('hist-insight-bar');
@@ -3524,6 +3578,11 @@ async function refreshHistInsight() {
     acc[e.date] = {...(acc[e.date]||{}), ...e};
     return acc;
   }, {});
+  // Full unwindowed history, date-sorted — the "since current phase started"
+  // headline needs this rather than the range-clipped `pts` below, since a
+  // phase can run longer (or shorter) than whatever range happens to be
+  // selected on the chart right now.
+  const allSorted = Object.values(all).sort((a,b) => a.date.localeCompare(b.date));
 
   const pts = Object.values(all)
     .filter(e => { try { return new Date(e.date) >= cutoff; } catch(x) { return false; } })
@@ -3532,8 +3591,18 @@ async function refreshHistInsight() {
   const weightPts = pts.filter(e => e.weightAM);
   const waistPts  = pts.filter(e => e.waistNavel);
 
+  // Weight change since the CURRENT phase's own start — independent of the
+  // selected range, this is the headline number: "how is THIS phase going."
+  const curStats = currentPhaseStats(allSorted);
+  // Phase breakdown of just the selected window, for context underneath the
+  // headline — e.g. viewing 90D while 60 of those days were a prior phase.
+  const phaseSegs = phases.length ? segmentByPhase(pts).map(segmentStats).filter(Boolean) : [];
+
   // Fingerprint: range + first/last weight + first/last waist + DEXA baseline
+  // + phase state (so a phase edit invalidates the cached prose, not just a
+  // goal-mode flip).
   const dexaFP = JSON.stringify(getDexaBaseline());
+  const phasesFP = phases.map(p => `${p.id}:${p.mode}:${p.start_date}:${p.end_date||''}`).join(',');
   const histFP = [
     range,
     weightPts.length ? weightPts[0].date + weightPts[0].weightAM : '',
@@ -3542,6 +3611,7 @@ async function refreshHistInsight() {
     waistPts.length ? waistPts[waistPts.length-1].waistNavel : '',
     currentGoalMode || 'deficit',
     dexaFP,
+    phasesFP,
   ].join(':');
   // See HIST_CACHE_VERSION at top of script — bumped here to v9 because the
   // ai_coach max_tokens was too low (150) and routinely truncated the
@@ -3588,17 +3658,24 @@ async function refreshHistInsight() {
     waistSummary = `Waist has gone ${dir} ${Math.abs(waistChange).toFixed(2)}" over ${Math.round(daySpanV)} days (${waistChangePer > 0 ? '+' : ''}${waistChangePer.toFixed(2)}"/week).`;
   }
 
-  // Rate block color
-  const wStr = (weightPerWeek > 0 ? '+' : '') + weightPerWeek.toFixed(2);
-  // Color: green = good for current goal. Deficit=losing good, Bulk=gaining good
-  let wClass, wLabel;
-  if (currentGoalMode === 'bulk') {
-    wClass = weightPerWeek > 0.1 ? 'loss' : weightPerWeek < -0.1 ? 'gain' : 'neutral'; // loss=green=gaining, gain=red=losing
-    wLabel = weightPerWeek > 0.1 ? 'lbs/week gain' : weightPerWeek < -0.1 ? 'lbs/week loss' : 'lbs/week';
-  } else {
-    wClass = weightPerWeek < -0.1 ? 'loss' : weightPerWeek > 0.1 ? 'gain' : 'neutral'; // loss=green=losing
-    wLabel = weightPerWeek < -0.1 ? 'lbs/week loss' : weightPerWeek > 0.1 ? 'lbs/week gain' : 'lbs/week';
-  }
+  // Rate block color/label — green when the direction matches the given
+  // mode's goal (deficit/maintain want loss-or-flat, bulk wants gain),
+  // shared between the window block and the current-phase headline block.
+  const weeklyRateClass = (mode, perWeek) => {
+    const wStr = (perWeek > 0 ? '+' : '') + perWeek.toFixed(2);
+    if (mode === 'bulk') {
+      return {
+        wStr, cls: perWeek > 0.1 ? 'loss' : perWeek < -0.1 ? 'gain' : 'neutral', // loss=green=gaining, gain=red=losing
+        label: perWeek > 0.1 ? 'lbs/week gain' : perWeek < -0.1 ? 'lbs/week loss' : 'lbs/week',
+      };
+    }
+    return {
+      wStr, cls: perWeek < -0.1 ? 'loss' : perWeek > 0.1 ? 'gain' : 'neutral', // loss=green=losing
+      label: perWeek < -0.1 ? 'lbs/week loss' : perWeek > 0.1 ? 'lbs/week gain' : 'lbs/week',
+    };
+  };
+  const { wStr, cls: wClass, label: wLabel } = weeklyRateClass(currentGoalMode, weightPerWeek);
+  const curRate = curStats ? weeklyRateClass(curStats.mode, curStats.perWeek) : null;
 
   // Estimated body fat % vs. DEXA baseline, if one is set
   const bodyComp = estimateBodyComp(lastW.weightAM);
@@ -3650,7 +3727,22 @@ async function refreshHistInsight() {
       <div class="hist-rate-window">${proDaysArr.length} of ${range}D logged</div>
     </div>` : '';
 
+  const phaseModeLabel = { deficit: 'Deficit', maintain: 'Maintain', bulk: 'Bulk' };
+  // Headline block — weight change since the current phase started, shown
+  // ahead of (and independent of) the window blocks below since it's what
+  // the user is mostly looking for: how is THIS phase going.
+  const curPhaseBlock = curStats ? `
+    <div class="hist-rate-caption">SINCE ${(phaseModeLabel[curStats.mode]||curStats.mode).toUpperCase()} STARTED (${curStats.days}D)</div>
+    <div class="hist-rate-blocks">
+      <div class="hist-rate-block">
+        <div class="hist-rate-num ${curRate.cls}">${curRate.wStr}</div>
+        <div class="hist-rate-lbl">${curRate.label.toUpperCase()}</div>
+        <div class="hist-rate-window">${curStats.startWeight} → ${curStats.endWeight} lbs</div>
+      </div>
+    </div>` : '';
+
   rateRow.innerHTML = `
+    ${curPhaseBlock}
     <div class="hist-rate-caption">${range}D WINDOW</div>
     <div class="hist-rate-blocks">
       <div class="hist-rate-block">
@@ -3677,12 +3769,28 @@ async function refreshHistInsight() {
     ? 'The user is trying to maintain their current weight. Stable weight is the goal.'
     : 'The user is trying to lose fat (caloric deficit). Weight loss is the goal.';
 
-  const prompt = `Over the last ${range} days:
-- Weight went from ${firstW.weightAM} lbs to ${lastW.weightAM} lbs (${weightChangeLbs > 0 ? '+' : ''}${weightChangeLbs.toFixed(1)} lbs, ${wStr} lbs/week).
-${waistSummary ? '- ' + waistSummary : '- No waist data available.'}
-- ${goalCtx}
+  // Headline: weight change since the CURRENT phase started — the number
+  // the user cares about most, regardless of which window is selected.
+  const headlineLine = curStats
+    ? `Current phase: ${curStats.mode}, started ${curStats.startDate} (${curStats.days} days ago). Weight change SINCE THIS PHASE STARTED: ${curStats.change > 0 ? '+' : ''}${curStats.change.toFixed(1)} lbs (${curRate.wStr} lbs/week), from ${curStats.startWeight} to ${curStats.endWeight} lbs. This is the number that matters most for evaluating progress.`
+    : `Current phase: ${currentGoalMode || 'deficit'} (no phase start date recorded, or not enough weight data logged since it started — treat the window figures below as the only available signal).`;
 
-Write 2-3 encouraging but factual sentences evaluating this progress given their goal. Comment on whether the rate of change is appropriate for their goal, what the waist trend suggests, and whether they should stay the course or adjust. Be specific with numbers. No emoji.`;
+  // If the selected window spans more than one phase, break it down so the
+  // model can use older phases as context without conflating their rate
+  // with how the current phase is actually going.
+  const segLines = phaseSegs.length > 1
+    ? phaseSegs.map(s => `- ${s.mode ? (phaseModeLabel[s.mode]||s.mode) : 'no phase recorded'} (${s.startDate} to ${s.endDate}, ${s.days}d): ${s.change > 0 ? '+' : ''}${s.change.toFixed(1)} lbs (${(s.perWeek>0?'+':'')+s.perWeek.toFixed(2)} lbs/week)`).join('\n')
+    : '';
+
+  const prompt = `${headlineLine}
+
+For additional context, over the selected ${range}-day window overall: weight went from ${firstW.weightAM} lbs to ${lastW.weightAM} lbs (${weightChangeLbs > 0 ? '+' : ''}${weightChangeLbs.toFixed(1)} lbs, ${wStr} lbs/week).${segLines ? `
+This window spans multiple phases — breakdown:
+${segLines}` : ''}
+${waistSummary ? waistSummary : 'No waist data available.'}
+${goalCtx}
+
+Write 2-3 encouraging but factual sentences. Prioritize evaluating the CURRENT phase specifically — the "since this phase started" figure — against the goal; that's what the user wants to know. Use the wider window or older phases only as brief supporting context if genuinely useful (e.g. contrasting how a prior deficit's pace compares to how maintenance is holding), never as the primary evaluation. Comment on whether the current phase's rate is appropriate for the goal and whether to stay the course or adjust. Be specific with numbers. No emoji.`;
 
   try {
     const data = await api('/', {
