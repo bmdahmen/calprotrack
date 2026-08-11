@@ -781,10 +781,14 @@
             <div class="fe-col grow"><label class="field-lbl">Description</label><input type="text" id="pb-adhoc-desc" maxlength="120" placeholder="peanut butter, 2tbsp" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"></div>
           </div>
           <div class="fe-row" style="margin-top:8px">
-            <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="pb-adhoc-cal" inputmode="numeric" step="1" min="0" placeholder="190" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"><span>kc</span></div></div>
-            <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="pb-adhoc-pro" inputmode="numeric" step="1" min="0" placeholder="7" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"><span>g</span></div></div>
+            <div class="fe-col fe-wt"><label class="field-lbl">Weight</label><div class="fe-suffix"><input type="number" id="pb-adhoc-wt" inputmode="decimal" step="0.1" min="0" placeholder="150" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"><span>g</span></div></div>
+            <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="pb-adhoc-cal" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"><span>kc</span></div></div>
+            <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="pb-adhoc-pro" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"><span>g</span></div></div>
+          </div>
+          <div class="fe-row" style="margin-top:8px">
             <button class="fe-go grow" id="pb-adhoc-btn" onclick="addAdhocToPresetBuilder()">Add</button>
           </div>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">Give a weight with no calories to have it calculated automatically, same as Weigh &amp; Calculate.</div>
           <div class="preset-card-top" style="margin-top:12px;margin-bottom:0">
             <div class="field-lbl">In this preset</div>
             <div class="preset-totals" id="pb-totals"><span class="kc">0 kcal</span> · <span class="pr">0g prot</span></div>
@@ -1830,6 +1834,7 @@ function openPresetBuilder(id) {
   presetBuilderItems = p ? p.items.map(it => ({...it})) : [];
   document.getElementById('pb-name').value = p ? p.name : '';
   document.getElementById('pb-adhoc-desc').value = '';
+  document.getElementById('pb-adhoc-wt').value = '';
   document.getElementById('pb-adhoc-cal').value = '';
   document.getElementById('pb-adhoc-pro').value = '';
   document.getElementById('preset-builder-title').textContent = p ? 'Edit Preset' : 'New Preset';
@@ -1866,17 +1871,38 @@ function addToPresetBuilder(foodItemId) {
 
 // Adds a preset-only line item straight from typed values — never touches
 // the food_items table, so it never shows up in the grab-and-go food list.
-function addAdhocToPresetBuilder() {
+// A weight given with no calories is sent through the same AI weight-lookup
+// as Weigh & Calculate instead of requiring the user to already know the
+// numbers; typing calories directly (with or without a weight) skips that
+// and just uses what was entered, as before.
+async function addAdhocToPresetBuilder() {
   const descEl = document.getElementById('pb-adhoc-desc');
+  const wtEl = document.getElementById('pb-adhoc-wt');
   const calEl = document.getElementById('pb-adhoc-cal');
   const proEl = document.getElementById('pb-adhoc-pro');
   const name = descEl.value.trim();
-  const cal = parseInt(calEl.value);
-  const pro = parseInt(proEl.value) || 0;
+  const weight_g = parseFloat(wtEl.value) || null;
+  let cal = parseInt(calEl.value) || 0;
+  let pro = parseInt(proEl.value) || 0;
   if (!name) { descEl.focus(); return; }
-  if (!cal || cal <= 0) { calEl.focus(); return; }
-  presetBuilderItems.push({ food_item_id: null, name, cal, pro, qty: 1 });
-  descEl.value = ''; calEl.value = ''; proEl.value = ''; descEl.focus();
+  if (!cal && !weight_g) { calEl.focus(); return; }
+  const btn = document.getElementById('pb-adhoc-btn');
+  if (btn.disabled) return;
+  if (!cal && weight_g) {
+    btn.disabled = true; btn.textContent = '…';
+    try {
+      const est = await calcCaloriesForWeight(weight_g, name);
+      cal = est.cal;
+      pro = pro || est.pro;
+    } catch (e) {
+      toast('Error: ' + e.message);
+      btn.disabled = false; btn.textContent = 'Add';
+      return;
+    }
+    btn.disabled = false; btn.textContent = 'Add';
+  }
+  presetBuilderItems.push({ food_item_id: null, name, cal, pro, weight_g, qty: 1 });
+  descEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = ''; descEl.focus();
   renderPresetBuilderItems();
 }
 
@@ -2337,21 +2363,14 @@ async function logMeal(desc, cal, pro, weight_g = null) {
 // Weigh & Calculate: precise AI computation from an exact gram weight — far more
 // accurate than a free-form estimate because the weight is given. Logs directly
 // (rows are editable/deletable if the number looks off).
-async function calcWeighed() {
-  const gramsEl = document.getElementById('wc-grams');
-  const foodEl = document.getElementById('wc-food');
-  const grams = parseFloat(gramsEl.value);
-  const food = foodEl.value.trim();
-  if (!grams || grams <= 0) { gramsEl.focus(); return; }
-  if (!food) { foodEl.focus(); return; }
-  const btn = document.getElementById('wc-btn');
-  if (btn.disabled) return;
-  btn.disabled = true; btn.textContent = '…';
+// Computes TOTAL calories/protein for an exact food+weight via the AI —
+// shared by the Weigh & Calculate quick-entry and the preset builder's
+// "one-off by weight" item entry. Retries once on a truncated/empty reply;
+// throws (with a failure already logged) if both attempts fail.
+async function calcCaloriesForWeight(grams, food) {
   const sysPrompt = `You are a precise nutrition calculator. You are given a food and an exact weight in grams; compute the TOTAL calories and TOTAL protein for that weight from standard nutrition data (scale per-100g values to the given grams). A ratio like "93/7" or "80/20" describes the lean-to-fat percentage of ground meat (e.g. 93% lean, 7% fat) — treat it as a description of the food, never as a fraction to divide. Respond with ONLY a raw JSON object — no prose, no explanation, no markdown, no code fences. Your entire reply must start with { and end with }, in exactly this shape: {"calories":123,"protein":15}. Round both to whole numbers.`;
   let raw = '';
   let diag = '';
-  // A model reply can occasionally get cut short mid-JSON (transient, not a
-  // data problem) — retry once before bothering the user with an error.
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const data = await api('/', { max_tokens: 200, thinking: { type: 'disabled' }, _type: 'food', system: sysPrompt, messages: [{ role: 'user', content: `${grams} g of ${food}` }] });
@@ -2369,17 +2388,32 @@ async function calcWeighed() {
       if (!parsed || parsed.calories == null) {
         throw new Error(raw ? `couldn't read the result — model said: "${raw.slice(0, 120)}"` : 'no response — try again');
       }
-      const cal = Math.round(parsed.calories) || 0;
-      const pro = Math.round(parsed.protein) || 0;
-      await logMeal(`${food} (${grams}g)`, cal, pro, grams);
-      gramsEl.value = ''; foodEl.value = ''; gramsEl.focus();
-      toast(`Logged: ${cal} kcal · ${pro}g protein`);
-      break;
+      return { cal: Math.round(parsed.calories) || 0, pro: Math.round(parsed.protein) || 0 };
     } catch (e) {
-      if (attempt === 0) continue;
-      toast('Error: ' + e.message);
+      if (attempt < 1) continue;
       logFailure('weigh_calculate', 'food', e.message, raw || diag);
+      throw e;
     }
+  }
+}
+
+async function calcWeighed() {
+  const gramsEl = document.getElementById('wc-grams');
+  const foodEl = document.getElementById('wc-food');
+  const grams = parseFloat(gramsEl.value);
+  const food = foodEl.value.trim();
+  if (!grams || grams <= 0) { gramsEl.focus(); return; }
+  if (!food) { foodEl.focus(); return; }
+  const btn = document.getElementById('wc-btn');
+  if (btn.disabled) return;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const { cal, pro } = await calcCaloriesForWeight(grams, food);
+    await logMeal(`${food} (${grams}g)`, cal, pro, grams);
+    gramsEl.value = ''; foodEl.value = ''; gramsEl.focus();
+    toast(`Logged: ${cal} kcal · ${pro}g protein`);
+  } catch (e) {
+    toast('Error: ' + e.message);
   }
   btn.disabled = false; btn.textContent = 'Calc';
 }
