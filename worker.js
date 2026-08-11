@@ -177,10 +177,10 @@ export default {
     if (path === '/auth/profile') {
       const user_id = resolveUser(body.user_id);
       if (!user_id) return authError();
-      const { tdee, pro_target, age, weight_lbs, height_in, activity, goal_mode, aggressiveness, theme, dexa_date, dexa_weight, dexa_bf_pct, muscle_loss_pct, muscle_gain_pct, muscle_maintain_pct, rmr, cal_target_override, coach_mode } = body;
+      const { tdee, pro_target, age, weight_lbs, height_in, activity, goal_mode, aggressiveness, theme, dexa_date, dexa_weight, dexa_bf_pct, muscle_loss_pct, muscle_gain_pct, muscle_maintain_pct, rmr, cal_target_override, coach_mode, diet_notes } = body;
       await env.DB.prepare(
-        'UPDATE users SET tdee=?, pro_target=?, age=?, weight_lbs=?, height_in=?, activity=?, goal_mode=?, aggressiveness=?, theme=?, dexa_date=?, dexa_weight=?, dexa_bf_pct=?, muscle_loss_pct=?, muscle_gain_pct=?, muscle_maintain_pct=?, rmr=?, cal_target_override=?, coach_mode=? WHERE id=?'
-      ).bind(tdee||2100, pro_target||120, age||35, weight_lbs||170, height_in||66, activity||'sedentary', goal_mode||'deficit', aggressiveness||'moderate', theme||'dark', dexa_date||null, dexa_weight||null, dexa_bf_pct||null, muscle_loss_pct!=null?muscle_loss_pct:20, muscle_gain_pct!=null?muscle_gain_pct:20, muscle_maintain_pct!=null?muscle_maintain_pct:20, rmr||null, cal_target_override||null, coach_mode||'auto', user_id).run();
+        'UPDATE users SET tdee=?, pro_target=?, age=?, weight_lbs=?, height_in=?, activity=?, goal_mode=?, aggressiveness=?, theme=?, dexa_date=?, dexa_weight=?, dexa_bf_pct=?, muscle_loss_pct=?, muscle_gain_pct=?, muscle_maintain_pct=?, rmr=?, cal_target_override=?, coach_mode=?, diet_notes=? WHERE id=?'
+      ).bind(tdee||2100, pro_target||120, age||35, weight_lbs||170, height_in||66, activity||'sedentary', goal_mode||'deficit', aggressiveness||'moderate', theme||'dark', dexa_date||null, dexa_weight||null, dexa_bf_pct||null, muscle_loss_pct!=null?muscle_loss_pct:20, muscle_gain_pct!=null?muscle_gain_pct:20, muscle_maintain_pct!=null?muscle_maintain_pct:20, rmr||null, cal_target_override||null, coach_mode||'auto', diet_notes || null, user_id).run();
       return json({ ok: true });
     }
 

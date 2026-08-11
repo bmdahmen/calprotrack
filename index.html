@@ -15,9 +15,10 @@
   *{box-sizing:border-box;margin:0;padding:0;}
   body{background:#080808;color:#e0e0e0;font-family:'Syne',sans-serif;min-height:100vh;}
   input,button{font-family:'DM Mono',monospace;}
-  input[type=text],input[type=number]{background:#1a1a1a;border:1px solid #333;color:#f0f0f0;padding:8px 11px;border-radius:6px;font-size:13px;outline:none;width:100%;transition:border-color .15s;}
-  input:focus{border-color:#f97316;}
-  input::placeholder{color:#666;}
+  input[type=text],input[type=number],textarea{background:#1a1a1a;border:1px solid #333;color:#f0f0f0;padding:8px 11px;border-radius:6px;font-size:13px;outline:none;width:100%;transition:border-color .15s;}
+  textarea{font-family:'DM Mono',monospace;font-size:12px;resize:vertical;}
+  input:focus,textarea:focus{border-color:#f97316;}
+  input::placeholder,textarea::placeholder{color:#666;}
   ::-webkit-scrollbar{width:4px;}
   ::-webkit-scrollbar-thumb{background:#222;border-radius:2px;}
 
@@ -100,7 +101,7 @@
   body.light .show-more-btn{border-color:#c8c1b8;color:#5c5349;}
   body.light .sec{color:#5c5349;}
   body.light .field-lbl{color:#7a7168;}
-  body.light input[type=number],body.light input[type=text]{background:#d5cec5;border-color:#c0b9b0;color:#2c2820;}
+  body.light input[type=number],body.light input[type=text],body.light textarea{background:#d5cec5;border-color:#c0b9b0;color:#2c2820;}
   body.light .meas-grid input{background:#d5cec5;}
   body.light input[type=number].saving,body.light input[type=text].saving{background:#c5d8c8;}
   body.light .prog-wrap{background:transparent;}
@@ -952,6 +953,12 @@
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">Auto comments on its own after food changes settle. Manual only comments when you tap Generate.</div>
         </div>
 
+        <div style="margin-top:14px">
+          <label class="field-lbl">Diet Notes for AI Coach</label>
+          <textarea id="prof-diet-notes" rows="3" maxlength="600" placeholder="e.g. I don't care about fiber, skip sugar warnings, I'm vegetarian, keep suggestions brief" oninput="scheduleProfileSave()"></textarea>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">Applied to the AI Coach's comments and chat (day + history) and the food estimator's commentary — use it to steer what gets brought up or left alone.</div>
+        </div>
+
         <div id="migrate-section" style="display:none;margin-top:16px;border-top:1px solid #1e1e1e;padding-top:16px;">
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:#555;margin-bottom:8px;line-height:1.6;">Existing data found under default account.<br>Claim it as yours?</div>
           <button class="auth-btn" onclick="migrateData()" style="background:#1a1a1a;color:#f97316;border:1px solid #f97316;">CLAIM EXISTING DATA →</button>
@@ -1086,6 +1093,17 @@ function todayKey() { return dateKey(new Date()); }
 function isToday(d) { return dateKey(d) === todayKey(); }
 function timeNow() { return new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}); }
 function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+// User-set standing dietary context/preferences (Profile), appended to every
+// AI Coach / food-estimate system prompt so it stops raising things the user
+// has explicitly said not to (e.g. "I don't care about fiber"). Empty string
+// when unset, so callers can just concatenate it.
+function dietContextLine() {
+  const stored = JSON.parse(localStorage.getItem('bl_user') || '{}');
+  const notes = (stored.diet_notes || '').trim();
+  if (!notes) return '';
+  return ` The user has given this standing dietary context — follow it, and do not raise topics they've said not to: "${notes}"`;
+}
 
 // ── API ────────────────────────────────────────────────────────────────────
 async function api(path, body) {
@@ -2503,7 +2521,7 @@ async function sendFood() {
 
   let raw = '';
   try {
-    const sysPrompt = `You are a nutrition estimator assistant. Return ONLY valid JSON, no markdown, no backticks: {"items":[{"description":"short name","calories":0,"protein":0}],"totalCalories":0,"totalProtein":0,"message":"1-2 sentences: briefly note what the meal is and any notable detail (e.g. high protein, calorie-dense, light). Be conversational and specific."}. Realistic estimates, typical servings. Descriptions under 5 words.`;
+    const sysPrompt = `You are a nutrition estimator assistant. Return ONLY valid JSON, no markdown, no backticks: {"items":[{"description":"short name","calories":0,"protein":0}],"totalCalories":0,"totalProtein":0,"message":"1-2 sentences: briefly note what the meal is and any notable detail (e.g. high protein, calorie-dense, light). Be conversational and specific."}. Realistic estimates, typical servings. Descriptions under 5 words.${dietContextLine()}`;
 
     let messages;
     if (chatContext) {
@@ -2750,7 +2768,7 @@ ${ctx}
 
 Goal mode: ${currentGoalMode}. TDEE: ${TDEE_USER} kcal. Target: ${CAL_T_USER} kcal. Protein target: ${PRO_T_USER}g.
 
-Answer the user's question specifically and practically, referencing their actual numbers. Keep responses under 3 sentences. Be direct.`;
+Answer the user's question specifically and practically, referencing their actual numbers. Keep responses under 3 sentences. Be direct.${dietContextLine()}`;
     const data = await api('/', {
       max_tokens: 400, thinking: { type: 'disabled' }, _type: 'ai_coach',
       system: sysPrompt,
@@ -3425,7 +3443,7 @@ async function refreshInsight(forceGenerate = false) {
   else if (cal > TDEE && mode === 'bulk') goalContext = 'They are in a surplus which is good for their bulk goal — encourage them positively.';
   else if (calRemaining < 200 && mode === 'bulk') goalContext = 'They are close to their calorie target but bulking requires more — encourage them to eat more.';
 
-  const sysPrompt = `You are a registered-dietitian-style nutrition coach. You look past calories and protein to overall diet quality: dietary fiber, healthy vs saturated/processed fats, vegetable and fruit intake, micronutrient variety (iron, calcium, potassium, omega-3s, etc.), whole vs ultra-processed foods, added sugar, and how protein is spread across the day. You reason from the SPECIFIC foods the user logged — you audit what they actually ate. Foods are logged as separate entries even when they're the same category (e.g. broccoli, carrots, and lettuce each logged separately are all "vegetables") — before stating any total quantity (grams of veg, servings of fruit, etc.), add up every matching entry in the food list; never quote a single entry's amount as if it were the day's total. Never give obvious filler like "eat more protein" or "you have calories left" unless that is genuinely the single most important thing right now; prefer the most useful non-obvious observation their food list reveals.`;
+  const sysPrompt = `You are a registered-dietitian-style nutrition coach. You look past calories and protein to overall diet quality: dietary fiber, healthy vs saturated/processed fats, vegetable and fruit intake, micronutrient variety (iron, calcium, potassium, omega-3s, etc.), whole vs ultra-processed foods, added sugar, and how protein is spread across the day. You reason from the SPECIFIC foods the user logged — you audit what they actually ate. Foods are logged as separate entries even when they're the same category (e.g. broccoli, carrots, and lettuce each logged separately are all "vegetables") — before stating any total quantity (grams of veg, servings of fruit, etc.), add up every matching entry in the food list; never quote a single entry's amount as if it were the day's total. Never give obvious filler like "eat more protein" or "you have calories left" unless that is genuinely the single most important thing right now; prefer the most useful non-obvious observation their food list reveals.${dietContextLine()}`;
 
   const prompt = `It is ${hStr} (${mealContext}). The user is ${modeDesc}. Foods eaten so far today: ${foodList}. Totals: ${cal} kcal, ${pro}g protein. Goal: ${CAL_TARGET} kcal and ${PRO_T}g protein minimum. TDEE (maintenance): ${TDEE} kcal. Calories remaining to goal: ${calRemaining} kcal. Protein remaining: ${proRemaining}g. ${goalContext}
 
@@ -3500,7 +3518,7 @@ async function sendDayChat() {
   try {
     const sysPrompt = `You are a registered-dietitian-style nutrition coach helping the user with TODAY's food log specifically. Foods eaten so far today: ${foodList}. Totals: ${cal} kcal, ${pro}g protein. Goal: ${CAL_TARGET} kcal and ${PRO_T_TODAY}g protein minimum. TDEE (maintenance): ${TDEE} kcal. Goal mode: ${currentGoalMode}.
 
-Answer the user's question specifically and practically, referencing their actual foods and numbers where relevant. Keep responses under 3 sentences. Be direct.`;
+Answer the user's question specifically and practically, referencing their actual foods and numbers where relevant. Keep responses under 3 sentences. Be direct.${dietContextLine()}`;
     const data = await api('/', {
       max_tokens: 400, thinking: { type: 'disabled' }, _type: 'ai_coach',
       system: sysPrompt,
@@ -3632,6 +3650,7 @@ async function refreshHistInsight() {
     currentGoalMode || 'deficit',
     dexaFP,
     phasesFP,
+    dietContextLine(),
   ].join(':');
   // See HIST_CACHE_VERSION at top of script — bumped here to v9 because the
   // ai_coach max_tokens was too low (150) and routinely truncated the
@@ -3813,8 +3832,10 @@ ${goalCtx}
 Write 2-3 encouraging but factual sentences. Prioritize evaluating the CURRENT phase specifically — the "since this phase started" figure — against the goal; that's what the user wants to know. Use the wider window or older phases only as brief supporting context if genuinely useful (e.g. contrasting how a prior deficit's pace compares to how maintenance is holding), never as the primary evaluation. Comment on whether the current phase's rate is appropriate for the goal and whether to stay the course or adjust. Be specific with numbers. No emoji.`;
 
   try {
+    const dietCtx = dietContextLine().trim();
     const data = await api('/', {
       max_tokens: 400, thinking: { type: 'disabled' }, _type: 'ai_coach',
+      ...(dietCtx ? { system: dietCtx } : {}),
       messages: [{ role: 'user', content: prompt }],
     });
     if (data.rate_limited) throw new Error(data.error.message);
@@ -4445,6 +4466,7 @@ async function saveProfile() {
   const muscleGainPct = isNaN(muscleGainRaw) ? 20 : Math.min(100, Math.max(0, muscleGainRaw));
   const muscleMaintainRaw = parseFloat(document.getElementById('prof-muscle-maintain-pct').value);
   const muscleMaintainPct = isNaN(muscleMaintainRaw) ? 20 : Math.min(100, Math.max(0, muscleMaintainRaw));
+  const dietNotes = (document.getElementById('prof-diet-notes')?.value || '').trim();
   await api('/auth/profile', {
     user_id: currentUser.id,
     tdee: t.tdee, cal_target: t.calTarget, pro_target: protein,
@@ -4453,7 +4475,7 @@ async function saveProfile() {
     aggressiveness: currentAggressiveness,
     rmr: t.rmr, cal_target_override: calOverride,
     muscle_loss_pct: musclePct, muscle_gain_pct: muscleGainPct, muscle_maintain_pct: muscleMaintainPct,
-    coach_mode: coachMode
+    coach_mode: coachMode, diet_notes: dietNotes
   });
   // Update stored user
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
@@ -4467,6 +4489,7 @@ async function saveProfile() {
   stored.muscle_gain_pct = muscleGainPct;
   stored.muscle_maintain_pct = muscleMaintainPct;
   stored.coach_mode = coachMode;
+  stored.diet_notes = dietNotes;
   localStorage.setItem('bl_user', JSON.stringify(stored));
   updateUI();
   refreshHistInsight();
@@ -4484,6 +4507,7 @@ function loadProfilePane() {
     wrap.innerHTML = `<div class="profile-avatar-placeholder">${currentUser.name[0].toUpperCase()}</div>`;
   }
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
+  document.getElementById('prof-diet-notes').value = stored.diet_notes || '';
   if (stored.age) document.getElementById('prof-age').value = stored.age;
   if (stored.weight_lbs) document.getElementById('prof-weight').value = stored.weight_lbs;
   if (stored.height_in) document.getElementById('prof-height').value = stored.height_in;
