@@ -793,7 +793,7 @@
             <div class="field-lbl">In this preset</div>
             <div class="preset-totals" id="pb-totals"><span class="kc">0 kcal</span> · <span class="pr">0g prot</span></div>
           </div>
-          <div class="chip-row" id="pb-items" style="margin-top:6px"><span class="no-meals" style="padding:0">Nothing added yet</span></div>
+          <div class="meal-box" id="pb-items" style="margin-top:6px"><span class="no-meals" style="padding:0">Nothing added yet</span></div>
           <div class="fe-row" style="margin-top:12px">
             <button class="fe-go grow" onclick="savePresetBuilder()">Save Preset</button>
             <button class="fe-go grow fe-go-muted" onclick="cancelPresetBuilder()">Cancel</button>
@@ -1085,6 +1085,7 @@ let foodItemQty = {};      // per-item stepper qty, keyed by food item id
 let editFoodItemId = null;
 let presetBuilderItems = [];
 let presetBuilderEditId = null; // preset id being edited, or null for "new"
+let editingPresetItemIdx = null; // index into presetBuilderItems being inline-edited, or null
 
 // ── Date helpers ───────────────────────────────────────────────────────────
 function dateKey(d) {
@@ -1805,14 +1806,13 @@ function renderPresets() {
   box.innerHTML = presets.map(p => {
     const totalCal = p.items.reduce((s,it)=>s+Math.round(it.cal*it.qty),0);
     const totalPro = p.items.reduce((s,it)=>s+Math.round((it.pro||0)*it.qty),0);
-    const chips = p.items.map(it => `<span class="chip">${esc(it.name)}${it.qty>1?' ×'+it.qty:''}</span>`).join('');
     return `
     <div class="preset-card fade" id="preset-${p.id}">
       <div class="preset-card-top">
         <div class="preset-name">${esc(p.name)}</div>
         <div class="preset-totals"><span class="kc">${totalCal} kcal</span> · <span class="pr">${totalPro}g prot</span></div>
       </div>
-      <div class="chip-row">${chips}</div>
+      <div class="meal-box" style="margin:8px 0">${presetItemTilesHtml(p.items, false)}</div>
       <div class="preset-actions">
         <button class="fe-go" onclick="logPreset('${p.id}')">▶ Log to ${esc(dayLbl)}</button>
         <button class="icon-btn" onclick="openServingWizard('${p.id}')" title="Adjust servings">🎚️</button>
@@ -1830,6 +1830,7 @@ function togglePresetBuilder() {
 
 function openPresetBuilder(id) {
   presetBuilderEditId = id;
+  editingPresetItemIdx = null;
   const p = id ? presets.find(p => p.id == id) : null;
   presetBuilderItems = p ? p.items.map(it => ({...it})) : [];
   document.getElementById('pb-name').value = p ? p.name : '';
@@ -1847,6 +1848,7 @@ function openPresetBuilder(id) {
 function cancelPresetBuilder() {
   presetBuilderEditId = null;
   presetBuilderItems = [];
+  editingPresetItemIdx = null;
   document.getElementById('preset-builder').style.display = 'none';
   document.getElementById('preset-builder-toggle').style.display = '';
 }
@@ -1909,13 +1911,21 @@ async function addAdhocToPresetBuilder() {
 function decPresetBuilderItem(idx) {
   const it = presetBuilderItems[idx];
   if (!it) return;
-  it.qty -= 1;
+  it.qty = Math.round((it.qty - 1) * 100) / 100;
   if (it.qty <= 0) presetBuilderItems.splice(idx, 1);
+  renderPresetBuilderItems();
+}
+
+function incPresetBuilderItem(idx) {
+  const it = presetBuilderItems[idx];
+  if (!it) return;
+  it.qty = Math.round((it.qty + 1) * 100) / 100;
   renderPresetBuilderItems();
 }
 
 function removePresetBuilderItem(idx) {
   presetBuilderItems.splice(idx, 1);
+  if (editingPresetItemIdx === idx) editingPresetItemIdx = null;
   renderPresetBuilderItems();
 }
 
@@ -1927,6 +1937,67 @@ function setPresetBuilderItemQty(idx, value) {
   renderPresetBuilderItems();
 }
 
+function startEditPresetItem(idx) {
+  editingPresetItemIdx = idx;
+  renderPresetBuilderItems();
+}
+
+function savePresetItemEdit(idx) {
+  const it = presetBuilderItems[idx];
+  if (!it) return;
+  const nameEl = document.getElementById(`pit-name-${idx}`);
+  const name = nameEl.value.trim();
+  if (!name) { nameEl.focus(); return; }
+  const cal = parseInt(document.getElementById(`pit-cal-${idx}`).value) || 0;
+  const pro = parseInt(document.getElementById(`pit-pro-${idx}`).value) || 0;
+  const wtRaw = document.getElementById(`pit-wt-${idx}`).value;
+  const weight_g = wtRaw !== '' ? (parseFloat(wtRaw) || null) : null;
+  presetBuilderItems[idx] = { ...it, name, cal, pro, weight_g };
+  editingPresetItemIdx = null;
+  renderPresetBuilderItems();
+}
+
+// Renders a preset's items as meal-row-style tiles (name, kcal, protein,
+// weight if present) instead of name-only chips — so each item's actual
+// numbers are visible, not just the preset's aggregate total. `editable`
+// adds a qty stepper, inline edit, and delete per tile; without it (the
+// preset list card, not the builder) tiles are read-only.
+function presetItemTilesHtml(items, editable) {
+  if (!items.length) return '<span class="no-meals" style="padding:0">Nothing added yet</span>';
+  return items.map((it, idx) => {
+    if (editable && editingPresetItemIdx === idx) {
+      return `
+        <div class="meal-row fade">
+          <div class="edit-wrap">
+            <input type="text" id="pit-name-${idx}" value="${esc(it.name)}" style="flex:1 1 100%;padding:5px 8px;font-size:12px">
+            <input type="number" id="pit-cal-${idx}" value="${it.cal}" placeholder="kcal" inputmode="numeric" style="width:68px;padding:5px 8px;font-size:12px">
+            <input type="number" id="pit-pro-${idx}" value="${it.pro||0}" placeholder="g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
+            <input type="number" id="pit-wt-${idx}" value="${it.weight_g||''}" placeholder="wt g" inputmode="decimal" step="0.1" style="width:60px;padding:5px 8px;font-size:12px">
+            <button class="save-btn" onclick="savePresetItemEdit(${idx})">SAVE</button>
+            <button class="cancel-btn" onclick="editingPresetItemIdx=null;renderPresetBuilderItems()">✕</button>
+          </div>
+        </div>`;
+    }
+    const wt = it.weight_g ? ` · <span class="wt">${scaledWeightText(it.weight_g, it.qty)}</span>` : '';
+    return `
+      <div class="meal-row fade">
+        <div style="flex:1">
+          <div class="meal-desc">${esc(it.name)}</div>
+          <div class="meal-meta"><span class="kc">${Math.round(it.cal*it.qty)} kcal</span> · <span class="pr">${Math.round((it.pro||0)*it.qty)}g prot</span>${wt}</div>
+        </div>
+        ${editable ? `
+          <div class="qty-stepper">
+            <button type="button" class="qty-btn" onclick="decPresetBuilderItem(${idx})">－</button>
+            <input type="number" inputmode="decimal" step="0.1" min="0.1" class="qty-val-input" value="${it.qty}" onchange="setPresetBuilderItemQty(${idx}, this.value)">
+            <button type="button" class="qty-btn" onclick="incPresetBuilderItem(${idx})">＋</button>
+          </div>
+          <button class="icon-btn ed" onclick="startEditPresetItem(${idx})" title="Edit">✎</button>
+          <button class="icon-btn" onclick="removePresetBuilderItem(${idx})" title="Delete">✕</button>
+        ` : (it.qty !== 1 ? `<span class="meal-meta" style="flex-shrink:0">×${it.qty}</span>` : '')}
+      </div>`;
+  }).join('');
+}
+
 function renderPresetBuilderItems() {
   const box = document.getElementById('pb-items');
   const totalsEl = document.getElementById('pb-totals');
@@ -1936,12 +2007,7 @@ function renderPresetBuilderItems() {
     totalsEl.innerHTML = `<span class="kc">${totalCal} kcal</span> · <span class="pr">${totalPro}g prot</span>`;
   }
   if (!box) return;
-  if (!presetBuilderItems.length) { box.innerHTML = '<span class="no-meals" style="padding:0">Nothing added yet</span>'; return; }
-  box.innerHTML = presetBuilderItems.map((it, idx) => `
-    <span class="chip">${esc(it.name)} ×<input type="number" inputmode="decimal" step="0.1" min="0.1" class="chip-qty" value="${it.qty}" onchange="setPresetBuilderItemQty(${idx}, this.value)">
-      <button type="button" class="chip-x" onclick="decPresetBuilderItem(${idx})" title="Remove one">－</button>
-      <button type="button" class="chip-x" onclick="removePresetBuilderItem(${idx})" title="Remove">✕</button>
-    </span>`).join('');
+  box.innerHTML = presetItemTilesHtml(presetBuilderItems, true);
 }
 
 async function savePresetBuilder() {
