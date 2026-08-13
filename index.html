@@ -143,6 +143,8 @@
   body.light .icon-btn{color:#7a7168;}
   body.light .icon-btn:hover{color:#c8621a;}
   body.light .cam-btn{color:#7a7168;border-color:#c8c1b8;}
+  body.light .fe-cam-btn{color:#7a7168;border-color:#c8c1b8;}
+  body.light .fe-cam-btn:hover{color:#c8621a;border-color:#c8621a;}
   body.light .send-btn{background:#c8621a;color:#fff;}
   body.light .primary-btn{background:#c8621a;color:#fff;}
   body.light .btn-save-food{background:#c8621a;color:#fff;}
@@ -313,6 +315,8 @@
   .fe-go:hover{background:#fb923c;}
   .fe-go:disabled{background:#1a1a1a;color:#444;cursor:default;}
   .fe-go.grow{flex:1;}
+  .fe-cam-btn{background:none;border:1px solid #333;color:#aaa;border-radius:6px;font-size:15px;cursor:pointer;padding:0 11px;height:36px;flex-shrink:0;transition:all .15s;}
+  .fe-cam-btn:hover{color:#f97316;border-color:#f97316;}
   .fe-est-link{width:100%;background:none;border:none;color:#555;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.04em;padding:8px 2px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:7px;transition:color .15s;margin-bottom:4px;}
   .fe-est-link:hover{color:#f97316;}
   .fe-est-link .chev{font-size:9px;transition:transform .2s;}
@@ -693,31 +697,34 @@
           <div class="fe-col fe-wt"><label class="field-lbl">Weight</label><div class="fe-suffix"><input type="number" id="sf-wt" inputmode="decimal" step="0.1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')calcSmartFood()"><span>g</span></div></div>
           <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="sf-cal" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')calcSmartFood()"><span>kc</span></div></div>
           <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="sf-pro" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')calcSmartFood()"><span>g</span></div></div>
+          <button type="button" class="fe-cam-btn" onclick="openPhotoEstimate()" title="Add via photo">📷</button>
         </div>
         <div class="fe-row" style="margin-top:8px">
           <button class="fe-go grow" id="sf-btn" onclick="calcSmartFood()">Log</button>
         </div>
         <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">Enter what you know, AI will do the rest.</div>
-      </div>
 
-      <!-- Estimate (free text / photo) — secondary, behind a toggle -->
-      <button class="fe-est-link" id="est-toggle" aria-expanded="false" onclick="toggleEstimate()" style="margin-top:14px"><span class="chev">▶</span> 📷 Estimate from text or photo</button>
-      <div class="fe-est-body" id="est-body">
-        <div class="chat-wrap">
-          <div class="chat-msgs" id="chat-msgs" style="min-height:0;height:auto;">
-            <div class="chat-empty" id="chat-empty" style="padding:6px 0;font-size:10px;">Describe what you ate — I'll estimate and log it</div>
+        <div class="fe-est-body" id="est-body" style="margin-top:10px">
+          <div class="chat-wrap">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px 0;">
+              <span style="font-family:'DM Mono',monospace;font-size:9px;color:#666;letter-spacing:.05em;">PHOTO / FREE-TEXT ESTIMATE</span>
+              <button type="button" class="icon-btn" onclick="closePhotoEstimate()" title="Close" style="font-size:15px;padding:2px 6px;">✕</button>
+            </div>
+            <div class="chat-msgs" id="chat-msgs" style="min-height:0;height:auto;">
+              <div class="chat-empty" id="chat-empty" style="padding:6px 0;font-size:10px;">Describe what you ate — I'll estimate and log it</div>
+            </div>
+            <div id="img-preview">
+              <img id="img-thumb" src="" alt="food photo">
+              <button class="img-clear" onclick="clearImage()">✕</button>
+            </div>
+            <div class="chat-input-row">
+              <input type="text" id="food-input" maxlength="1000" placeholder="e.g. 2 eggs, oat milk, overnight oats…" onkeydown="if(event.key==='Enter')sendFood()" oninput="updateCharCount()">
+              <button class="cam-btn" onclick="document.getElementById('file-input').click()" title="Photo">📷</button>
+              <button class="send-btn" id="send-btn" onclick="sendFood()">ESTIMATE →</button>
+            </div>
+            <div id="char-count" style="font-family:'DM Mono',monospace;font-size:8px;color:#333;text-align:right;padding:2px 4px;display:none;"></div>
+            <input type="file" id="file-input" accept="image/*" onchange="previewImage(event)">
           </div>
-          <div id="img-preview">
-            <img id="img-thumb" src="" alt="food photo">
-            <button class="img-clear" onclick="clearImage()">✕</button>
-          </div>
-          <div class="chat-input-row">
-            <input type="text" id="food-input" maxlength="1000" placeholder="e.g. 2 eggs, oat milk, overnight oats…" onkeydown="if(event.key==='Enter')sendFood()" oninput="updateCharCount()">
-            <button class="cam-btn" onclick="document.getElementById('file-input').click()" title="Photo">📷</button>
-            <button class="send-btn" id="send-btn" onclick="sendFood()">ESTIMATE →</button>
-          </div>
-          <div id="char-count" style="font-family:'DM Mono',monospace;font-size:8px;color:#333;text-align:right;padding:2px 4px;display:none;"></div>
-          <input type="file" id="file-input" accept="image/*" onchange="previewImage(event)">
         </div>
       </div>
 
@@ -2516,17 +2523,22 @@ async function calcSmartFood() {
   btn.disabled = false; btn.textContent = 'Log';
 }
 
-function toggleEstimate() {
-  const link = document.getElementById('est-toggle');
-  const body = document.getElementById('est-body');
-  const open = body.classList.toggle('open');
-  link.setAttribute('aria-expanded', open ? 'true' : 'false');
-  if (open) document.getElementById('food-input').focus();
+// The photo/free-text estimate panel lives collapsed inside the Add Food
+// card until the camera icon next to Protein is clicked — that click both
+// reveals the panel and immediately opens the file picker, since photo
+// entry is its whole purpose. Closed back down via the panel's own ✕.
+function openPhotoEstimate() {
+  document.getElementById('est-body').classList.add('open');
+  document.getElementById('file-input').click();
+}
+
+function closePhotoEstimate() {
+  document.getElementById('est-body').classList.remove('open');
 }
 
 // Generic collapse/expand for the less-frequently-used Food Log sections
 // (adding a brand-new food item, the presets section) — keeps them out of
-// the way until wanted, same open/closed mechanics as toggleEstimate above.
+// the way until wanted, same open/closed mechanics as openPhotoEstimate above.
 function toggleCollapse(linkId, bodyId) {
   const link = document.getElementById(linkId);
   const body = document.getElementById(bodyId);
