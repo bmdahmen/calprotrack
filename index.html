@@ -734,14 +734,14 @@
         <button type="button" class="show-more-btn" id="fi-form-toggle" aria-expanded="false" onclick="toggleCollapse('fi-form-toggle','fi-form-body')" style="margin-bottom:16px">+ Add a new food item</button>
         <div class="fe-est-body" id="fi-form-body">
           <div class="food-entry">
-            <div class="food-entry-head"><span>Add Food Item</span><span class="fe-hint noai">→ reusable, quick-add in multiples</span></div>
+            <div class="food-entry-head"><span>Add Food Item</span><span class="fe-hint ai">→ reusable · AI fills in whatever's missing</span></div>
             <div class="fe-row">
-              <div class="fe-col grow"><label class="field-lbl">Name</label><input type="text" id="fi-name" maxlength="80" placeholder="Mango (40cal serving)" onkeydown="if(event.key==='Enter')addFoodItem()"></div>
+              <div class="fe-col grow"><label class="field-lbl">Name</label><input type="text" id="fi-name" maxlength="80" placeholder="Mango — or list several to add them all" onkeydown="if(event.key==='Enter')addFoodItem()"></div>
             </div>
             <div class="fe-row" style="margin-top:8px">
-              <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="fi-cal" inputmode="numeric" step="1" min="0" placeholder="40" onkeydown="if(event.key==='Enter')addFoodItem()"><span>kc</span></div></div>
-              <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="fi-pro" inputmode="numeric" step="1" min="0" placeholder="1" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
-              <div class="fe-col fe-wt"><label class="field-lbl">Weight</label><div class="fe-suffix"><input type="number" id="fi-wt" inputmode="decimal" step="0.1" min="0" placeholder="150" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
+              <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="fi-cal" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addFoodItem()"><span>kc</span></div></div>
+              <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="fi-pro" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
+              <div class="fe-col fe-wt"><label class="field-lbl">Weight</label><div class="fe-suffix"><input type="number" id="fi-wt" inputmode="decimal" step="0.1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
             </div>
             <div class="fe-row" style="margin-top:8px">
               <button class="fe-go grow" id="fi-btn" onclick="addFoodItem()">Add Item</button>
@@ -1736,23 +1736,44 @@ function setFoodItemQty(id, value) {
   updateFoodItemWeightDisplay(id, next);
 }
 
+// Same "give whatever you know" smart entry as Add Food: AI fills in
+// whichever of calories/protein/weight is left blank. Leaving all three
+// blank treats Name as free text — possibly listing several foods — and
+// splits it into one catalog entry per item.
 async function addFoodItem() {
   const nameEl = document.getElementById('fi-name');
   const calEl = document.getElementById('fi-cal');
   const proEl = document.getElementById('fi-pro');
   const wtEl = document.getElementById('fi-wt');
   const name = nameEl.value.trim();
-  const cal = parseInt(calEl.value);
+  const cal = parseInt(calEl.value) || 0;
   const pro = parseInt(proEl.value) || 0;
-  const weight_g = parseFloat(wtEl.value) || null;
+  const weight_g = parseFloat(wtEl.value) || 0;
   if (!name) { nameEl.focus(); return; }
-  if (!cal || cal <= 0) { calEl.focus(); return; }
-  foodItems.push({ id: newLocalId(), name, cal, pro, weight_g, created_at: new Date().toISOString() });
-  nameEl.value = ''; calEl.value = ''; proEl.value = ''; wtEl.value = ''; nameEl.focus();
-  renderFoodItems();
-  renderPresetBuilderPicker();
-  try { await saveFoodItems(); toast('Food item added ✓'); }
-  catch (e) { toast('Added locally — save failed, will retry on next change'); }
+  const btn = document.getElementById('fi-btn');
+  if (btn.disabled) return;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    if (!weight_g && !cal && !pro) {
+      const items = await estimateFoodItems(name);
+      items.forEach(it => foodItems.push({ id: newLocalId(), name: it.desc, cal: it.cal, pro: it.pro, weight_g: it.weight_g, created_at: new Date().toISOString() }));
+      renderFoodItems();
+      renderPresetBuilderPicker();
+      try { await saveFoodItems(); toast(items.length > 1 ? `${items.length} food items added ✓` : 'Food item added ✓'); }
+      catch (e) { toast('Added locally — save failed, will retry on next change'); }
+    } else {
+      const r = await resolveFoodAmounts(name, weight_g, cal, pro);
+      foodItems.push({ id: newLocalId(), name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, created_at: new Date().toISOString() });
+      renderFoodItems();
+      renderPresetBuilderPicker();
+      try { await saveFoodItems(); toast('Food item added ✓'); }
+      catch (e) { toast('Added locally — save failed, will retry on next change'); }
+    }
+    nameEl.value = ''; calEl.value = ''; proEl.value = ''; wtEl.value = ''; nameEl.focus();
+  } catch (e) {
+    toast('Error: ' + e.message);
+  }
+  btn.disabled = false; btn.textContent = 'Add Item';
 }
 
 function startEditFoodItem(id) { editFoodItemId = id; renderFoodItems(); }
