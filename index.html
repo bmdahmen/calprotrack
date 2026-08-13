@@ -774,7 +774,7 @@
           <div class="fe-row" style="margin-top:8px">
             <button class="fe-go grow" id="pb-adhoc-btn" onclick="addAdhocToPresetBuilder()">Add</button>
           </div>
-          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">Weight → calories + protein auto-calculated · calories alone → weight + protein calculated · protein alone → weight + calories calculated · calories + protein together → weight estimated.</div>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">Enter what you know, AI will do the rest.</div>
           <div class="preset-card-top" style="margin-top:12px;margin-bottom:0">
             <div class="field-lbl">In this preset</div>
             <div class="preset-totals" id="pb-totals"><span class="kc">0 kcal</span> · <span class="pr">0g prot</span></div>
@@ -2606,27 +2606,37 @@ async function calcWeightForCaloriesAndProtein(calories, protein, food) {
   return { weight_g: Math.round(parsed.grams) || 0 };
 }
 
-// Smart food entry: resolves whichever of {weight, calories, protein} the
-// user left blank. Weight, if given, always wins — grams are the most
-// precise input, so calories and protein are (re)computed from it even if
-// also typed. Otherwise: calories alone infers weight+protein; protein
-// alone infers weight+calories; both together (no weight) estimate the
-// weight. Shared by the Food Log's Add Food entry and the preset builder's
-// one-off item entry — the same "give whatever you know" interface both use.
+// Smart food entry: fills in only whichever of {weight, calories, protein}
+// the user actually left blank — anything typed is used exactly as typed,
+// never silently recomputed over. Shared by the Food Log's Add Food entry
+// and the preset builder's one-off item entry — the same "give whatever
+// you know" interface both use.
 async function resolveFoodAmounts(food, weight_g, cal, pro) {
-  if (weight_g) {
+  const hasW = !!weight_g, hasC = !!cal, hasP = !!pro;
+  if (hasW && hasC && hasP) {
+    return { weight_g, cal, pro };
+  }
+  if (hasW && hasC) {
+    const r = await calcCaloriesForWeight(weight_g, food);
+    return { weight_g, cal, pro: r.pro };
+  }
+  if (hasW && hasP) {
+    const r = await calcCaloriesForWeight(weight_g, food);
+    return { weight_g, cal: r.cal, pro };
+  }
+  if (hasW) {
     const r = await calcCaloriesForWeight(weight_g, food);
     return { weight_g, cal: r.cal, pro: r.pro };
   }
-  if (cal && pro) {
+  if (hasC && hasP) {
     const r = await calcWeightForCaloriesAndProtein(cal, pro, food);
     return { weight_g: r.weight_g, cal, pro };
   }
-  if (cal) {
+  if (hasC) {
     const r = await calcWeightForCalories(cal, food);
     return { weight_g: r.weight_g, cal, pro: r.pro };
   }
-  if (pro) {
+  if (hasP) {
     const r = await calcWeightForProtein(pro, food);
     return { weight_g: r.weight_g, cal: r.cal, pro };
   }
