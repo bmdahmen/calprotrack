@@ -697,19 +697,7 @@
         <div class="fe-row" style="margin-top:8px">
           <button class="fe-go grow" id="sf-btn" onclick="calcSmartFood()">Log</button>
         </div>
-        <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">Weight → calories + protein auto-calculated · calories alone → weight + protein calculated · protein alone → weight + calories calculated · calories + protein together → weight estimated.</div>
-      </div>
-
-      <div class="food-entry" style="margin-top:12px">
-        <div class="food-entry-head"><span>Known Values</span><span class="fe-hint noai">→ logged as-is, no AI</span></div>
-        <div class="fe-row">
-          <div class="fe-col grow"><label class="field-lbl">Description</label><input type="text" id="kv-desc" maxlength="120" placeholder="yogurt, mango granola, whey" onkeydown="if(event.key==='Enter')addKnown()"></div>
-        </div>
-        <div class="fe-row" style="margin-top:8px">
-          <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="kv-cal" inputmode="numeric" step="1" min="0" placeholder="350" onkeydown="if(event.key==='Enter')addKnown()"><span>kc</span></div></div>
-          <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="kv-pro" inputmode="decimal" step="1" min="0" placeholder="43" onkeydown="if(event.key==='Enter')addKnown()"><span>g</span></div></div>
-          <button class="fe-go grow" id="kv-btn" onclick="addKnown()">Add</button>
-        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">Enter what you know, AI will do the rest.</div>
       </div>
 
       <!-- Estimate (free text / photo) — secondary, behind a toggle -->
@@ -1192,7 +1180,7 @@ async function loadDay(d) {
   chatContext = null;
   document.getElementById('food-input').placeholder = 'e.g. 2 eggs, oat milk, overnight oats…';
   // Clear the quick-entry fields when switching days
-  ['sf-food','sf-wt','sf-cal','sf-pro','kv-desc','kv-cal','kv-pro'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['sf-food','sf-wt','sf-cal','sf-pro'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 
   // Update day label
   const lbl = document.getElementById("day-label");
@@ -2526,21 +2514,6 @@ async function calcSmartFood() {
     toast('Error: ' + e.message);
   }
   btn.disabled = false; btn.textContent = 'Log';
-}
-
-// Known Values: exact numbers you already have — logged verbatim, no AI call.
-async function addKnown() {
-  const descEl = document.getElementById('kv-desc');
-  const calEl = document.getElementById('kv-cal');
-  const proEl = document.getElementById('kv-pro');
-  const desc = descEl.value.trim();
-  const cal = parseInt(calEl.value);
-  const pro = parseInt(proEl.value) || 0;
-  if (!desc) { descEl.focus(); return; }
-  if (!cal || cal <= 0) { calEl.focus(); return; }
-  await logMeal(desc, cal, pro);
-  descEl.value = ''; calEl.value = ''; proEl.value = ''; descEl.focus();
-  toast(`Logged: ${cal} kcal · ${pro}g protein`);
 }
 
 function toggleEstimate() {
