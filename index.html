@@ -1800,6 +1800,17 @@ async function logFoodItem(id) {
 
 // -- Presets --
 
+// Which presets have their full item list expanded, keyed by preset id —
+// cards default to showing just the first PRESET_ITEMS_SHOW items so a
+// meal-prep preset with a dozen components doesn't tower over the page.
+const PRESET_ITEMS_SHOW = 2;
+let presetExpanded = {};
+
+function togglePresetItemsExpand(id) {
+  presetExpanded[id] = !presetExpanded[id];
+  renderPresets();
+}
+
 function renderPresets() {
   const label = document.getElementById('presets-toggle-label');
   if (label) label.textContent = presets.length ? `Presets (${presets.length})` : 'Presets';
@@ -1810,13 +1821,20 @@ function renderPresets() {
   box.innerHTML = presets.map(p => {
     const totalCal = p.items.reduce((s,it)=>s+Math.round(it.cal*it.qty),0);
     const totalPro = p.items.reduce((s,it)=>s+Math.round((it.pro||0)*it.qty),0);
+    const expanded = !!presetExpanded[p.id];
+    const hasMore = p.items.length > PRESET_ITEMS_SHOW;
+    const visibleItems = expanded ? p.items : p.items.slice(0, PRESET_ITEMS_SHOW);
+    const showMoreBtn = hasMore ? `<button type="button" class="show-more-btn" onclick="togglePresetItemsExpand('${p.id}')">
+      ${expanded ? '▲ Show less' : `▼ Show ${p.items.length - PRESET_ITEMS_SHOW} more`}
+    </button>` : '';
     return `
     <div class="preset-card fade" id="preset-${p.id}">
       <div class="preset-card-top">
         <div class="preset-name">${esc(p.name)}</div>
         <div class="preset-totals"><span class="kc">${totalCal} kcal</span> · <span class="pr">${totalPro}g prot</span></div>
       </div>
-      <div class="meal-box" style="margin:8px 0">${presetItemTilesHtml(p.items, false, p.id)}</div>
+      <div class="meal-box" style="margin:8px 0">${presetItemTilesHtml(visibleItems, false, p.id)}</div>
+      ${showMoreBtn}
       <div class="fe-row">
         <div class="fe-col grow"><input type="text" id="pi-food-${p.id}" maxlength="120" placeholder="Add item…" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"></div>
       </div>
