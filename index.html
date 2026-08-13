@@ -691,7 +691,7 @@
       <div class="food-entry">
         <div class="food-entry-head"><span>Add Food</span><span class="fe-hint ai">→ AI fills in whatever's missing</span></div>
         <div class="fe-row">
-          <div class="fe-col grow"><label class="field-lbl">Food</label><input type="text" id="sf-food" maxlength="120" placeholder="sweet potato" onkeydown="if(event.key==='Enter')calcSmartFood()"></div>
+          <div class="fe-col grow"><label class="field-lbl">Food</label><input type="text" id="sf-food" maxlength="120" placeholder="sweet potato — or a whole meal: 4oz yogurt, 1oz granola, 4oz blueberries" onkeydown="if(event.key==='Enter')calcSmartFood()"></div>
         </div>
         <div class="fe-row" style="margin-top:8px">
           <div class="fe-col fe-wt"><label class="field-lbl">Weight</label><div class="fe-suffix"><input type="number" id="sf-wt" inputmode="decimal" step="0.1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')calcSmartFood()"><span>g</span></div></div>
@@ -702,7 +702,7 @@
         <div class="fe-row" style="margin-top:8px">
           <button class="fe-go grow" id="sf-btn" onclick="calcSmartFood()">Log</button>
         </div>
-        <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">Enter what you know, AI will do the rest.</div>
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">Enter what you know, AI will do the rest — or leave Weight/Calories/Protein blank and describe the whole meal in Food to split and log every item at once.</div>
 
         <div class="fe-est-body" id="est-body" style="margin-top:10px">
           <div class="chat-wrap">
@@ -2643,6 +2643,45 @@ async function resolveFoodAmounts(food, weight_g, cal, pro) {
   throw new Error('enter a weight, calories, or protein amount');
 }
 
+// Splits free text describing one or more foods (e.g. "4oz yogurt, 1oz
+// granola, 4oz blueberries") into separate items with their own calories,
+// protein, and weight. Used by calcSmartFood below when the Food field is
+// the only thing filled in — so a whole meal can be logged from one text
+// field in one shot. Kept separate from the photo/chat estimator
+// (sendFood) since that one supports multi-turn refinement before
+// logging; this one logs immediately, matching Add Food's single-shot
+// style everywhere else.
+async function estimateFoodItems(text) {
+  const sysPrompt = `You are a nutrition estimator assistant. Split the input into individual food items — there may be just one. Return ONLY valid JSON, no markdown, no backticks, in exactly this shape: {"items":[{"description":"short name","calories":0,"protein":0,"grams":0}]}. If a weight or volume is given for an item (e.g. "4 oz", "1 cup"), convert it to grams, use it for a precise calculation, and report that value in "grams"; otherwise estimate a typical serving and set "grams" to 0. Realistic estimates. Descriptions under 5 words, no leading quantity in the description.${dietContextLine()}`;
+  let raw = '';
+  let diag = '';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const data = await api('/', { max_tokens: 600, thinking: { type: 'disabled' }, _type: 'food', system: sysPrompt, messages: [{ role: 'user', content: text }] });
+      if (data.rate_limited) throw new Error(data.error.message);
+      if (data.error) throw new Error(data.error.type === 'overloaded_error' ? 'Claude is busy — try again in a moment.' : (data.error.message || 'Request failed'));
+      raw = (data.content || []).map(b => b.text || '').join('').trim();
+      diag = `stop_reason=${data.stop_reason} model=${data.model} content_types=[${(data.content||[]).map(b=>b.type).join(',')}]`;
+      const j = raw.indexOf('{'), k = raw.lastIndexOf('}');
+      let parsed = null;
+      if (j >= 0 && k > j) { try { parsed = JSON.parse(raw.substring(j, k + 1)); } catch (_) {} }
+      if (!parsed || !Array.isArray(parsed.items) || !parsed.items.length) {
+        throw new Error(raw ? `couldn't read the result — model said: "${raw.slice(0, 120)}"` : 'no response — try again');
+      }
+      return parsed.items.map(it => ({
+        desc: (it.description || text).slice(0, 120),
+        cal: Math.round(it.calories) || 0,
+        pro: Math.round(it.protein) || 0,
+        weight_g: it.grams ? Math.round(it.grams * 10) / 10 : null
+      }));
+    } catch (e) {
+      if (attempt < 1) continue;
+      logFailure('multi_item_food', 'food', e.message, raw || diag);
+      throw e;
+    }
+  }
+}
+
 async function calcSmartFood() {
   const foodEl = document.getElementById('sf-food');
   const wtEl = document.getElementById('sf-wt');
@@ -2653,15 +2692,30 @@ async function calcSmartFood() {
   const cal = parseInt(calEl.value) || 0;
   const pro = parseInt(proEl.value) || 0;
   if (!food) { foodEl.focus(); return; }
-  if (!weight_g && !cal && !pro) { wtEl.focus(); return; }
   const btn = document.getElementById('sf-btn');
   if (btn.disabled) return;
   btn.disabled = true; btn.textContent = '…';
   try {
-    const r = await resolveFoodAmounts(food, weight_g, cal, pro);
-    await logMeal(`${food} (${r.weight_g}g)`, r.cal, r.pro, r.weight_g);
-    foodEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = ''; foodEl.focus();
-    toast(`Logged: ${r.cal} kcal · ${r.pro}g protein · ${r.weight_g}g`);
+    if (!weight_g && !cal && !pro) {
+      // Nothing numeric typed — the Food field is free text that may
+      // describe several items at once. Split and log all of them.
+      const items = await estimateFoodItems(food);
+      const t = timeNow();
+      items.forEach(it => meals.push({ id: newLocalId(), desc: it.desc, cal: it.cal, pro: it.pro, weight_g: it.weight_g, time: t }));
+      await api('/meals/save', { date: dateKey(activeDate), meals });
+      updateUI();
+      refreshInsight();
+      autoSaveDay();
+      foodEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = ''; foodEl.focus();
+      toast(items.length > 1
+        ? `Logged ${items.length} items ✓`
+        : `Logged: ${items[0].cal} kcal · ${items[0].pro}g protein`);
+    } else {
+      const r = await resolveFoodAmounts(food, weight_g, cal, pro);
+      await logMeal(`${food} (${r.weight_g}g)`, r.cal, r.pro, r.weight_g);
+      foodEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = ''; foodEl.focus();
+      toast(`Logged: ${r.cal} kcal · ${r.pro}g protein · ${r.weight_g}g`);
+    }
   } catch (e) {
     toast('Error: ' + e.message);
   }
