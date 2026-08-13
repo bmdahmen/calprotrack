@@ -2849,6 +2849,20 @@ function currentPhase() {
   return [...phases].sort((a,b) => a.start_date.localeCompare(b.start_date)).at(-1);
 }
 
+// Which recorded phase covers a given date. The most recent phase covers
+// everything from its own start through TODAY — even past its own recorded
+// end_date — unless a later phase has since begun; a fixed end_date on your
+// current phase (e.g. a planned checkpoint) shouldn't silently stop "how is
+// my current phase going" the moment that date passes with nothing new
+// started. Older phases still respect their own start/end boundaries.
+function phaseForDate(dateStr) {
+  if (!phases.length) return null;
+  const sorted = [...phases].sort((a,b) => a.start_date.localeCompare(b.start_date));
+  const latest = sorted[sorted.length - 1];
+  if (dateStr >= latest.start_date) return latest;
+  return sorted.find(p => p.start_date <= dateStr && dateStr <= (p.end_date || todayKey())) || null;
+}
+
 // Sets chartRange to the day-count since the current phase started, reusing
 // setRange's exact rendering path — "Phase" is just a dynamically computed
 // day count, not a separate chart mode.
@@ -3586,12 +3600,10 @@ let histInsightSeq = 0;
 // tracking history still shows up as context.
 function segmentByPhase(sortedPts) {
   if (!sortedPts.length) return [];
-  const today = todayKey();
-  const phaseFor = (d) => phases.find(p => p.start_date <= d && d <= (p.end_date || today)) || null;
   const segments = [];
   let cur = null;
   for (const pt of sortedPts) {
-    const p = phaseFor(pt.date);
+    const p = phaseForDate(pt.date);
     const phaseId = p ? p.id : null;
     if (!cur || cur.phaseId !== phaseId) {
       cur = { mode: p ? p.mode : null, phaseId, pts: [] };
@@ -3621,8 +3633,11 @@ function segmentStats(seg) {
 function currentPhaseStats(allSorted) {
   const p = currentPhase();
   if (!p) return null;
-  const endBound = p.end_date || todayKey();
-  const weightPts = allSorted.filter(e => e.weightAM && e.date >= p.start_date && e.date <= endBound);
+  // Always run through today, not p.end_date — currentPhase() is by
+  // definition the most recently started phase, so there's no later phase
+  // to hand off to; a fixed end_date on it (a planned checkpoint) shouldn't
+  // cut off "how is my current phase going" once that date has passed.
+  const weightPts = allSorted.filter(e => e.weightAM && e.date >= p.start_date);
   if (weightPts.length < 2) return null;
   const first = weightPts[0], last = weightPts[weightPts.length - 1];
   const days = Math.max(1, (new Date(last.date) - new Date(first.date)) / 86400000);
@@ -4639,8 +4654,7 @@ function muscleSplitForDate(dateStr, deltaWeight) {
   const lossPct = stored.muscle_loss_pct != null ? stored.muscle_loss_pct : 20;
   const gainPct = stored.muscle_gain_pct != null ? stored.muscle_gain_pct : 20;
   const maintainPct = stored.muscle_maintain_pct != null ? stored.muscle_maintain_pct : 20;
-  const today = todayKey();
-  const phase = phases.find(p => p.start_date <= dateStr && dateStr <= (p.end_date || today));
+  const phase = phaseForDate(dateStr);
   const pct = phase
     ? (phase.mode === 'bulk' ? gainPct : phase.mode === 'maintain' ? maintainPct : lossPct)
     : (Math.abs(deltaWeight) < MAINTAIN_BAND_LBS ? maintainPct : (deltaWeight >= 0 ? gainPct : lossPct));
