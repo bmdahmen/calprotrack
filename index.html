@@ -1012,6 +1012,25 @@
   </div>
 </div>
 
+<!-- Preset Item Edit Wizard Modal (same language as the Meal Edit Wizard above) -->
+<div class="modal-overlay" id="preset-item-edit-modal" style="display:none" onclick="if(event.target===this)closePresetItemEditModal()">
+  <div class="modal sw-modal">
+    <div class="sw-header">
+      <input type="text" class="sw-title-input" id="piem-desc" maxlength="120" placeholder="Description">
+      <button class="sw-x" onclick="closePresetItemEditModal()">✕</button>
+    </div>
+    <div class="sw-mult" id="piem-mult">1.0×</div>
+    <div class="sw-totals">
+      <div class="sw-stat"><input type="number" class="sw-stat-input kc" id="piem-cal" inputmode="numeric"><div class="sw-stat-lbl">kcal</div></div>
+      <div class="sw-stat"><input type="number" class="sw-stat-input pr" id="piem-pro" inputmode="numeric"><div class="sw-stat-lbl">protein (g)</div></div>
+      <div class="sw-stat"><input type="number" class="sw-stat-input wt" id="piem-wt" inputmode="decimal" step="0.1" placeholder="—"><div class="sw-stat-lbl">weight (g)</div></div>
+    </div>
+    <input type="range" id="piem-slider" class="sw-slider" min="0.2" max="3" step="0.1" value="1" oninput="onPresetItemEditSlider(this.value)">
+    <button class="fe-go grow" onclick="savePresetItemEditModal()">SAVE</button>
+    <button class="modal-close" onclick="closePresetItemEditModal()">Cancel</button>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -1797,15 +1816,136 @@ function renderPresets() {
         <div class="preset-name">${esc(p.name)}</div>
         <div class="preset-totals"><span class="kc">${totalCal} kcal</span> · <span class="pr">${totalPro}g prot</span></div>
       </div>
-      <div class="meal-box" style="margin:8px 0">${presetItemTilesHtml(p.items, false)}</div>
-      <div class="preset-actions">
+      <div class="meal-box" style="margin:8px 0">${presetItemTilesHtml(p.items, false, p.id)}</div>
+      <div class="fe-row">
+        <div class="fe-col grow"><input type="text" id="pi-food-${p.id}" maxlength="120" placeholder="Add item…" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"></div>
+      </div>
+      <div class="fe-row" style="margin-top:6px">
+        <div class="fe-col fe-wt"><div class="fe-suffix"><input type="number" id="pi-wt-${p.id}" inputmode="decimal" step="0.1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
+        <div class="fe-col fe-kcal"><div class="fe-suffix"><input type="number" id="pi-cal-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>kc</span></div></div>
+        <div class="fe-col fe-pro"><div class="fe-suffix"><input type="number" id="pi-pro-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
+        <button class="fe-go" id="pi-btn-${p.id}" onclick="addItemToPresetCard('${p.id}')">Add</button>
+      </div>
+      <div class="preset-actions" style="margin-top:10px">
         <button class="fe-go" onclick="logPreset('${p.id}')">▶ Log to ${esc(dayLbl)}</button>
-        <button class="icon-btn" onclick="openServingWizard('${p.id}')" title="Adjust servings">🎚️</button>
         <button class="icon-btn ed" onclick="openPresetBuilder('${p.id}')" title="Edit">✎</button>
         <button class="icon-btn" onclick="deletePreset('${p.id}')" title="Delete">✕</button>
       </div>
     </div>`;
   }).join('');
+}
+
+// -- Preset item edit modal: tapping ✎ on a preset-card tile opens the same
+// slider-based editor as a logged meal, instead of requiring the full
+// builder (which lives below all the presets and meant scrolling). The
+// item's current qty is folded into the starting cal/pro/weight shown here
+// — same as the meal editor, there's no separate "qty" concept once you're
+// editing; the slider scales those totals, Save writes them back with
+// qty reset to 1. --
+let presetItemEditPresetId = null;
+let presetItemEditIdx = null;
+let presetItemEditBaseCal = 0, presetItemEditBasePro = 0, presetItemEditBaseWt = 0;
+
+function openPresetItemEditModal(presetId, idx) {
+  const p = presets.find(p => p.id == presetId);
+  const it = p && p.items[idx];
+  if (!it) return;
+  presetItemEditPresetId = presetId;
+  presetItemEditIdx = idx;
+  const qty = it.qty || 1;
+  const effCal = Math.round(it.cal * qty);
+  const effPro = Math.round((it.pro||0) * qty);
+  const effWt = it.weight_g ? Math.round(it.weight_g * qty * 10) / 10 : 0;
+  presetItemEditBaseCal = effCal;
+  presetItemEditBasePro = effPro;
+  presetItemEditBaseWt = effWt;
+  document.getElementById('piem-desc').value = it.name;
+  document.getElementById('piem-cal').value = effCal;
+  document.getElementById('piem-pro').value = effPro;
+  document.getElementById('piem-wt').value = effWt || '';
+  document.getElementById('piem-mult').textContent = '1.0×';
+  document.getElementById('piem-slider').value = 1;
+  document.getElementById('preset-item-edit-modal').style.display = 'flex';
+}
+
+function closePresetItemEditModal() {
+  document.getElementById('preset-item-edit-modal').style.display = 'none';
+  presetItemEditPresetId = null;
+  presetItemEditIdx = null;
+}
+
+function onPresetItemEditSlider(value) {
+  const mult = parseFloat(value);
+  document.getElementById('piem-mult').textContent = mult.toFixed(1) + '×';
+  document.getElementById('piem-cal').value = Math.round(presetItemEditBaseCal * mult);
+  document.getElementById('piem-pro').value = Math.round(presetItemEditBasePro * mult);
+  if (presetItemEditBaseWt) {
+    document.getElementById('piem-wt').value = Math.round(presetItemEditBaseWt * mult * 10) / 10;
+  }
+}
+
+async function savePresetItemEditModal() {
+  const presetId = presetItemEditPresetId;
+  const idx = presetItemEditIdx;
+  if (presetId == null || idx == null) return;
+  const p = presets.find(p => p.id == presetId);
+  if (!p || !p.items[idx]) return;
+  const descEl = document.getElementById('piem-desc');
+  const name = descEl.value.trim();
+  if (!name) { descEl.focus(); return; }
+  const cal = parseInt(document.getElementById('piem-cal').value) || 0;
+  const pro = parseInt(document.getElementById('piem-pro').value) || 0;
+  const wtRaw = document.getElementById('piem-wt').value;
+  const weight_g = wtRaw !== '' ? (parseFloat(wtRaw) || null) : null;
+  p.items[idx] = { ...p.items[idx], name, cal, pro, weight_g, qty: 1 };
+  closePresetItemEditModal();
+  renderPresets();
+  try { await savePresetsToServer(); }
+  catch (e) { toast('Save failed — will retry on next change'); }
+  toast('Updated ✓');
+}
+
+async function removePresetListItem(presetId, idx) {
+  const p = presets.find(p => p.id == presetId);
+  if (!p) return;
+  p.items.splice(idx, 1);
+  renderPresets();
+  try { await savePresetsToServer(); }
+  catch (e) { toast('Delete failed to save — will retry on next change'); }
+}
+
+// Adds a one-off item directly to an already-saved preset from its card —
+// the same "give whatever you know" smart box as Add Food, so tuning a
+// preset (meal-prep use case) never requires opening the full builder.
+async function addItemToPresetCard(presetId) {
+  const p = presets.find(p => p.id == presetId);
+  if (!p) return;
+  const nameEl = document.getElementById(`pi-food-${presetId}`);
+  const wtEl = document.getElementById(`pi-wt-${presetId}`);
+  const calEl = document.getElementById(`pi-cal-${presetId}`);
+  const proEl = document.getElementById(`pi-pro-${presetId}`);
+  const name = nameEl.value.trim();
+  const weight_g = parseFloat(wtEl.value) || 0;
+  const cal = parseInt(calEl.value) || 0;
+  const pro = parseInt(proEl.value) || 0;
+  if (!name) { nameEl.focus(); return; }
+  if (!weight_g && !cal && !pro) { wtEl.focus(); return; }
+  const btn = document.getElementById(`pi-btn-${presetId}`);
+  if (btn.disabled) return;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await resolveFoodAmounts(name, weight_g, cal, pro);
+    p.items.push({ food_item_id: null, name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, qty: 1 });
+  } catch (e) {
+    toast('Error: ' + e.message);
+    btn.disabled = false; btn.textContent = 'Add';
+    return;
+  }
+  btn.disabled = false; btn.textContent = 'Add';
+  nameEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = '';
+  renderPresets();
+  try { await savePresetsToServer(); }
+  catch (e) { toast('Save failed — will retry on next change'); }
 }
 
 function togglePresetBuilder() {
@@ -1939,9 +2079,13 @@ function savePresetItemEdit(idx) {
 // Renders a preset's items as meal-row-style tiles (name, kcal, protein,
 // weight if present) instead of name-only chips — so each item's actual
 // numbers are visible, not just the preset's aggregate total. `editable`
-// adds a qty stepper, inline edit, and delete per tile; without it (the
-// preset list card, not the builder) tiles are read-only.
-function presetItemTilesHtml(items, editable) {
+// adds a qty stepper, inline edit, and delete per tile (used by the
+// builder). Without it (the preset list card) tiles get the same pencil/✕
+// pair as a logged meal row — pencil opens the slider-based edit modal,
+// ✕ deletes immediately — so tuning a preset never requires opening the
+// builder. `presetId` is required (and only used) in that read-only mode,
+// to know which preset's items array the icons act on.
+function presetItemTilesHtml(items, editable, presetId) {
   if (!items.length) return '<span class="no-meals" style="padding:0">Nothing added yet</span>';
   return items.map((it, idx) => {
     if (editable && editingPresetItemIdx === idx) {
@@ -1958,11 +2102,12 @@ function presetItemTilesHtml(items, editable) {
         </div>`;
     }
     const wt = it.weight_g ? ` · <span class="wt">${scaledWeightText(it.weight_g, it.qty)}</span>` : '';
+    const qtyLbl = it.qty !== 1 ? ` · ×${it.qty}` : '';
     return `
       <div class="meal-row fade">
         <div style="flex:1">
           <div class="meal-desc">${esc(it.name)}</div>
-          <div class="meal-meta"><span class="kc">${Math.round(it.cal*it.qty)} kcal</span> · <span class="pr">${Math.round((it.pro||0)*it.qty)}g prot</span>${wt}</div>
+          <div class="meal-meta"><span class="kc">${Math.round(it.cal*it.qty)} kcal</span> · <span class="pr">${Math.round((it.pro||0)*it.qty)}g prot</span>${wt}${qtyLbl}</div>
         </div>
         ${editable ? `
           <div class="qty-stepper">
@@ -1972,7 +2117,10 @@ function presetItemTilesHtml(items, editable) {
           </div>
           <button class="icon-btn ed" onclick="startEditPresetItem(${idx})" title="Edit">✎</button>
           <button class="icon-btn" onclick="removePresetBuilderItem(${idx})" title="Delete">✕</button>
-        ` : (it.qty !== 1 ? `<span class="meal-meta" style="flex-shrink:0">×${it.qty}</span>` : '')}
+        ` : `
+          <button class="icon-btn ed" onclick="openPresetItemEditModal('${presetId}', ${idx})" title="Edit">✎</button>
+          <button class="icon-btn" onclick="removePresetListItem('${presetId}', ${idx})" title="Delete">✕</button>
+        `}
       </div>`;
   }).join('');
 }
@@ -2015,13 +2163,11 @@ async function deletePreset(id) {
 // Logs every line item in the preset as its own meal row (not a single
 // combined row), so a component can still be edited/deleted individually
 // afterwards — e.g. swap the granola out without touching the rest.
-// mult scales every item's saved qty uniformly — the serving-size wizard's
-// slider — defaulting to 1 for the plain one-tap "Log to TODAY" button.
-async function logPreset(id, mult = 1) {
+async function logPreset(id) {
   const p = presets.find(p => p.id == id);
   if (!p || !p.items.length) return;
   for (const it of p.items) {
-    const qty = Math.round(it.qty * mult * 100) / 100;
+    const qty = it.qty;
     const weight_g = it.weight_g ? Math.round(it.weight_g * qty * 10) / 10 : null;
     const desc = qty === 1 ? it.name
       : it.weight_g ? `${it.name} (${scaledWeightText(it.weight_g, qty)})`
@@ -2035,39 +2181,16 @@ async function logPreset(id, mult = 1) {
   toast(`Logged "${p.name}" ✓`);
 }
 
-// -- Serving-size wizard: a mobile-friendly slider for scaling a preset or a
-// single food item up/down at log time, with calories/protein/weight
-// updating live. Both kinds render through the same "items" shape — a food
-// item is just a one-item list with a base qty of 1 — so the drawing code
-// below doesn't need to know which kind it's showing. --
+// -- Serving-size wizard: a mobile-friendly slider for scaling a single food
+// item up/down at log time, with calories/protein/weight updating live.
+// (Presets used to share this modal too, but per-item slider editing on the
+// preset card itself — see openPresetItemEditModal — replaced that.) --
 
-let servingWizardKind = null; // 'preset' | 'fooditem'
 let servingWizardId = null;
 
 function wizardItems() {
-  if (servingWizardKind === 'preset') {
-    const p = presets.find(p => p.id == servingWizardId);
-    return p ? p.items : null;
-  }
-  if (servingWizardKind === 'fooditem') {
-    const f = foodItems.find(f => f.id == servingWizardId);
-    return f ? [{ name: f.name, cal: f.cal, pro: f.pro||0, weight_g: f.weight_g||null, qty: 1 }] : null;
-  }
-  return null;
-}
-
-function openServingWizard(id) {
-  const p = presets.find(p => p.id == id);
-  if (!p) return;
-  servingWizardKind = 'preset';
-  servingWizardId = id;
-  document.getElementById('sw-preset-name').textContent = p.name;
-  document.getElementById('sw-log-btn').textContent = `▶ Log to ${activeDayShortLabel()}`;
-  const slider = document.getElementById('sw-slider');
-  slider.min = '0.2'; slider.max = '3';
-  slider.value = 1;
-  renderServingWizard(1);
-  document.getElementById('serving-modal').style.display = 'flex';
+  const f = foodItems.find(f => f.id == servingWizardId);
+  return f ? [{ name: f.name, cal: f.cal, pro: f.pro||0, weight_g: f.weight_g||null, qty: 1 }] : null;
 }
 
 // Food items cap at 2.25x — beyond that a fresh food item (or the +/- stepper,
@@ -2075,7 +2198,6 @@ function openServingWizard(id) {
 function openFoodItemServingWizard(id) {
   const f = foodItems.find(f => f.id == id);
   if (!f) return;
-  servingWizardKind = 'fooditem';
   servingWizardId = id;
   document.getElementById('sw-preset-name').textContent = f.name;
   document.getElementById('sw-log-btn').textContent = `▶ Log to ${activeDayShortLabel()}`;
@@ -2088,7 +2210,6 @@ function openFoodItemServingWizard(id) {
 
 function closeServingWizard() {
   document.getElementById('serving-modal').style.display = 'none';
-  servingWizardKind = null;
   servingWizardId = null;
 }
 
@@ -2130,15 +2251,11 @@ function renderServingWizard(mult) {
 }
 
 async function confirmServingWizard() {
-  const kind = servingWizardKind;
   const id = servingWizardId;
   const mult = parseFloat(document.getElementById('sw-slider').value);
   closeServingWizard();
-  if (kind === 'preset') await logPreset(id, mult);
-  else if (kind === 'fooditem') {
-    foodItemQty[id] = Math.round(mult * 100) / 100;
-    await logFoodItem(id);
-  }
+  foodItemQty[id] = Math.round(mult * 100) / 100;
+  await logFoodItem(id);
 }
 
 // ── Measurements ───────────────────────────────────────────────────────────
