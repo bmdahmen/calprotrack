@@ -1042,10 +1042,14 @@ const CAL_T = 1800, PRO_T = 120;
 // in setAggressiveness()/setGoalMode() — those two were pointing at a
 // years-stale 'v4' literal that no longer matched the live key, so goal or
 // aggressiveness changes silently stopped invalidating the history insight.
-// v10: prompt now leads with phase-segmented stats (since-current-phase-start
+/// v10: prompt now leads with phase-segmented stats (since-current-phase-start
 // headline + per-phase breakdown of the window) instead of one blended rate
 // over the whole window — old cached text wouldn't reflect that framing.
-const HIST_CACHE_VERSION = 'v10';
+// v11: cached value is now just the AI prose (no more "html||text" — the
+// numeric rateRow is always recomputed fresh, never cached/restored) — an
+// old-format cached entry would otherwise render literally as
+// "...html...||...text..." in the AI Coach bar.
+const HIST_CACHE_VERSION = 'v11';
 
 const SEED_HISTORY = [
   {date:"2019-12-01",weightAM:147,notes:"Baseline adult weight"},
@@ -3933,49 +3937,20 @@ async function refreshHistInsight() {
   // headline — e.g. viewing 90D while 60 of those days were a prior phase.
   const phaseSegs = phases.length ? segmentByPhase(pts).map(segmentStats).filter(Boolean) : [];
 
-  // Fingerprint: range + first/last weight + first/last waist + DEXA scans
-  // + phase state (so a phase or scan edit invalidates the cached prose, not
-  // just a goal-mode flip).
-  const dexaFP = dexaScans.map(s => `${s.id}:${s.date}:${s.weight}:${s.bf_pct}`).join(',');
-  const phasesFP = phases.map(p => `${p.id}:${p.mode}:${p.start_date}:${p.end_date||''}`).join(',');
-  const histFP = [
-    range,
-    weightPts.length ? weightPts[0].date + weightPts[0].weightAM : '',
-    weightPts.length ? weightPts[weightPts.length-1].date + weightPts[weightPts.length-1].weightAM : '',
-    waistPts.length ? waistPts[0].waistNavel : '',
-    waistPts.length ? waistPts[waistPts.length-1].waistNavel : '',
-    currentGoalMode || 'deficit',
-    dexaFP,
-    phasesFP,
-    dietContextLine(),
-  ].join(':');
-  // See HIST_CACHE_VERSION at top of script — bumped here to v9 because the
-  // ai_coach max_tokens was too low (150) and routinely truncated the
-  // response mid-sentence; a stale cached truncation would otherwise keep
-  // replaying for up to 24h even after the fix.
-  const histCacheKey = 'insight-hist-' + HIST_CACHE_VERSION + '-' + range;
-
-  // Check DB cache — capped to one real generation per 24h regardless of
-  // whether the underlying data changed (weight/waist entries, DEXA, etc.).
-  const DAY_MS = 24 * 60 * 60 * 1000;
-  try {
-    const cached = await api('/cache/get', {key: histCacheKey});
-    if (seq !== histInsightSeq) return; // a newer refresh has since started — drop this stale result
-    // A blank value means something explicitly invalidated this row (e.g. a
-    // goal-mode change) — never reuse that, or the coach renders empty.
-    if (cached && cached.value && (Date.now() - new Date(cached.updated_at).getTime()) < DAY_MS) {
-      const parts = cached.value.split('||');
-      rateRow.innerHTML = parts[0] || '';
-      bar.innerHTML = '<span class="insight-label">AI COACH</span>' + (parts[1] || '');
-      return;
-    }
-  } catch(e) {}
-  if (seq !== histInsightSeq) return;
-
   if (weightPts.length < 2) {
     bar.innerHTML = '<span class="insight-label">AI COACH</span>Not enough data in this range to evaluate trends.';
     return;
   }
+
+  // The numeric stats row (rateRow) is cheap to compute and always reflects
+  // whatever's in historyData right now — it's built and rendered here,
+  // BEFORE the AI-text cache check below, and never restored from cache.
+  // (It used to be bundled into the cached blob alongside the AI prose, so
+  // a cache hit could silently redisplay yesterday's "since phase started"
+  // ending weight even after today's weigh-in was logged and the chart
+  // above had already moved on — same numbers, stale until the cache
+  // expired up to 24h later. Recomputing it fresh every call removes that
+  // whole class of staleness regardless of whether the AI text is cached.)
 
   // Calculate rates
   const firstW = weightPts[0], lastW = weightPts[weightPts.length-1];
@@ -4098,6 +4073,46 @@ async function refreshHistInsight() {
       ${avgProBlock}
     </div>`;
 
+  // Fingerprint: range + first/last weight + first/last waist + DEXA scans
+  // + phase state (so a phase or scan edit invalidates the cached prose, not
+  // just a goal-mode flip). Only gates the AI prose below now — the numeric
+  // rateRow above is always fresh regardless of this.
+  const dexaFP = dexaScans.map(s => `${s.id}:${s.date}:${s.weight}:${s.bf_pct}`).join(',');
+  const phasesFP = phases.map(p => `${p.id}:${p.mode}:${p.start_date}:${p.end_date||''}`).join(',');
+  const histFP = [
+    range,
+    weightPts.length ? weightPts[0].date + weightPts[0].weightAM : '',
+    weightPts.length ? weightPts[weightPts.length-1].date + weightPts[weightPts.length-1].weightAM : '',
+    waistPts.length ? waistPts[0].waistNavel : '',
+    waistPts.length ? waistPts[waistPts.length-1].waistNavel : '',
+    currentGoalMode || 'deficit',
+    dexaFP,
+    phasesFP,
+    dietContextLine(),
+  ].join(':');
+  // See HIST_CACHE_VERSION at top of script — bumped here to v9 because the
+  // ai_coach max_tokens was too low (150) and routinely truncated the
+  // response mid-sentence; a stale cached truncation would otherwise keep
+  // replaying for up to 24h even after the fix.
+  const histCacheKey = 'insight-hist-' + HIST_CACHE_VERSION + '-' + range;
+
+  // Check DB cache — capped to one real generation per 24h regardless of
+  // whether the underlying data changed (weight/waist entries, DEXA, etc.).
+  // Only the AI prose is cached/restored here; rateRow was already rendered
+  // fresh above and is left untouched either way.
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  try {
+    const cached = await api('/cache/get', {key: histCacheKey});
+    if (seq !== histInsightSeq) return; // a newer refresh has since started — drop this stale result
+    // A blank value means something explicitly invalidated this row (e.g. a
+    // goal-mode change) — never reuse that, or the coach renders empty.
+    if (cached && cached.value && (Date.now() - new Date(cached.updated_at).getTime()) < DAY_MS) {
+      bar.innerHTML = '<span class="insight-label">AI COACH</span>' + cached.value;
+      return;
+    }
+  } catch(e) {}
+  if (seq !== histInsightSeq) return;
+
   // Build AI prompt
   const goalCtx = currentGoalMode === 'bulk'
     ? 'The user is bulking (trying to gain muscle/weight). Weight gain is expected and desired. Celebrate surplus and muscle gain signals.'
@@ -4140,7 +4155,7 @@ Write 2-3 encouraging but factual sentences. Prioritize evaluating the CURRENT p
     const text = (data.content||[]).map(b=>b.text||'').join('').trim();
     const escaped = esc(text);
     if (seq !== histInsightSeq) return; // a newer refresh has since started — drop this stale result
-    await api('/cache/set', {key: histCacheKey, value: rateRow.innerHTML + '||' + escaped, fingerprint: histFP});
+    await api('/cache/set', {key: histCacheKey, value: escaped, fingerprint: histFP});
     bar.innerHTML = '<span class="insight-label">AI COACH</span>' + escaped;
   } catch(e) {
     if (seq !== histInsightSeq) return;
