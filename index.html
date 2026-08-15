@@ -2598,37 +2598,58 @@ async function callFoodCalcAI(failureTag, sysPrompt, userMsg, requiredField) {
   }
 }
 
-// Weight → Calories+Protein: given a food and an exact weight, compute the
-// total calories and protein for it — the most precise of the four smart
-// calculations since the weight is already known.
+// Single canonical per-100g lookup, shared by all four directions below
+// (weight→cal/pro, cal→weight/pro, protein→weight/cal, cal+pro→weight).
+// Previously each direction was its own separately-phrased AI question —
+// "given this weight, what's the calories" vs "given this calorie target,
+// what's the weight" — and since the model isn't running a real lookup, a
+// forward question and its reverse could (and did) come back implying
+// different calories-per-100g for the same food, e.g. weight-only giving
+// ~176 kcal/100g for steelhead trout while calories-only implied ~200.
+// Asking once for the density and doing the arithmetic ourselves makes all
+// four directions consistent with each other — the residual uncertainty is
+// now only "is the AI's density estimate itself accurate," not also
+// "did this particular phrasing of the question get a different guess."
+async function getFoodDensity(food) {
+  const sysPrompt = `You are a precise nutrition reference. Given a food, report its calories and protein per 100g using standard nutrition data (typical USDA-style values; account for stated preparation like cooked/raw/fried when given, and default to a common preparation otherwise). A ratio like "93/7" or "80/20" describes the lean-to-fat percentage of ground meat (e.g. 93% lean, 7% fat) — treat it as a description of the food, never as a fraction to divide. Respond with ONLY a raw JSON object — no prose, no explanation, no markdown, no code fences. Your entire reply must start with { and end with }, in exactly this shape: {"cal_per_100g":165,"protein_per_100g":31}.`;
+  const parsed = await callFoodCalcAI('food_density', sysPrompt, food, 'cal_per_100g');
+  return { calPer100g: Number(parsed.cal_per_100g) || 0, proPer100g: Number(parsed.protein_per_100g) || 0 };
+}
+
+// Weight → Calories+Protein: scale the per-100g density up to the given weight.
 async function calcCaloriesForWeight(grams, food) {
-  const sysPrompt = `You are a precise nutrition calculator. You are given a food and an exact weight in grams; compute the TOTAL calories and TOTAL protein for that weight from standard nutrition data (scale per-100g values to the given grams). A ratio like "93/7" or "80/20" describes the lean-to-fat percentage of ground meat (e.g. 93% lean, 7% fat) — treat it as a description of the food, never as a fraction to divide. Respond with ONLY a raw JSON object — no prose, no explanation, no markdown, no code fences. Your entire reply must start with { and end with }, in exactly this shape: {"calories":123,"protein":15}. Round both to whole numbers.`;
-  const parsed = await callFoodCalcAI('weigh_calculate', sysPrompt, `${grams} g of ${food}`, 'calories');
-  return { cal: Math.round(parsed.calories) || 0, pro: Math.round(parsed.protein) || 0 };
+  const { calPer100g, proPer100g } = await getFoodDensity(food);
+  return { cal: Math.round(calPer100g * grams / 100), pro: Math.round(proPer100g * grams / 100) };
 }
 
-// Calories → Weight+Protein: given a food and a calorie target, compute the
-// weight (grams) needed to reach it, plus the protein that comes with it.
+// Calories → Weight+Protein: invert the same density to solve for weight,
+// then derive protein from that weight — exact arithmetic, not a second guess.
 async function calcWeightForCalories(calories, food) {
-  const sysPrompt = `You are a precise nutrition calculator. You are given a food and a target calorie amount; compute the WEIGHT in grams of that food needed to reach approximately that many calories, using standard nutrition data (scale per-100g values). Also compute the total protein for that weight. Respond with ONLY a raw JSON object — no prose, no explanation, no markdown, no code fences. Your entire reply must start with { and end with }, in exactly this shape: {"grams":143,"protein":15}. Round both to whole numbers.`;
-  const parsed = await callFoodCalcAI('cal_to_weight', sysPrompt, `${calories} calories of ${food}`, 'grams');
-  return { weight_g: Math.round(parsed.grams) || 0, pro: Math.round(parsed.protein) || 0 };
+  const { calPer100g, proPer100g } = await getFoodDensity(food);
+  const weight_g = calPer100g ? Math.round(calories / calPer100g * 100) : 0;
+  return { weight_g, pro: Math.round(proPer100g * weight_g / 100) };
 }
 
-// Protein → Weight+Calories: given a food and a protein target, compute the
-// weight (grams) needed to reach it, plus the calories that come with it.
+// Protein → Weight+Calories: same density, inverted on the protein side.
 async function calcWeightForProtein(protein, food) {
-  const sysPrompt = `You are a precise nutrition calculator. You are given a food and a target protein amount in grams; compute the WEIGHT in grams of that food needed to reach approximately that much protein, using standard nutrition data (scale per-100g values). Also compute the total calories for that weight. Respond with ONLY a raw JSON object — no prose, no explanation, no markdown, no code fences. Your entire reply must start with { and end with }, in exactly this shape: {"grams":180,"calories":220}. Round both to whole numbers.`;
-  const parsed = await callFoodCalcAI('protein_to_weight', sysPrompt, `${protein}g protein from ${food}`, 'grams');
-  return { weight_g: Math.round(parsed.grams) || 0, cal: Math.round(parsed.calories) || 0 };
+  const { calPer100g, proPer100g } = await getFoodDensity(food);
+  const weight_g = proPer100g ? Math.round(protein / proPer100g * 100) : 0;
+  return { weight_g, cal: Math.round(calPer100g * weight_g / 100) };
 }
 
-// Calories+Protein → Weight: given a food along with its already-known
-// calorie and protein totals, estimate the weight (grams) that produces them.
+// Calories+Protein → Weight: both targets are already known but may not
+// perfectly agree with a single density (recipes vary) — solve for weight
+// from each side of the same density and average, rather than trusting
+// either target alone.
 async function calcWeightForCaloriesAndProtein(calories, protein, food) {
-  const sysPrompt = `You are a precise nutrition calculator. You are given a food along with its total calories and total protein; estimate the WEIGHT in grams of that food that would produce those totals, using standard nutrition data (scale per-100g values and reconcile against both numbers). Respond with ONLY a raw JSON object — no prose, no explanation, no markdown, no code fences. Your entire reply must start with { and end with }, in exactly this shape: {"grams":210}. Round to a whole number.`;
-  const parsed = await callFoodCalcAI('cal_pro_to_weight', sysPrompt, `${food}: ${calories} calories, ${protein}g protein`, 'grams');
-  return { weight_g: Math.round(parsed.grams) || 0 };
+  const { calPer100g, proPer100g } = await getFoodDensity(food);
+  const wFromCal = calPer100g ? calories / calPer100g * 100 : null;
+  const wFromPro = proPer100g ? protein / proPer100g * 100 : null;
+  const weight_g = Math.round(
+    wFromCal != null && wFromPro != null ? (wFromCal + wFromPro) / 2 :
+    wFromCal != null ? wFromCal : (wFromPro || 0)
+  );
+  return { weight_g };
 }
 
 // Smart food entry: fills in only whichever of {weight, calories, protein}
