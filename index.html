@@ -1863,10 +1863,10 @@ function renderPresets() {
       <div class="fe-row">
         <div class="fe-col grow"><input type="text" id="pi-food-${p.id}" maxlength="120" placeholder="Add item…" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"></div>
       </div>
-      <div class="fe-row" style="margin-top:6px">
-        <div class="fe-col fe-wt"><div class="fe-suffix"><input type="number" id="pi-wt-${p.id}" inputmode="decimal" step="0.1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
-        <div class="fe-col fe-kcal"><div class="fe-suffix"><input type="number" id="pi-cal-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>kc</span></div></div>
-        <div class="fe-col fe-pro"><div class="fe-suffix"><input type="number" id="pi-pro-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
+      <div class="fe-row" style="margin-top:8px">
+        <div class="fe-col fe-wt"><label class="field-lbl">Weight</label><div class="fe-suffix"><input type="number" id="pi-wt-${p.id}" inputmode="decimal" step="0.1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
+        <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="pi-cal-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>kc</span></div></div>
+        <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="pi-pro-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
         <button class="fe-go" id="pi-btn-${p.id}" onclick="addItemToPresetCard('${p.id}')">Add</button>
       </div>
       <div class="preset-actions" style="margin-top:10px">
