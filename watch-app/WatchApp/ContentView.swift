@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Two pages, swipeable — matches the "one page to view, one page to log"
-/// request. Settings (the pasted session token) lives behind a gear icon on
-/// the Today page rather than as a third swipe page, so those stay the two
-/// primary pages.
+/// Four pages, swipeable: today's totals, manual meal entry, the food-items
+/// catalog, and presets — the latter two are read/log-only from the Watch,
+/// editing stays on the web app. Settings (the pasted session token) lives
+/// behind a gear icon on the Today page rather than as its own swipe page.
 struct ContentView: View {
     @State private var showSettings = false
 
@@ -11,6 +11,8 @@ struct ContentView: View {
         TabView {
             TodayView(showSettings: $showSettings)
             LogMealView()
+            FoodItemsView()
+            PresetsView()
         }
         .tabViewStyle(.page)
         .sheet(isPresented: $showSettings) {

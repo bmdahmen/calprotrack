@@ -8,3 +8,4 @@ struct CalProTrackWatchApp: App {
         }
     }
 }
+
