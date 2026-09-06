@@ -1836,6 +1836,17 @@ function togglePresetItemsExpand(id) {
   renderPresets();
 }
 
+// Whether a preset card's "Add item" box (name + weight/cal/pro fields) is
+// open, keyed by preset id — collapsed by default, same reasoning as
+// PRESET_ITEMS_SHOW above: with several presets on screen, showing every
+// card's full add-item form at once made the whole section too tall.
+let presetAddOpen = {};
+
+function togglePresetAddOpen(id) {
+  presetAddOpen[id] = !presetAddOpen[id];
+  renderPresets();
+}
+
 function renderPresets() {
   const label = document.getElementById('presets-toggle-label');
   if (label) label.textContent = presets.length ? `Presets (${presets.length})` : 'Presets';
@@ -1852,6 +1863,7 @@ function renderPresets() {
     const showMoreBtn = hasMore ? `<button type="button" class="show-more-btn" onclick="togglePresetItemsExpand('${p.id}')">
       ${expanded ? '▲ Show less' : `▼ Show ${p.items.length - PRESET_ITEMS_SHOW} more`}
     </button>` : '';
+    const addOpen = !!presetAddOpen[p.id];
     return `
     <div class="preset-card fade" id="preset-${p.id}">
       <div class="preset-card-top">
@@ -1860,14 +1872,19 @@ function renderPresets() {
       </div>
       <div class="meal-box" style="margin:8px 0">${presetItemTilesHtml(visibleItems, false, p.id)}</div>
       ${showMoreBtn}
-      <div class="fe-row">
-        <div class="fe-col grow"><input type="text" id="pi-food-${p.id}" maxlength="120" placeholder="Add item…" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"></div>
-      </div>
-      <div class="fe-row" style="margin-top:8px">
-        <div class="fe-col fe-wt"><label class="field-lbl">Weight</label><div class="fe-suffix"><input type="number" id="pi-wt-${p.id}" inputmode="decimal" step="0.1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
-        <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="pi-cal-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>kc</span></div></div>
-        <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="pi-pro-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
-        <button class="fe-go" id="pi-btn-${p.id}" onclick="addItemToPresetCard('${p.id}')">Add</button>
+      <button type="button" class="show-more-btn" style="margin-top:8px" onclick="togglePresetAddOpen('${p.id}')">
+        ${addOpen ? '▲ Hide' : '+ Add Item'}
+      </button>
+      <div style="${addOpen ? '' : 'display:none'}">
+        <div class="fe-row" style="margin-top:8px">
+          <div class="fe-col grow"><input type="text" id="pi-food-${p.id}" maxlength="120" placeholder="Add item…" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"></div>
+        </div>
+        <div class="fe-row" style="margin-top:8px">
+          <div class="fe-col fe-wt"><label class="field-lbl">Weight</label><div class="fe-suffix"><input type="number" id="pi-wt-${p.id}" inputmode="decimal" step="0.1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
+          <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="pi-cal-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>kc</span></div></div>
+          <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="pi-pro-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
+          <button class="fe-go" id="pi-btn-${p.id}" onclick="addItemToPresetCard('${p.id}')">Add</button>
+        </div>
       </div>
       <div class="preset-actions" style="margin-top:10px">
         <button class="fe-go" onclick="logPreset('${p.id}')">▶ Log to ${esc(dayLbl)}</button>
