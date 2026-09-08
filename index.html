@@ -89,6 +89,8 @@
   body.light .fi-row{background:#dbd4ca;}
   body.light .fi-row:hover{background:#d5cec5;}
   body.light .fi-name{color:#2c2820;}
+  body.light .fi-drag-handle{color:#a39a8c;}
+  body.light .fi-drag-handle:active{color:#c8621a;}
   body.light .fi-actions-tray{background:#d8c4c4;}
   body.light .fi-actions-tray .icon-btn{color:#4a3535;}
   body.light .qty-btn{background:#d5cec5;border-color:#c0b9b0;color:#4a4540;}
@@ -368,12 +370,15 @@
   .fe-go-muted:hover{background:#222;}
   .fi-swipe-wrap{position:relative;overflow:hidden;border-bottom:1px solid #111;}
   .fi-actions-tray{position:absolute;top:0;left:0;bottom:0;width:76px;display:flex;align-items:center;justify-content:center;gap:2px;background:#1c1414;}
-  .fi-row{position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:#111;transition:transform .2s ease;touch-action:pan-y;}
+  .fi-row{position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 12px 10px 32px;background:#111;transition:transform .2s ease;touch-action:pan-y;}
   .fi-row.revealed{transform:translateX(76px);}
   .fi-row:hover{background:#161010;}
   .fi-line{display:flex;align-items:baseline;flex-wrap:wrap;column-gap:6px;row-gap:2px;}
   .fi-name{font-size:13px;font-weight:600;color:#eee;}
   .fi-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;}
+  .fi-drag-handle{position:absolute;left:0;top:0;bottom:0;width:28px;display:flex;align-items:center;justify-content:center;color:#555;font-size:15px;line-height:1;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;}
+  .fi-drag-handle:active{color:#f97316;cursor:grabbing;}
+  .fi-swipe-wrap.fi-dragging{opacity:.55;}
   .qty-stepper{display:flex;align-items:center;gap:6px;flex-shrink:0;}
   .qty-btn{background:#1a1a1a;border:1px solid #2a2a2a;color:#ccc;width:22px;height:22px;border-radius:5px;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;}
   .qty-btn:hover{border-color:#f97316;color:#f97316;}
@@ -1715,12 +1720,13 @@ function foodItemRowHtml(f) {
   }
   const qty = foodItemQty[f.id] || 1;
   return `
-  <div class="fi-swipe-wrap no-swipe fade" id="fi-wrap-${f.id}">
+  <div class="fi-swipe-wrap no-swipe fade" id="fi-wrap-${f.id}" data-fi-id="${f.id}" data-fi-hidden="${f.hidden ? 1 : 0}">
     <div class="fi-actions-tray">
       <button class="icon-btn ed" onclick="startEditFoodItem('${f.id}')" title="Edit">✎</button>
       <button class="icon-btn" onclick="deleteFoodItem('${f.id}')" title="Delete">✕</button>
     </div>
     <div class="fi-row" id="fi-row-${f.id}" ontouchstart="fiRowTouchStart(event,'${f.id}')" ontouchend="fiRowTouchEnd(event,'${f.id}')" onclick="fiRowClick('${f.id}')">
+      <span class="fi-drag-handle" title="Drag to reorder" onpointerdown="fiDragHandlePointerDown(event,'${f.id}')">⠿</span>
       <div class="fi-line"><span class="fi-name">${f.hidden ? '🔒 ' : ''}${esc(f.name)}</span> <span class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${trackMacros && f.fat != null ? ` · <span class="ft">${f.fat}g fat</span>` : ''}${trackMacros && f.carbs != null ? ` · <span class="cb">${f.carbs}g carbs</span>` : ''}${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</span></div>
       <div class="fi-controls">
         <div class="qty-stepper">
@@ -1813,6 +1819,81 @@ document.addEventListener('click', (e) => {
   const wrap = document.getElementById('fi-wrap-' + fiRevealedId);
   if (wrap && !wrap.contains(e.target)) closeFoodItemSwipe();
 });
+
+// -- Drag-to-reorder food items, via the dedicated grip handle on each row
+// (keeps it from colliding with the horizontal swipe-to-reveal gesture, the
+// qty stepper, or any of the row's buttons). Mouse: press the handle and
+// drag. Touch: press and hold the handle briefly, then drag — the short
+// hold is just enough to avoid a stray brush of the handle while scrolling
+// hijacking the list. Reordering is confined to the section (visible vs.
+// hidden/preset-only) the dragged row started in. --
+let fiDrag = null; // { id, wrap, hidden, touchTimer }
+
+function fiDragHandlePointerDown(e, id) {
+  e.preventDefault();
+  e.stopPropagation();
+  const wrap = document.getElementById('fi-wrap-' + id);
+  if (!wrap) return;
+  const begin = () => {
+    fiDrag = { id, wrap, hidden: wrap.dataset.fiHidden === '1' };
+    wrap.classList.add('fi-dragging');
+    document.addEventListener('pointermove', fiDragPointerMove);
+    document.addEventListener('pointerup', fiDragPointerEnd);
+    document.addEventListener('pointercancel', fiDragPointerEnd);
+  };
+  if (e.pointerType === 'touch') {
+    const timer = setTimeout(begin, 180);
+    const cancelHold = () => {
+      clearTimeout(timer);
+      document.removeEventListener('pointerup', cancelHold);
+      document.removeEventListener('pointercancel', cancelHold);
+    };
+    document.addEventListener('pointerup', cancelHold, { once: true });
+    document.addEventListener('pointercancel', cancelHold, { once: true });
+  } else {
+    begin();
+  }
+}
+
+function fiDragPointerMove(e) {
+  if (!fiDrag) return;
+  e.preventDefault();
+  const { wrap, hidden } = fiDrag;
+  const parent = wrap.parentNode;
+  if (!parent) return;
+  const pointerY = e.clientY;
+  const siblings = Array.prototype.filter.call(parent.children, el =>
+    el !== wrap && el.classList && el.classList.contains('fi-swipe-wrap') && el.dataset.fiHidden === (hidden ? '1' : '0')
+  );
+  for (const sib of siblings) {
+    const rect = sib.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    const wrapIsBefore = Boolean(wrap.compareDocumentPosition(sib) & Node.DOCUMENT_POSITION_FOLLOWING);
+    if (wrapIsBefore && pointerY > mid) { parent.insertBefore(wrap, sib.nextSibling); break; }
+    else if (!wrapIsBefore && pointerY < mid) { parent.insertBefore(wrap, sib); break; }
+  }
+}
+
+async function fiDragPointerEnd() {
+  if (!fiDrag) return;
+  const { wrap, id, hidden } = fiDrag;
+  wrap.classList.remove('fi-dragging');
+  document.removeEventListener('pointermove', fiDragPointerMove);
+  document.removeEventListener('pointerup', fiDragPointerEnd);
+  document.removeEventListener('pointercancel', fiDragPointerEnd);
+  fiDrag = null;
+
+  const box = document.getElementById('fooditem-list');
+  if (!box) return;
+  const newIds = Array.prototype.filter.call(box.children, el =>
+    el.classList && el.classList.contains('fi-swipe-wrap') && el.dataset.fiHidden === (hidden ? '1' : '0')
+  ).map(el => el.dataset.fiId);
+  const reordered = newIds.map(i => foodItems.find(f => String(f.id) === i)).filter(Boolean);
+  const other = foodItems.filter(f => Boolean(f.hidden) !== hidden);
+  foodItems = hidden ? [...other, ...reordered] : [...reordered, ...other];
+  renderFoodItems();
+  try { await saveFoodItems(); } catch (e) { toast('Reorder failed to save — will retry on next change'); }
+}
 
 function scaledWeightText(weightG, qty) {
   const scaled = weightG * qty;
