@@ -1,3 +1,7 @@
+// Deployed automatically by .github/workflows/deploy-worker.yml on every
+// push to main that touches this file (or wrangler.toml) — mirrors how
+// deploy-pages.yml has always auto-deployed index.html. No manual
+// `wrangler deploy` needed going forward.
 const GOOGLE_CLIENT_ID = '156334413688-usb68f1fldmrhic94mn925l75hnk82pk.apps.googleusercontent.com';
 
 // Default models, used only if the corresponding env var isn't set.
