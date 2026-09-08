@@ -688,9 +688,17 @@
           <div class="prog-marker-lbl" id="cal-lbl-tdee" style="color:#fbbf24"></div>
         </div>
       </div>
-      <div class="prog-wrap" style="margin-bottom:20px">
+      <div class="prog-wrap" id="pro-prog-wrap" style="margin-bottom:20px">
         <div class="prog-meta"><span>Protein</span><span class="prog-val" id="pro-txt"></span></div>
         <div class="prog-bar"><div class="prog-fill" id="pro-fill" style="width:0%;background:#a78bfa"></div></div>
+      </div>
+      <div class="prog-wrap macro-row" id="fat-prog-wrap" style="display:none">
+        <div class="prog-meta"><span>Fat</span><span class="prog-val" id="fat-txt"></span></div>
+        <div class="prog-bar"><div class="prog-fill" id="fat-fill" style="width:0%;background:#eab308"></div></div>
+      </div>
+      <div class="prog-wrap macro-row" id="carbs-prog-wrap" style="margin-bottom:20px;display:none">
+        <div class="prog-meta"><span>Carbs</span><span class="prog-val" id="carbs-txt"></span></div>
+        <div class="prog-bar"><div class="prog-fill" id="carbs-fill" style="width:0%;background:#38bdf8"></div></div>
       </div>
 
       <div class="food-entry">
@@ -1410,6 +1418,13 @@ function updateUI() {
   const todayWtEl0 = document.getElementById('wt-am');
   const todayWt0 = todayWtEl0 ? parseFloat(todayWtEl0.value) || null : null;
   const PRO_T_EFF = proteinTargetFor(dateKey(activeDate), todayWt0);
+  // No dedicated fat/carb targets exist anywhere yet (no Profile field for
+  // it), so these bars scale against a standard default split — 30% of the
+  // calorie target's calories from fat, everything left after protein+fat
+  // from carbs — same idea as the calorie/protein bars, just without a
+  // user-configurable ratio yet.
+  const FAT_T_EFF = Math.round(CAL_T_EFF * 0.3 / 9);
+  const CARBS_T_EFF = Math.max(0, Math.round((CAL_T_EFF - PRO_T_EFF * 4 - FAT_T_EFF * 9) / 4));
   const remCal = CAL_T_EFF - cal, remPro = PRO_T_EFF - pro;
   const over = cal > CAL_T_EFF;
   const mode = currentGoalMode || 'deficit';
@@ -1463,6 +1478,16 @@ function updateUI() {
   document.getElementById("pro-fill").style.width = Math.min(100,pro/PRO_T_EFF*100)+"%";
   const isLight = document.body.classList.contains('light');
   document.getElementById("pro-fill").style.background = pro>=PRO_T_EFF?(isLight?"#2a7a3a":"#4ade80"):(isLight?"#6040a0":"#a78bfa");
+
+  document.getElementById("fat-prog-wrap").style.display = trackMacros ? '' : 'none';
+  document.getElementById("carbs-prog-wrap").style.display = trackMacros ? '' : 'none';
+  if (trackMacros) {
+    const remFat = FAT_T_EFF - fat, remCarbs = CARBS_T_EFF - carbs;
+    document.getElementById("fat-txt").textContent = `${fat}g / ${FAT_T_EFF}g` + (remFat>0?` · ${remFat}g left`:" · OVER");
+    document.getElementById("carbs-txt").textContent = `${carbs}g / ${CARBS_T_EFF}g` + (remCarbs>0?` · ${remCarbs}g left`:" · OVER");
+    document.getElementById("fat-fill").style.width = Math.min(100, FAT_T_EFF ? fat/FAT_T_EFF*100 : 0)+"%";
+    document.getElementById("carbs-fill").style.width = Math.min(100, CARBS_T_EFF ? carbs/CARBS_T_EFF*100 : 0)+"%";
+  }
 
   // Header stats — use today's wt-am input first, then latest history entry
   const histWeights = historyData.filter(e=>e.weightAM).sort((a,b)=>a.date>b.date?1:-1);
