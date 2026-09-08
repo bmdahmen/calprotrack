@@ -334,8 +334,8 @@ export default {
       const stmts = [env.DB.prepare('DELETE FROM food_items WHERE user_id=?').bind(user_id)];
       for (let i = 0; i < food_items.length; i++) {
         const f = food_items[i];
-        stmts.push(env.DB.prepare('INSERT INTO food_items (id,user_id,name,cal,pro,weight_g,fat,carbs,sort_order,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
-          .bind(String(f.id), user_id, f.name, f.cal, f.pro || 0, f.weight_g || null, f.fat ?? null, f.carbs ?? null, i, f.created_at || new Date().toISOString()));
+        stmts.push(env.DB.prepare('INSERT INTO food_items (id,user_id,name,cal,pro,weight_g,fat,carbs,hidden,sort_order,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+          .bind(String(f.id), user_id, f.name, f.cal, f.pro || 0, f.weight_g || null, f.fat ?? null, f.carbs ?? null, f.hidden ? 1 : 0, i, f.created_at || new Date().toISOString()));
       }
       await env.DB.batch(stmts);
       return json({ ok: true });

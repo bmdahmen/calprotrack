@@ -765,6 +765,11 @@
               <div class="fe-col fe-carb"><label class="field-lbl">Carbs</label><div class="fe-suffix"><input type="number" id="fi-carbs" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
             </div>
             <div class="fe-row" style="margin-top:8px">
+              <label style="display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:#888;cursor:pointer">
+                <input type="checkbox" id="fi-hidden" style="margin:0">Preset-only — hide from Food Items list
+              </label>
+            </div>
+            <div class="fe-row" style="margin-top:8px">
               <button class="fe-go grow" id="fi-btn" onclick="addFoodItem()">Add Item</button>
             </div>
           </div>
@@ -1134,9 +1139,10 @@ let dexaScans = []; // {id, date, weight, bf_pct, created_at} — kept sorted by
 let datesWithData = new Set();
 let calViewDate = new Date();
 let saveMeasTimer = null;
-let foodItems = [];        // reusable quick-add line items {id,name,cal,pro}
+let foodItems = [];        // reusable quick-add line items {id,name,cal,pro,hidden}
 let presets = [];          // {id,name,items:[{food_item_id,name,cal,pro,qty}]}
 let foodItemQty = {};      // per-item stepper qty, keyed by food item id
+let hiddenFoodItemsExpanded = false; // whether the "preset-only" section of the Food Items list is expanded
 let editFoodItemId = null;
 let presetBuilderItems = [];
 let presetBuilderEditId = null; // preset id being edited, or null for "new"
@@ -1688,49 +1694,70 @@ function renderFoodLog() {
 
 // -- Reusable food items --
 
+function foodItemRowHtml(f) {
+  if (editFoodItemId == f.id) {
+    return `
+    <div class="meal-row fade" id="fi-row-${f.id}">
+      <div class="edit-wrap">
+        <input type="text" id="efi-n-${f.id}" value="${esc(f.name)}" style="flex:2;min-width:100px;padding:5px 8px;font-size:12px">
+        <input type="number" id="efi-c-${f.id}" value="${f.cal}" placeholder="kcal" inputmode="numeric" style="width:68px;padding:5px 8px;font-size:12px">
+        <input type="number" id="efi-p-${f.id}" value="${f.pro||0}" placeholder="g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
+        <input type="number" id="efi-w-${f.id}" value="${f.weight_g||''}" placeholder="wt g" inputmode="decimal" step="0.1" style="width:55px;padding:5px 8px;font-size:12px">
+        ${trackMacros ? `<input type="number" id="efi-f-${f.id}" value="${f.fat||''}" placeholder="fat g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
+        <input type="number" id="efi-cb-${f.id}" value="${f.carbs||''}" placeholder="carb g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">` : ''}
+        <label style="display:flex;align-items:center;gap:4px;font-family:'DM Mono',monospace;font-size:9px;color:#888;white-space:nowrap">
+          <input type="checkbox" id="efi-h-${f.id}" ${f.hidden ? 'checked' : ''} style="margin:0">Preset-only
+        </label>
+        <button class="save-btn" onclick="saveEditFoodItem('${f.id}')">SAVE</button>
+        <button class="cancel-btn" onclick="editFoodItemId=null;renderFoodItems()">✕</button>
+      </div>
+    </div>`;
+  }
+  const qty = foodItemQty[f.id] || 1;
+  return `
+  <div class="fi-swipe-wrap no-swipe fade" id="fi-wrap-${f.id}">
+    <div class="fi-actions-tray">
+      <button class="icon-btn ed" onclick="startEditFoodItem('${f.id}')" title="Edit">✎</button>
+      <button class="icon-btn" onclick="deleteFoodItem('${f.id}')" title="Delete">✕</button>
+    </div>
+    <div class="fi-row" id="fi-row-${f.id}" ontouchstart="fiRowTouchStart(event,'${f.id}')" ontouchend="fiRowTouchEnd(event,'${f.id}')" onclick="fiRowClick('${f.id}')">
+      <div class="fi-line"><span class="fi-name">${f.hidden ? '🔒 ' : ''}${esc(f.name)}</span> <span class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${trackMacros && f.fat != null ? ` · <span class="ft">${f.fat}g fat</span>` : ''}${trackMacros && f.carbs != null ? ` · <span class="cb">${f.carbs}g carbs</span>` : ''}${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</span></div>
+      <div class="fi-controls">
+        <div class="qty-stepper">
+          <button type="button" class="qty-btn" onclick="event.stopPropagation();bumpFoodItemQty('${f.id}',-1)">－</button>
+          <input type="number" inputmode="decimal" step="0.1" min="0.1" class="qty-val-input" id="fi-qty-${f.id}" value="${qty}" onclick="event.stopPropagation()" onchange="setFoodItemQty('${f.id}', this.value)">
+          <button type="button" class="qty-btn" onclick="event.stopPropagation();bumpFoodItemQty('${f.id}',1)">＋</button>
+        </div>
+        <button class="icon-btn" onclick="event.stopPropagation();openFoodItemServingWizard('${f.id}')" title="Adjust servings">🎚️</button>
+        <button type="button" class="fi-log-btn" onclick="event.stopPropagation();logFoodItem('${f.id}')">+ Log</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleHiddenFoodItems() {
+  hiddenFoodItemsExpanded = !hiddenFoodItemsExpanded;
+  renderFoodItems();
+}
+
+// Preset-only items (hidden=1) stay full catalog rows — reusable, editable,
+// and still offered in the preset builder's item picker — they're just
+// filtered out of this everyday quick-grab list, tucked behind a collapsed
+// "preset-only items" toggle instead.
 function renderFoodItems() {
   const label = document.getElementById('fooditems-toggle-label');
   if (label) label.textContent = foodItems.length ? `Food Items (${foodItems.length})` : 'Food Items';
   const box = document.getElementById('fooditem-list');
   if (!box) return;
   if (!foodItems.length) { box.innerHTML = '<div class="no-meals">No food items yet — add one below</div>'; return; }
-  box.innerHTML = foodItems.map(f => {
-    if (editFoodItemId == f.id) {
-      return `
-      <div class="meal-row fade" id="fi-row-${f.id}">
-        <div class="edit-wrap">
-          <input type="text" id="efi-n-${f.id}" value="${esc(f.name)}" style="flex:2;min-width:100px;padding:5px 8px;font-size:12px">
-          <input type="number" id="efi-c-${f.id}" value="${f.cal}" placeholder="kcal" inputmode="numeric" style="width:68px;padding:5px 8px;font-size:12px">
-          <input type="number" id="efi-p-${f.id}" value="${f.pro||0}" placeholder="g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
-          <input type="number" id="efi-w-${f.id}" value="${f.weight_g||''}" placeholder="wt g" inputmode="decimal" step="0.1" style="width:55px;padding:5px 8px;font-size:12px">
-          ${trackMacros ? `<input type="number" id="efi-f-${f.id}" value="${f.fat||''}" placeholder="fat g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
-          <input type="number" id="efi-cb-${f.id}" value="${f.carbs||''}" placeholder="carb g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">` : ''}
-          <button class="save-btn" onclick="saveEditFoodItem('${f.id}')">SAVE</button>
-          <button class="cancel-btn" onclick="editFoodItemId=null;renderFoodItems()">✕</button>
-        </div>
-      </div>`;
-    }
-    const qty = foodItemQty[f.id] || 1;
-    return `
-    <div class="fi-swipe-wrap no-swipe fade" id="fi-wrap-${f.id}">
-      <div class="fi-actions-tray">
-        <button class="icon-btn ed" onclick="startEditFoodItem('${f.id}')" title="Edit">✎</button>
-        <button class="icon-btn" onclick="deleteFoodItem('${f.id}')" title="Delete">✕</button>
-      </div>
-      <div class="fi-row" id="fi-row-${f.id}" ontouchstart="fiRowTouchStart(event,'${f.id}')" ontouchend="fiRowTouchEnd(event,'${f.id}')" onclick="fiRowClick('${f.id}')">
-        <div class="fi-line"><span class="fi-name">${esc(f.name)}</span> <span class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${trackMacros && f.fat != null ? ` · <span class="ft">${f.fat}g fat</span>` : ''}${trackMacros && f.carbs != null ? ` · <span class="cb">${f.carbs}g carbs</span>` : ''}${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</span></div>
-        <div class="fi-controls">
-          <div class="qty-stepper">
-            <button type="button" class="qty-btn" onclick="event.stopPropagation();bumpFoodItemQty('${f.id}',-1)">－</button>
-            <input type="number" inputmode="decimal" step="0.1" min="0.1" class="qty-val-input" id="fi-qty-${f.id}" value="${qty}" onclick="event.stopPropagation()" onchange="setFoodItemQty('${f.id}', this.value)">
-            <button type="button" class="qty-btn" onclick="event.stopPropagation();bumpFoodItemQty('${f.id}',1)">＋</button>
-          </div>
-          <button class="icon-btn" onclick="event.stopPropagation();openFoodItemServingWizard('${f.id}')" title="Adjust servings">🎚️</button>
-          <button type="button" class="fi-log-btn" onclick="event.stopPropagation();logFoodItem('${f.id}')">+ Log</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+  const visible = foodItems.filter(f => !f.hidden);
+  const hidden = foodItems.filter(f => f.hidden);
+  let html = visible.length ? visible.map(foodItemRowHtml).join('') : '<div class="no-meals">No food items yet — add one below</div>';
+  if (hidden.length) {
+    html += `<button type="button" class="show-more-btn" onclick="toggleHiddenFoodItems()" style="margin-top:8px">${hiddenFoodItemsExpanded ? '▼ Hide' : '▶ Show'} ${hidden.length} preset-only item${hidden.length===1?'':'s'}</button>`;
+    if (hiddenFoodItemsExpanded) html += hidden.map(foodItemRowHtml).join('');
+  }
+  box.innerHTML = html;
 }
 
 // -- Swipe-right-to-reveal edit/delete on a food item row. Only reacts on
@@ -1830,12 +1857,14 @@ async function addFoodItem() {
   const wtEl = document.getElementById('fi-wt');
   const fatEl = document.getElementById('fi-fat');
   const carbsEl = document.getElementById('fi-carbs');
+  const hiddenEl = document.getElementById('fi-hidden');
   const name = nameEl.value.trim();
   const cal = parseInt(calEl.value) || 0;
   const pro = parseInt(proEl.value) || 0;
   const weight_g = parseFloat(wtEl.value) || 0;
   const fat = trackMacros ? (parseInt(fatEl.value) || 0) : 0;
   const carbs = trackMacros ? (parseInt(carbsEl.value) || 0) : 0;
+  const hidden = hiddenEl.checked ? 1 : 0;
   if (!name) { nameEl.focus(); return; }
   const btn = document.getElementById('fi-btn');
   if (btn.disabled) return;
@@ -1843,20 +1872,20 @@ async function addFoodItem() {
   try {
     if (!weight_g && !cal && !pro && !fat && !carbs) {
       const items = await estimateFoodItems(name);
-      items.forEach(it => foodItems.push({ id: newLocalId(), name: it.desc, cal: it.cal, pro: it.pro, weight_g: it.weight_g, fat: it.fat, carbs: it.carbs, created_at: new Date().toISOString() }));
+      items.forEach(it => foodItems.push({ id: newLocalId(), name: it.desc, cal: it.cal, pro: it.pro, weight_g: it.weight_g, fat: it.fat, carbs: it.carbs, hidden, created_at: new Date().toISOString() }));
       renderFoodItems();
       renderPresetBuilderPicker();
       try { await saveFoodItems(); toast(items.length > 1 ? `${items.length} food items added ✓` : 'Food item added ✓'); }
       catch (e) { toast('Added locally — save failed, will retry on next change'); }
     } else {
       const r = await resolveFoodAmounts(name, weight_g, cal, pro, fat, carbs, trackMacros);
-      foodItems.push({ id: newLocalId(), name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, fat: trackMacros ? r.fat : null, carbs: trackMacros ? r.carbs : null, created_at: new Date().toISOString() });
+      foodItems.push({ id: newLocalId(), name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, fat: trackMacros ? r.fat : null, carbs: trackMacros ? r.carbs : null, hidden, created_at: new Date().toISOString() });
       renderFoodItems();
       renderPresetBuilderPicker();
       try { await saveFoodItems(); toast('Food item added ✓'); }
       catch (e) { toast('Added locally — save failed, will retry on next change'); }
     }
-    nameEl.value = ''; calEl.value = ''; proEl.value = ''; wtEl.value = ''; fatEl.value = ''; carbsEl.value = ''; nameEl.focus();
+    nameEl.value = ''; calEl.value = ''; proEl.value = ''; wtEl.value = ''; fatEl.value = ''; carbsEl.value = ''; hiddenEl.checked = false; nameEl.focus();
   } catch (e) {
     toast('Error: ' + e.message);
   }
@@ -1874,8 +1903,9 @@ async function saveEditFoodItem(id) {
   const carbsEl = document.getElementById(`efi-cb-${id}`);
   const fat = trackMacros && fatEl ? (parseInt(fatEl.value) || null) : null;
   const carbs = trackMacros && carbsEl ? (parseInt(carbsEl.value) || null) : null;
+  const hidden = document.getElementById(`efi-h-${id}`)?.checked ? 1 : 0;
   if (!name || cal <= 0) return;
-  foodItems = foodItems.map(f => f.id == id ? { ...f, name, cal, pro, weight_g, fat, carbs } : f);
+  foodItems = foodItems.map(f => f.id == id ? { ...f, name, cal, pro, weight_g, fat, carbs, hidden } : f);
   editFoodItemId = null;
   renderFoodItems();
   renderPresetBuilderPicker();
@@ -2158,7 +2188,7 @@ function renderPresetBuilderPicker() {
   if (!box) return;
   if (!foodItems.length) { box.innerHTML = '<div class="no-meals" style="padding:0">Add a food item below first</div>'; return; }
   box.innerHTML = foodItems.map(f =>
-    `<button type="button" class="chip-add" onclick="addToPresetBuilder('${f.id}')">+ ${esc(f.name)}</button>`
+    `<button type="button" class="chip-add" onclick="addToPresetBuilder('${f.id}')">+ ${f.hidden ? '🔒 ' : ''}${esc(f.name)}</button>`
   ).join('');
 }
 
