@@ -752,6 +752,10 @@
               <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="fi-pro" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
               <div class="fe-col fe-wt"><label class="field-lbl">Weight</label><div class="fe-suffix"><input type="number" id="fi-wt" inputmode="decimal" step="0.1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
             </div>
+            <div class="fe-row macro-row" id="fi-macro-row" style="margin-top:8px;display:none">
+              <div class="fe-col fe-fat"><label class="field-lbl">Fat</label><div class="fe-suffix"><input type="number" id="fi-fat" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
+              <div class="fe-col fe-carb"><label class="field-lbl">Carbs</label><div class="fe-suffix"><input type="number" id="fi-carbs" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
+            </div>
             <div class="fe-row" style="margin-top:8px">
               <button class="fe-go grow" id="fi-btn" onclick="addFoodItem()">Add Item</button>
             </div>
@@ -779,6 +783,10 @@
             <div class="fe-col fe-wt"><label class="field-lbl">Weight</label><div class="fe-suffix"><input type="number" id="pb-adhoc-wt" inputmode="decimal" step="0.1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"><span>g</span></div></div>
             <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="pb-adhoc-cal" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"><span>kc</span></div></div>
             <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="pb-adhoc-pro" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"><span>g</span></div></div>
+          </div>
+          <div class="fe-row macro-row" id="pb-adhoc-macro-row" style="margin-top:8px;display:none">
+            <div class="fe-col fe-fat"><label class="field-lbl">Fat</label><div class="fe-suffix"><input type="number" id="pb-adhoc-fat" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"><span>g</span></div></div>
+            <div class="fe-col fe-carb"><label class="field-lbl">Carbs</label><div class="fe-suffix"><input type="number" id="pb-adhoc-carbs" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addAdhocToPresetBuilder()"><span>g</span></div></div>
           </div>
           <div class="fe-row" style="margin-top:8px">
             <button class="fe-go grow" id="pb-adhoc-btn" onclick="addAdhocToPresetBuilder()">Add</button>
@@ -1046,6 +1054,10 @@
       <div class="sw-stat"><input type="number" class="sw-stat-input kc" id="piem-cal" inputmode="numeric"><div class="sw-stat-lbl">kcal</div></div>
       <div class="sw-stat"><input type="number" class="sw-stat-input pr" id="piem-pro" inputmode="numeric"><div class="sw-stat-lbl">protein (g)</div></div>
       <div class="sw-stat"><input type="number" class="sw-stat-input wt" id="piem-wt" inputmode="decimal" step="0.1" placeholder="—"><div class="sw-stat-lbl">weight (g)</div></div>
+    </div>
+    <div class="sw-totals macro-row" id="piem-macro-row" style="display:none;margin-top:-8px">
+      <div class="sw-stat"><input type="number" class="sw-stat-input" id="piem-fat" inputmode="numeric" placeholder="—"><div class="sw-stat-lbl">fat (g)</div></div>
+      <div class="sw-stat"><input type="number" class="sw-stat-input" id="piem-carbs" inputmode="numeric" placeholder="—"><div class="sw-stat-lbl">carbs (g)</div></div>
     </div>
     <input type="range" id="piem-slider" class="sw-slider" min="0.2" max="3" step="0.1" value="1" oninput="onPresetItemEditSlider(this.value)">
     <button class="fe-go grow" onclick="savePresetItemEditModal()">SAVE</button>
@@ -1664,6 +1676,8 @@ function renderFoodItems() {
           <input type="number" id="efi-c-${f.id}" value="${f.cal}" placeholder="kcal" inputmode="numeric" style="width:68px;padding:5px 8px;font-size:12px">
           <input type="number" id="efi-p-${f.id}" value="${f.pro||0}" placeholder="g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
           <input type="number" id="efi-w-${f.id}" value="${f.weight_g||''}" placeholder="wt g" inputmode="decimal" step="0.1" style="width:55px;padding:5px 8px;font-size:12px">
+          ${trackMacros ? `<input type="number" id="efi-f-${f.id}" value="${f.fat||''}" placeholder="fat g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
+          <input type="number" id="efi-cb-${f.id}" value="${f.carbs||''}" placeholder="carb g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">` : ''}
           <button class="save-btn" onclick="saveEditFoodItem('${f.id}')">SAVE</button>
           <button class="cancel-btn" onclick="editFoodItemId=null;renderFoodItems()">✕</button>
         </div>
@@ -1677,7 +1691,7 @@ function renderFoodItems() {
         <button class="icon-btn" onclick="deleteFoodItem('${f.id}')" title="Delete">✕</button>
       </div>
       <div class="fi-row" id="fi-row-${f.id}" ontouchstart="fiRowTouchStart(event,'${f.id}')" ontouchend="fiRowTouchEnd(event,'${f.id}')" onclick="fiRowClick('${f.id}')">
-        <div class="fi-line"><span class="fi-name">${esc(f.name)}</span> <span class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</span></div>
+        <div class="fi-line"><span class="fi-name">${esc(f.name)}</span> <span class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${trackMacros && f.fat != null ? ` · <span class="ft">${f.fat}g fat</span>` : ''}${trackMacros && f.carbs != null ? ` · <span class="cb">${f.carbs}g carbs</span>` : ''}${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</span></div>
         <div class="fi-controls">
           <div class="qty-stepper">
             <button type="button" class="qty-btn" onclick="event.stopPropagation();bumpFoodItemQty('${f.id}',-1)">－</button>
@@ -1787,31 +1801,35 @@ async function addFoodItem() {
   const calEl = document.getElementById('fi-cal');
   const proEl = document.getElementById('fi-pro');
   const wtEl = document.getElementById('fi-wt');
+  const fatEl = document.getElementById('fi-fat');
+  const carbsEl = document.getElementById('fi-carbs');
   const name = nameEl.value.trim();
   const cal = parseInt(calEl.value) || 0;
   const pro = parseInt(proEl.value) || 0;
   const weight_g = parseFloat(wtEl.value) || 0;
+  const fat = trackMacros ? (parseInt(fatEl.value) || 0) : 0;
+  const carbs = trackMacros ? (parseInt(carbsEl.value) || 0) : 0;
   if (!name) { nameEl.focus(); return; }
   const btn = document.getElementById('fi-btn');
   if (btn.disabled) return;
   btn.disabled = true; btn.textContent = '…';
   try {
-    if (!weight_g && !cal && !pro) {
+    if (!weight_g && !cal && !pro && !fat && !carbs) {
       const items = await estimateFoodItems(name);
-      items.forEach(it => foodItems.push({ id: newLocalId(), name: it.desc, cal: it.cal, pro: it.pro, weight_g: it.weight_g, created_at: new Date().toISOString() }));
+      items.forEach(it => foodItems.push({ id: newLocalId(), name: it.desc, cal: it.cal, pro: it.pro, weight_g: it.weight_g, fat: it.fat, carbs: it.carbs, created_at: new Date().toISOString() }));
       renderFoodItems();
       renderPresetBuilderPicker();
       try { await saveFoodItems(); toast(items.length > 1 ? `${items.length} food items added ✓` : 'Food item added ✓'); }
       catch (e) { toast('Added locally — save failed, will retry on next change'); }
     } else {
-      const r = await resolveFoodAmounts(name, weight_g, cal, pro, 0, 0, false);
-      foodItems.push({ id: newLocalId(), name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, created_at: new Date().toISOString() });
+      const r = await resolveFoodAmounts(name, weight_g, cal, pro, fat, carbs, trackMacros);
+      foodItems.push({ id: newLocalId(), name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, fat: trackMacros ? r.fat : null, carbs: trackMacros ? r.carbs : null, created_at: new Date().toISOString() });
       renderFoodItems();
       renderPresetBuilderPicker();
       try { await saveFoodItems(); toast('Food item added ✓'); }
       catch (e) { toast('Added locally — save failed, will retry on next change'); }
     }
-    nameEl.value = ''; calEl.value = ''; proEl.value = ''; wtEl.value = ''; nameEl.focus();
+    nameEl.value = ''; calEl.value = ''; proEl.value = ''; wtEl.value = ''; fatEl.value = ''; carbsEl.value = ''; nameEl.focus();
   } catch (e) {
     toast('Error: ' + e.message);
   }
@@ -1825,8 +1843,12 @@ async function saveEditFoodItem(id) {
   const cal = parseInt(document.getElementById(`efi-c-${id}`).value) || 0;
   const pro = parseInt(document.getElementById(`efi-p-${id}`).value) || 0;
   const weight_g = parseFloat(document.getElementById(`efi-w-${id}`).value) || null;
+  const fatEl = document.getElementById(`efi-f-${id}`);
+  const carbsEl = document.getElementById(`efi-cb-${id}`);
+  const fat = trackMacros && fatEl ? (parseInt(fatEl.value) || null) : null;
+  const carbs = trackMacros && carbsEl ? (parseInt(carbsEl.value) || null) : null;
   if (!name || cal <= 0) return;
-  foodItems = foodItems.map(f => f.id == id ? { ...f, name, cal, pro, weight_g } : f);
+  foodItems = foodItems.map(f => f.id == id ? { ...f, name, cal, pro, weight_g, fat, carbs } : f);
   editFoodItemId = null;
   renderFoodItems();
   renderPresetBuilderPicker();
@@ -1850,10 +1872,12 @@ async function logFoodItem(id) {
   const cal = Math.round(item.cal * qty);
   const pro = Math.round((item.pro||0) * qty);
   const weight_g = item.weight_g ? Math.round(item.weight_g * qty * 10) / 10 : null;
+  const fat = trackMacros && item.fat != null ? Math.round(item.fat * qty) : null;
+  const carbs = trackMacros && item.carbs != null ? Math.round(item.carbs * qty) : null;
   const desc = qty === 1 ? item.name
     : item.weight_g ? `${item.name} (${scaledWeightText(item.weight_g, qty)})`
     : `${item.name} ×${qty}`;
-  await logMeal(desc, cal, pro, weight_g);
+  await logMeal(desc, cal, pro, weight_g, fat, carbs);
   foodItemQty[id] = 1;
   const el = document.getElementById('fi-qty-' + id);
   if (el) el.value = 1;
@@ -1895,6 +1919,8 @@ function renderPresets() {
   box.innerHTML = presets.map(p => {
     const totalCal = p.items.reduce((s,it)=>s+Math.round(it.cal*it.qty),0);
     const totalPro = p.items.reduce((s,it)=>s+Math.round((it.pro||0)*it.qty),0);
+    const totalFat = p.items.reduce((s,it)=>s+(it.fat!=null?Math.round(it.fat*it.qty):0),0);
+    const totalCarbs = p.items.reduce((s,it)=>s+(it.carbs!=null?Math.round(it.carbs*it.qty):0),0);
     const expanded = !!presetExpanded[p.id];
     const hasMore = p.items.length > PRESET_ITEMS_SHOW;
     const visibleItems = expanded ? p.items : p.items.slice(0, PRESET_ITEMS_SHOW);
@@ -1906,7 +1932,7 @@ function renderPresets() {
     <div class="preset-card fade" id="preset-${p.id}">
       <div class="preset-card-top">
         <div class="preset-name">${esc(p.name)}</div>
-        <div class="preset-totals"><span class="kc">${totalCal} kcal</span> · <span class="pr">${totalPro}g prot</span></div>
+        <div class="preset-totals"><span class="kc">${totalCal} kcal</span> · <span class="pr">${totalPro}g prot</span>${trackMacros ? ` · <span class="ft">${totalFat}g fat</span> · <span class="cb">${totalCarbs}g carbs</span>` : ''}</div>
       </div>
       <div class="meal-box" style="margin:8px 0">${presetItemTilesHtml(visibleItems, false, p.id)}</div>
       ${showMoreBtn}
@@ -1922,6 +1948,10 @@ function renderPresets() {
           <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="pi-cal-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>kc</span></div></div>
           <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="pi-pro-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
           <button class="fe-go" id="pi-btn-${p.id}" onclick="addItemToPresetCard('${p.id}')">Add</button>
+        </div>
+        <div class="fe-row" style="margin-top:8px;${trackMacros ? '' : 'display:none'}">
+          <div class="fe-col fe-fat"><label class="field-lbl">Fat</label><div class="fe-suffix"><input type="number" id="pi-fat-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
+          <div class="fe-col fe-carb"><label class="field-lbl">Carbs</label><div class="fe-suffix"><input type="number" id="pi-carbs-${p.id}" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addItemToPresetCard('${p.id}')"><span>g</span></div></div>
         </div>
       </div>
       <div class="preset-actions" style="margin-top:10px">
@@ -1942,7 +1972,7 @@ function renderPresets() {
 // qty reset to 1. --
 let presetItemEditPresetId = null;
 let presetItemEditIdx = null;
-let presetItemEditBaseCal = 0, presetItemEditBasePro = 0, presetItemEditBaseWt = 0;
+let presetItemEditBaseCal = 0, presetItemEditBasePro = 0, presetItemEditBaseWt = 0, presetItemEditBaseFat = 0, presetItemEditBaseCarbs = 0;
 
 function openPresetItemEditModal(presetId, idx) {
   const p = presets.find(p => p.id == presetId);
@@ -1954,13 +1984,19 @@ function openPresetItemEditModal(presetId, idx) {
   const effCal = Math.round(it.cal * qty);
   const effPro = Math.round((it.pro||0) * qty);
   const effWt = it.weight_g ? Math.round(it.weight_g * qty * 10) / 10 : 0;
+  const effFat = it.fat != null ? Math.round(it.fat * qty) : 0;
+  const effCarbs = it.carbs != null ? Math.round(it.carbs * qty) : 0;
   presetItemEditBaseCal = effCal;
   presetItemEditBasePro = effPro;
   presetItemEditBaseWt = effWt;
+  presetItemEditBaseFat = effFat;
+  presetItemEditBaseCarbs = effCarbs;
   document.getElementById('piem-desc').value = it.name;
   document.getElementById('piem-cal').value = effCal;
   document.getElementById('piem-pro').value = effPro;
   document.getElementById('piem-wt').value = effWt || '';
+  document.getElementById('piem-fat').value = effFat || '';
+  document.getElementById('piem-carbs').value = effCarbs || '';
   document.getElementById('piem-mult').textContent = '1.0×';
   document.getElementById('piem-slider').value = 1;
   document.getElementById('preset-item-edit-modal').style.display = 'flex';
@@ -1977,6 +2013,10 @@ function onPresetItemEditSlider(value) {
   document.getElementById('piem-mult').textContent = mult.toFixed(1) + '×';
   document.getElementById('piem-cal').value = Math.round(presetItemEditBaseCal * mult);
   document.getElementById('piem-pro').value = Math.round(presetItemEditBasePro * mult);
+  if (trackMacros) {
+    if (presetItemEditBaseFat) document.getElementById('piem-fat').value = Math.round(presetItemEditBaseFat * mult);
+    if (presetItemEditBaseCarbs) document.getElementById('piem-carbs').value = Math.round(presetItemEditBaseCarbs * mult);
+  }
   if (presetItemEditBaseWt) {
     document.getElementById('piem-wt').value = Math.round(presetItemEditBaseWt * mult * 10) / 10;
   }
@@ -1995,7 +2035,11 @@ async function savePresetItemEditModal() {
   const pro = parseInt(document.getElementById('piem-pro').value) || 0;
   const wtRaw = document.getElementById('piem-wt').value;
   const weight_g = wtRaw !== '' ? (parseFloat(wtRaw) || null) : null;
-  p.items[idx] = { ...p.items[idx], name, cal, pro, weight_g, qty: 1 };
+  const fatRaw = document.getElementById('piem-fat').value;
+  const carbsRaw = document.getElementById('piem-carbs').value;
+  const fat = trackMacros && fatRaw !== '' ? (parseInt(fatRaw) || null) : null;
+  const carbs = trackMacros && carbsRaw !== '' ? (parseInt(carbsRaw) || null) : null;
+  p.items[idx] = { ...p.items[idx], name, cal, pro, weight_g, fat, carbs, qty: 1 };
   closePresetItemEditModal();
   renderPresets();
   try { await savePresetsToServer(); }
@@ -2022,25 +2066,29 @@ async function addItemToPresetCard(presetId) {
   const wtEl = document.getElementById(`pi-wt-${presetId}`);
   const calEl = document.getElementById(`pi-cal-${presetId}`);
   const proEl = document.getElementById(`pi-pro-${presetId}`);
+  const fatEl = document.getElementById(`pi-fat-${presetId}`);
+  const carbsEl = document.getElementById(`pi-carbs-${presetId}`);
   const name = nameEl.value.trim();
   const weight_g = parseFloat(wtEl.value) || 0;
   const cal = parseInt(calEl.value) || 0;
   const pro = parseInt(proEl.value) || 0;
+  const fat = trackMacros ? (parseInt(fatEl.value) || 0) : 0;
+  const carbs = trackMacros ? (parseInt(carbsEl.value) || 0) : 0;
   if (!name) { nameEl.focus(); return; }
-  if (!weight_g && !cal && !pro) { wtEl.focus(); return; }
+  if (!weight_g && !cal && !pro && !fat && !carbs) { wtEl.focus(); return; }
   const btn = document.getElementById(`pi-btn-${presetId}`);
   if (btn.disabled) return;
   btn.disabled = true; btn.textContent = '…';
   try {
-    const r = await resolveFoodAmounts(name, weight_g, cal, pro, 0, 0, false);
-    p.items.push({ food_item_id: null, name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, qty: 1 });
+    const r = await resolveFoodAmounts(name, weight_g, cal, pro, fat, carbs, trackMacros);
+    p.items.push({ food_item_id: null, name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, fat: trackMacros ? r.fat : null, carbs: trackMacros ? r.carbs : null, qty: 1 });
   } catch (e) {
     toast('Error: ' + e.message);
     btn.disabled = false; btn.textContent = 'Add';
     return;
   }
   btn.disabled = false; btn.textContent = 'Add';
-  nameEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = '';
+  nameEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = ''; fatEl.value = ''; carbsEl.value = '';
   renderPresets();
   try { await savePresetsToServer(); }
   catch (e) { toast('Save failed — will retry on next change'); }
@@ -2061,6 +2109,8 @@ function openPresetBuilder(id) {
   document.getElementById('pb-adhoc-wt').value = '';
   document.getElementById('pb-adhoc-cal').value = '';
   document.getElementById('pb-adhoc-pro').value = '';
+  document.getElementById('pb-adhoc-fat').value = '';
+  document.getElementById('pb-adhoc-carbs').value = '';
   document.getElementById('preset-builder-title').textContent = p ? 'Edit Preset' : 'New Preset';
   document.getElementById('preset-builder').style.display = '';
   document.getElementById('preset-builder-toggle').style.display = 'none';
@@ -2090,7 +2140,7 @@ function addToPresetBuilder(foodItemId) {
   if (!f) return;
   const existing = presetBuilderItems.find(it => it.food_item_id == foodItemId);
   if (existing) existing.qty += 1;
-  else presetBuilderItems.push({ food_item_id: f.id, name: f.name, cal: f.cal, pro: f.pro||0, weight_g: f.weight_g||null, qty: 1 });
+  else presetBuilderItems.push({ food_item_id: f.id, name: f.name, cal: f.cal, pro: f.pro||0, weight_g: f.weight_g||null, fat: f.fat!=null?f.fat:null, carbs: f.carbs!=null?f.carbs:null, qty: 1 });
   renderPresetBuilderItems();
 }
 
@@ -2103,25 +2153,29 @@ async function addAdhocToPresetBuilder() {
   const wtEl = document.getElementById('pb-adhoc-wt');
   const calEl = document.getElementById('pb-adhoc-cal');
   const proEl = document.getElementById('pb-adhoc-pro');
+  const fatEl = document.getElementById('pb-adhoc-fat');
+  const carbsEl = document.getElementById('pb-adhoc-carbs');
   const name = descEl.value.trim();
   const weight_g = parseFloat(wtEl.value) || 0;
   const cal = parseInt(calEl.value) || 0;
   const pro = parseInt(proEl.value) || 0;
+  const fat = trackMacros ? (parseInt(fatEl.value) || 0) : 0;
+  const carbs = trackMacros ? (parseInt(carbsEl.value) || 0) : 0;
   if (!name) { descEl.focus(); return; }
-  if (!weight_g && !cal && !pro) { calEl.focus(); return; }
+  if (!weight_g && !cal && !pro && !fat && !carbs) { calEl.focus(); return; }
   const btn = document.getElementById('pb-adhoc-btn');
   if (btn.disabled) return;
   btn.disabled = true; btn.textContent = '…';
   try {
-    const r = await resolveFoodAmounts(name, weight_g, cal, pro, 0, 0, false);
-    presetBuilderItems.push({ food_item_id: null, name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, qty: 1 });
+    const r = await resolveFoodAmounts(name, weight_g, cal, pro, fat, carbs, trackMacros);
+    presetBuilderItems.push({ food_item_id: null, name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, fat: trackMacros ? r.fat : null, carbs: trackMacros ? r.carbs : null, qty: 1 });
   } catch (e) {
     toast('Error: ' + e.message);
     btn.disabled = false; btn.textContent = 'Add';
     return;
   }
   btn.disabled = false; btn.textContent = 'Add';
-  descEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = ''; descEl.focus();
+  descEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = ''; fatEl.value = ''; carbsEl.value = ''; descEl.focus();
   renderPresetBuilderItems();
 }
 
@@ -2169,7 +2223,14 @@ function savePresetItemEdit(idx) {
   const pro = parseInt(document.getElementById(`pit-pro-${idx}`).value) || 0;
   const wtRaw = document.getElementById(`pit-wt-${idx}`).value;
   const weight_g = wtRaw !== '' ? (parseFloat(wtRaw) || null) : null;
-  presetBuilderItems[idx] = { ...it, name, cal, pro, weight_g };
+  let fat = it.fat, carbs = it.carbs;
+  if (trackMacros) {
+    const fatRaw = document.getElementById(`pit-fat-${idx}`).value;
+    const carbsRaw = document.getElementById(`pit-carbs-${idx}`).value;
+    fat = fatRaw !== '' ? (parseInt(fatRaw) || null) : null;
+    carbs = carbsRaw !== '' ? (parseInt(carbsRaw) || null) : null;
+  }
+  presetBuilderItems[idx] = { ...it, name, cal, pro, weight_g, fat, carbs };
   editingPresetItemIdx = null;
   renderPresetBuilderItems();
 }
@@ -2194,6 +2255,8 @@ function presetItemTilesHtml(items, editable, presetId) {
             <input type="number" id="pit-cal-${idx}" value="${it.cal}" placeholder="kcal" inputmode="numeric" style="width:68px;padding:5px 8px;font-size:12px">
             <input type="number" id="pit-pro-${idx}" value="${it.pro||0}" placeholder="g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
             <input type="number" id="pit-wt-${idx}" value="${it.weight_g||''}" placeholder="wt g" inputmode="decimal" step="0.1" style="width:60px;padding:5px 8px;font-size:12px">
+            ${trackMacros ? `<input type="number" id="pit-fat-${idx}" value="${it.fat||''}" placeholder="fat g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">
+            <input type="number" id="pit-carbs-${idx}" value="${it.carbs||''}" placeholder="carb g" inputmode="numeric" style="width:55px;padding:5px 8px;font-size:12px">` : ''}
             <button class="save-btn" onclick="savePresetItemEdit(${idx})">SAVE</button>
             <button class="cancel-btn" onclick="editingPresetItemIdx=null;renderPresetBuilderItems()">✕</button>
           </div>
@@ -2201,11 +2264,13 @@ function presetItemTilesHtml(items, editable, presetId) {
     }
     const wt = it.weight_g ? ` · <span class="wt">${scaledWeightText(it.weight_g, it.qty)}</span>` : '';
     const qtyLbl = it.qty !== 1 ? ` · ×${it.qty}` : '';
+    const ft = trackMacros && it.fat != null ? ` · <span class="ft">${Math.round(it.fat*it.qty)}g fat</span>` : '';
+    const cb = trackMacros && it.carbs != null ? ` · <span class="cb">${Math.round(it.carbs*it.qty)}g carbs</span>` : '';
     return `
       <div class="meal-row fade">
         <div style="flex:1">
           <div class="meal-desc">${esc(it.name)}</div>
-          <div class="meal-meta"><span class="kc">${Math.round(it.cal*it.qty)} kcal</span> · <span class="pr">${Math.round((it.pro||0)*it.qty)}g prot</span>${wt}${qtyLbl}</div>
+          <div class="meal-meta"><span class="kc">${Math.round(it.cal*it.qty)} kcal</span> · <span class="pr">${Math.round((it.pro||0)*it.qty)}g prot</span>${ft}${cb}${wt}${qtyLbl}</div>
         </div>
         ${editable ? `
           <div class="qty-stepper">
@@ -2229,7 +2294,9 @@ function renderPresetBuilderItems() {
   if (totalsEl) {
     const totalCal = presetBuilderItems.reduce((s,it)=>s+Math.round(it.cal*it.qty),0);
     const totalPro = presetBuilderItems.reduce((s,it)=>s+Math.round((it.pro||0)*it.qty),0);
-    totalsEl.innerHTML = `<span class="kc">${totalCal} kcal</span> · <span class="pr">${totalPro}g prot</span>`;
+    const totalFat = presetBuilderItems.reduce((s,it)=>s+(it.fat!=null?Math.round(it.fat*it.qty):0),0);
+    const totalCarbs = presetBuilderItems.reduce((s,it)=>s+(it.carbs!=null?Math.round(it.carbs*it.qty):0),0);
+    totalsEl.innerHTML = `<span class="kc">${totalCal} kcal</span> · <span class="pr">${totalPro}g prot</span>${trackMacros ? ` · <span class="ft">${totalFat}g fat</span> · <span class="cb">${totalCarbs}g carbs</span>` : ''}`;
   }
   if (!box) return;
   box.innerHTML = presetItemTilesHtml(presetBuilderItems, true);
@@ -2267,10 +2334,12 @@ async function logPreset(id) {
   for (const it of p.items) {
     const qty = it.qty;
     const weight_g = it.weight_g ? Math.round(it.weight_g * qty * 10) / 10 : null;
+    const fat = trackMacros && it.fat != null ? Math.round(it.fat * qty) : null;
+    const carbs = trackMacros && it.carbs != null ? Math.round(it.carbs * qty) : null;
     const desc = qty === 1 ? it.name
       : it.weight_g ? `${it.name} (${scaledWeightText(it.weight_g, qty)})`
       : `${it.name} ×${qty}`;
-    meals.push({ id: newLocalId(), desc, cal: Math.round(it.cal*qty), pro: Math.round((it.pro||0)*qty), weight_g, time: timeNow() });
+    meals.push({ id: newLocalId(), desc, cal: Math.round(it.cal*qty), pro: Math.round((it.pro||0)*qty), weight_g, fat, carbs, time: timeNow() });
   }
   await api('/meals/save', { date: dateKey(activeDate), meals });
   updateUI();
@@ -4611,6 +4680,12 @@ function renderFoodMacroFields() {
   document.querySelectorAll('.macro-row').forEach(el => {
     el.style.display = trackMacros ? '' : 'none';
   });
+  // Food Items and Presets compute their macro rows/totals at render time
+  // (not just a CSS toggle, since they're template-generated), so they
+  // need a fresh render to pick up a toggle flipped while already loaded —
+  // both guard on missing data/DOM internally, safe to call any time.
+  if (typeof renderFoodItems === 'function') renderFoodItems();
+  if (typeof renderPresets === 'function') renderPresets();
 }
 
 function setTrackMacros(on, btn) {
