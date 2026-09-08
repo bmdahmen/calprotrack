@@ -975,6 +975,10 @@
             <button class="macro-mode-btn" id="macros-on" onclick="setTrackMacros(true,this)">On</button>
           </div>
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">When on, every meal also tracks fat and carbs (grams) — AI estimates them automatically if you don't enter them, alongside calories and protein. Daily totals show on the Day tab.</div>
+          <div class="settings-grid macro-row" id="macro-target-row" style="margin-top:10px;display:none">
+            <div><label class="field-lbl">Fat Goal (g)</label><input type="number" id="prof-fat-target" inputmode="numeric" placeholder="Auto — 30% of calories" step="1" min="0" oninput="scheduleProfileSave()"></div>
+            <div><label class="field-lbl">Carb Goal (g)</label><input type="number" id="prof-carbs-target" inputmode="numeric" placeholder="Auto — remainder" step="1" min="0" oninput="scheduleProfileSave()"></div>
+          </div>
         </div>
 
         <div style="margin-top:14px">
@@ -1418,13 +1422,11 @@ function updateUI() {
   const todayWtEl0 = document.getElementById('wt-am');
   const todayWt0 = todayWtEl0 ? parseFloat(todayWtEl0.value) || null : null;
   const PRO_T_EFF = proteinTargetFor(dateKey(activeDate), todayWt0);
-  // No dedicated fat/carb targets exist anywhere yet (no Profile field for
-  // it), so these bars scale against a standard default split — 30% of the
-  // calorie target's calories from fat, everything left after protein+fat
-  // from carbs — same idea as the calorie/protein bars, just without a
-  // user-configurable ratio yet.
-  const FAT_T_EFF = Math.round(CAL_T_EFF * 0.3 / 9);
-  const CARBS_T_EFF = Math.max(0, Math.round((CAL_T_EFF - PRO_T_EFF * 4 - FAT_T_EFF * 9) / 4));
+  // Fat/carb targets: a manually-set Profile goal wins; otherwise fall back
+  // to a standard default split — 30% of the calorie target's calories
+  // from fat, everything left after protein+fat from carbs.
+  const FAT_T_EFF = FAT_T_USER || Math.round(CAL_T_EFF * 0.3 / 9);
+  const CARBS_T_EFF = CARBS_T_USER || Math.max(0, Math.round((CAL_T_EFF - PRO_T_EFF * 4 - FAT_T_EFF * 9) / 4));
   const remCal = CAL_T_EFF - cal, remPro = PRO_T_EFF - pro;
   const over = cal > CAL_T_EFF;
   const mode = currentGoalMode || 'deficit';
@@ -4634,6 +4636,8 @@ function loginSuccess(user) {
   if (user.cal_target_override) CAL_T_USER = user.cal_target_override;
   else if (user.tdee && user.goal_mode) CAL_T_USER = goalCalTarget(user.tdee, user.goal_mode);
   else if (user.cal_target) CAL_T_USER = user.cal_target;
+  FAT_T_USER = user.fat_target_override || null;
+  CARBS_T_USER = user.carbs_target_override || null;
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   const sub = document.querySelector('.logo-sub'); if(sub) sub.textContent = user.name.split(' ')[0].toUpperCase();
@@ -4728,6 +4732,8 @@ let CAL_T_USER = 1800; // 'deficit' | 'maintain' | 'bulk'
 let PRO_T_USER = 120;
 let PRO_RATIO_USER = 1.0; // g protein per lb bodyweight — used to recompute each day's target off that day's weight
 let TDEE_USER = 2100;
+let FAT_T_USER = null;   // manual fat/carb goal overrides (grams) — null means
+let CARBS_T_USER = null; // "use the 30%-fat/remainder-carbs auto default" in updateUI()
 
 const ACTIVITY_MULTIPLIERS = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725 };
 
@@ -4988,6 +4994,10 @@ async function saveProfile() {
   const muscleMaintainRaw = parseFloat(document.getElementById('prof-muscle-maintain-pct').value);
   const muscleMaintainPct = isNaN(muscleMaintainRaw) ? 20 : Math.min(100, Math.max(0, muscleMaintainRaw));
   const dietNotes = (document.getElementById('prof-diet-notes')?.value || '').trim();
+  const fatTargetRaw = parseFloat(document.getElementById('prof-fat-target')?.value);
+  const carbsTargetRaw = parseFloat(document.getElementById('prof-carbs-target')?.value);
+  FAT_T_USER = (isFinite(fatTargetRaw) && fatTargetRaw > 0) ? fatTargetRaw : null;
+  CARBS_T_USER = (isFinite(carbsTargetRaw) && carbsTargetRaw > 0) ? carbsTargetRaw : null;
   await api('/auth/profile', {
     user_id: currentUser.id,
     tdee: t.tdee, cal_target: t.calTarget, pro_target: protein,
@@ -4996,7 +5006,8 @@ async function saveProfile() {
     aggressiveness: currentAggressiveness,
     rmr: t.rmr, cal_target_override: calOverride,
     muscle_loss_pct: musclePct, muscle_gain_pct: muscleGainPct, muscle_maintain_pct: muscleMaintainPct,
-    coach_mode: coachMode, diet_notes: dietNotes, track_macros: trackMacros
+    coach_mode: coachMode, diet_notes: dietNotes, track_macros: trackMacros,
+    fat_target_override: FAT_T_USER, carbs_target_override: CARBS_T_USER
   });
   // Update stored user
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
@@ -5012,6 +5023,8 @@ async function saveProfile() {
   stored.coach_mode = coachMode;
   stored.diet_notes = dietNotes;
   stored.track_macros = trackMacros;
+  stored.fat_target_override = FAT_T_USER;
+  stored.carbs_target_override = CARBS_T_USER;
   localStorage.setItem('bl_user', JSON.stringify(stored));
   updateUI();
   refreshHistInsight();
@@ -5030,6 +5043,8 @@ function loadProfilePane() {
   }
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
   document.getElementById('prof-diet-notes').value = stored.diet_notes || '';
+  if (stored.fat_target_override) document.getElementById('prof-fat-target').value = stored.fat_target_override;
+  if (stored.carbs_target_override) document.getElementById('prof-carbs-target').value = stored.carbs_target_override;
   if (stored.age) document.getElementById('prof-age').value = stored.age;
   if (stored.weight_lbs) document.getElementById('prof-weight').value = stored.weight_lbs;
   if (stored.height_in) document.getElementById('prof-height').value = stored.height_in;
