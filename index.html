@@ -55,8 +55,8 @@
   .ai-suggest-msg{font-family:'DM Mono',monospace;font-size:11px;color:#aaa;line-height:1.6;margin-bottom:8px;}
   /* Theme toggle */
   .theme-toggle{display:flex;gap:8px;margin-top:4px;}
-  .theme-btn,.coach-mode-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:"DM Mono",monospace;font-size:9px;padding:8px;border-radius:6px;cursor:pointer;transition:all .15s;}
-  .theme-btn.on,.coach-mode-btn.on{border-color:#f97316;color:#f97316;}
+  .theme-btn,.coach-mode-btn,.macro-mode-btn{flex:1;background:none;border:1px solid #2a2a2a;color:#555;font-family:"DM Mono",monospace;font-size:9px;padding:8px;border-radius:6px;cursor:pointer;transition:all .15s;}
+  .theme-btn.on,.coach-mode-btn.on,.macro-mode-btn.on{border-color:#f97316;color:#f97316;}
   /* ── LIGHT MODE ── */
   body.light{background:#e8e2d9;color:#2c2820;}
   body.light .header{background:#dfd9cf;border-bottom-color:#c8c1b8;}
@@ -136,8 +136,8 @@
   body.light .onboard-act-btn{border-color:#c0b9b0;color:#7a7168;}
   body.light .onboard-act-btn.on{border-color:#c8621a;color:#c8621a;}
   body.light .onboard-tdee{color:#7a7168;}
-  body.light .theme-btn,body.light .coach-mode-btn{border-color:#c8c1b8;color:#7a7168;}
-  body.light .theme-btn.on,body.light .coach-mode-btn.on{border-color:#c8621a;color:#c8621a;}
+  body.light .theme-btn,body.light .coach-mode-btn,body.light .macro-mode-btn{border-color:#c8c1b8;color:#7a7168;}
+  body.light .theme-btn.on,body.light .coach-mode-btn.on,body.light .macro-mode-btn.on{border-color:#c8621a;color:#c8621a;}
   body.light .avatar-btn img{border-color:#c8621a;}
   body.light .avatar-btn .av-placeholder{background:#dfd9cf;border-color:#c8621a;color:#c8621a;}
   body.light .icon-btn{color:#7a7168;}
@@ -184,6 +184,8 @@
   body.light .insight-bar.surplus-fat{color:#7a1a1a;background:#edd5d5;}
   body.light .kc{color:#b05010!important;}
   body.light .pr{color:#5a3a9a!important;}
+  body.light .ft{color:#9a7a10!important;}
+  body.light .cb{color:#1a7ab0!important;}
   body.light .wt{color:#8a8074;}
   body.light .prog-val{color:#2c2820!important;font-weight:600;}
   body.light .prog-meta span{color:#4a4540;}
@@ -308,6 +310,8 @@
   .fe-kcal{width:82px;flex:none;}
   .fe-pro{width:74px;flex:none;}
   .fe-wt{width:74px;flex:none;}
+  .fe-fat{width:74px;flex:none;}
+  .fe-carb{width:74px;flex:none;}
   .fe-suffix{position:relative;}
   .fe-suffix input{padding-right:28px;text-align:right;font-variant-numeric:tabular-nums;}
   .fe-suffix>span{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:10px;color:#666;letter-spacing:1px;pointer-events:none;}
@@ -342,6 +346,7 @@
   .meal-meta{font-family:'DM Mono',monospace;font-size:10px;color:#777;margin-top:1px;}
   .meal-running{font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:1px;}
   .kc{color:#f97316!important;}.pr{color:#a78bfa!important;}.wt{color:#666;}
+  .ft{color:#eab308!important;}.cb{color:#38bdf8!important;}
   .icon-btn{background:none;border:none;color:#555;font-size:19px;cursor:pointer;padding:6px 9px;transition:color .15s;}
   .icon-btn:last-child{margin-left:4px;}
   .icon-btn:hover{color:#f87171;}.icon-btn.ed:hover{color:#f97316;}
@@ -699,6 +704,10 @@
           <div class="fe-col fe-pro"><label class="field-lbl">Protein</label><div class="fe-suffix"><input type="number" id="sf-pro" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')calcSmartFood()"><span>g</span></div></div>
           <button type="button" class="fe-cam-btn" onclick="openPhotoEstimate()" title="Add via photo">📷</button>
         </div>
+        <div class="fe-row macro-row" id="sf-macro-row" style="margin-top:8px;display:none">
+          <div class="fe-col fe-fat"><label class="field-lbl">Fat</label><div class="fe-suffix"><input type="number" id="sf-fat" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')calcSmartFood()"><span>g</span></div></div>
+          <div class="fe-col fe-carb"><label class="field-lbl">Carbs</label><div class="fe-suffix"><input type="number" id="sf-carbs" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')calcSmartFood()"><span>g</span></div></div>
+        </div>
         <div class="fe-row" style="margin-top:8px">
           <button class="fe-go grow" id="sf-btn" onclick="calcSmartFood()">Log</button>
         </div>
@@ -944,6 +953,15 @@
         </div>
 
         <div style="margin-top:14px">
+          <label class="field-lbl">Fat &amp; Carbs</label>
+          <div class="theme-toggle">
+            <button class="macro-mode-btn on" id="macros-off" onclick="setTrackMacros(false,this)">Off</button>
+            <button class="macro-mode-btn" id="macros-on" onclick="setTrackMacros(true,this)">On</button>
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">When on, every meal also tracks fat and carbs (grams) — AI estimates them automatically if you don't enter them, alongside calories and protein. Daily totals show on the Day tab.</div>
+        </div>
+
+        <div style="margin-top:14px">
           <label class="field-lbl">Diet Notes for AI Coach</label>
           <textarea id="prof-diet-notes" rows="3" maxlength="600" placeholder="e.g. I don't care about fiber, skip sugar warnings, I'm vegetarian, keep suggestions brief" oninput="scheduleProfileSave()"></textarea>
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;">Applied to the AI Coach's comments and chat (day + history) and the food estimator's commentary — use it to steer what gets brought up or left alone.</div>
@@ -1005,6 +1023,10 @@
       <div class="sw-stat"><input type="number" class="sw-stat-input kc" id="mem-cal" inputmode="numeric"><div class="sw-stat-lbl">kcal</div></div>
       <div class="sw-stat"><input type="number" class="sw-stat-input pr" id="mem-pro" inputmode="numeric"><div class="sw-stat-lbl">protein (g)</div></div>
       <div class="sw-stat"><input type="number" class="sw-stat-input wt" id="mem-wt" inputmode="decimal" step="0.1" placeholder="—"><div class="sw-stat-lbl">weight (g)</div></div>
+    </div>
+    <div class="sw-totals macro-row" id="mem-macro-row" style="display:none;margin-top:-8px">
+      <div class="sw-stat"><input type="number" class="sw-stat-input" id="mem-fat" inputmode="numeric" placeholder="—"><div class="sw-stat-lbl">fat (g)</div></div>
+      <div class="sw-stat"><input type="number" class="sw-stat-input" id="mem-carbs" inputmode="numeric" placeholder="—"><div class="sw-stat-lbl">carbs (g)</div></div>
     </div>
     <input type="range" id="mem-slider" class="sw-slider" min="0.2" max="3" step="0.1" value="1" oninput="onMealEditModalSlider(this.value)">
     <button class="fe-go grow" onclick="saveMealEditModal()">SAVE</button>
@@ -1081,7 +1103,7 @@ let meals = [];
 // period elapses, so it updates on its own without another user action.
 let insightRetryTimer = null;
 let mealEditId = null;
-let mealEditBaseCal = 0, mealEditBasePro = 0, mealEditBaseWt = 0; // meal's values at edit-open time — the slider's 1.0× reference
+let mealEditBaseCal = 0, mealEditBasePro = 0, mealEditBaseWt = 0, mealEditBaseFat = 0, mealEditBaseCarbs = 0; // meal's values at edit-open time — the slider's 1.0× reference
 let historyData = [];
 let phases = []; // goal-mode phase history: {id, mode, start_date, end_date|null, created_at}
 let dexaScans = []; // {id, date, weight, bf_pct, created_at} — kept sorted by date
@@ -1342,6 +1364,8 @@ function totals() {
   return {
     cal: meals.reduce((s,m)=>s+(parseInt(m.cal)||0),0),
     pro: meals.reduce((s,m)=>s+(parseInt(m.pro)||0),0),
+    fat: meals.reduce((s,m)=>s+(parseInt(m.fat)||0),0),
+    carbs: meals.reduce((s,m)=>s+(parseInt(m.carbs)||0),0),
   };
 }
 
@@ -1368,7 +1392,7 @@ function proteinTargetFor(atDate, liveWeight) {
 }
 
 function updateUI() {
-  const {cal, pro} = totals();
+  const {cal, pro, fat, carbs} = totals();
   const TDEE = TDEE_USER || 2100;
   const CAL_T_EFF = CAL_T_USER || CAL_T || 1800;
   const todayWtEl0 = document.getElementById('wt-am');
@@ -1441,6 +1465,8 @@ function updateUI() {
     bodyCompNow && bodyCompNow.bfPctNow!=null ? {l:"BODY FAT %",v:bodyCompNow.bfPctNow.toFixed(1)+"%",c:""} : null,
     {l:"DAY CALS",v:`${cal} kcal`,c:""},
     {l:"DAY PROTEIN",v:`${pro}g protein`,c:""},
+    trackMacros?{l:"DAY FAT",v:`${fat}g fat`,c:""}:null,
+    trackMacros?{l:"DAY CARBS",v:`${carbs}g carbs`,c:""}:null,
     avgCal?{l:"7D AVG CALS",v:avgCal,c:""}:null,
     avgPro?{l:"7D AVG PROT",v:avgPro+"g",c:""}:null,
   ].filter(Boolean).map(s=>`<div class="stat"><div class="lbl">${s.l}</div><div class="val ${s.c}">${s.v}</div></div>`).join("");
@@ -1454,7 +1480,7 @@ let mealsExpanded = false;
 function renderMeals() {
   const box = document.getElementById("meal-list");
   if (!meals.length) { box.innerHTML='<div class="no-meals">No meals logged yet</div>'; return; }
-  const {cal:tc,pro:tp} = totals();
+  const {cal:tc,pro:tp,fat:tf,carbs:tcb} = totals();
   // Running total as of each meal, in the order meals were logged — computed
   // before reversing so "so far" reads top-to-bottom the way the day happened.
   let runCal = 0, runPro = 0;
@@ -1473,7 +1499,7 @@ function renderMeals() {
     <div class="meal-row fade" id="mr-${m.id}">
       <div style="flex:1">
         <div class="meal-desc">${esc(m.desc)}</div>
-        <div class="meal-meta">${m.time||''} · <span class="kc">${m.cal} kcal</span> · <span class="pr">${m.pro}g prot</span>${m.weight_g ? ` · <span class="wt">${scaledWeightText(m.weight_g, 1)}</span>` : ''}</div>
+        <div class="meal-meta">${m.time||''} · <span class="kc">${m.cal} kcal</span> · <span class="pr">${m.pro}g prot</span>${trackMacros && m.fat != null ? ` · <span class="ft">${m.fat}g fat</span>` : ''}${trackMacros && m.carbs != null ? ` · <span class="cb">${m.carbs}g carbs</span>` : ''}${m.weight_g ? ` · <span class="wt">${scaledWeightText(m.weight_g, 1)}</span>` : ''}</div>
         <div class="meal-running">${runningById[m.id].cal} kcal · ${runningById[m.id].pro}g so far</div>
       </div>
       <button class="icon-btn ed" onclick="openMealEditModal('${m.id}')" title="Edit">✎</button>
@@ -1485,7 +1511,7 @@ function renderMeals() {
   </button>` : '';
 
   box.innerHTML = rows + showMoreBtn +
-    `<div class="total-row"><span class="total-lbl">TOTAL</span><span><span class="kc">${tc} kcal</span> · <span class="pr">${tp}g</span></span></div>`;
+    `<div class="total-row"><span class="total-lbl">TOTAL</span><span><span class="kc">${tc} kcal</span> · <span class="pr">${tp}g</span>${trackMacros ? ` · <span class="ft">${tf}g</span> · <span class="cb">${tcb}g</span>` : ''}</span></div>`;
 }
 
 // -- Meal edit wizard: a bigger modal (matching the serving-size wizard's
@@ -1500,10 +1526,14 @@ function openMealEditModal(id) {
   mealEditBaseCal = m.cal || 0;
   mealEditBasePro = m.pro || 0;
   mealEditBaseWt = m.weight_g || 0;
+  mealEditBaseFat = m.fat || 0;
+  mealEditBaseCarbs = m.carbs || 0;
   document.getElementById('mem-desc').value = m.desc;
   document.getElementById('mem-cal').value = m.cal;
   document.getElementById('mem-pro').value = m.pro;
   document.getElementById('mem-wt').value = m.weight_g || '';
+  document.getElementById('mem-fat').value = m.fat || '';
+  document.getElementById('mem-carbs').value = m.carbs || '';
   document.getElementById('mem-mult').textContent = '1.0×';
   document.getElementById('mem-slider').value = 1;
   document.getElementById('meal-edit-modal').style.display = 'flex';
@@ -1524,6 +1554,10 @@ function onMealEditModalSlider(value) {
   if (mealEditBaseWt) {
     document.getElementById('mem-wt').value = Math.round(mealEditBaseWt * mult * 10) / 10;
   }
+  if (trackMacros) {
+    if (mealEditBaseFat) document.getElementById('mem-fat').value = Math.round(mealEditBaseFat * mult);
+    if (mealEditBaseCarbs) document.getElementById('mem-carbs').value = Math.round(mealEditBaseCarbs * mult);
+  }
 }
 
 async function saveMealEditModal() {
@@ -1536,7 +1570,11 @@ async function saveMealEditModal() {
   const pro = parseInt(document.getElementById('mem-pro').value) || 0;
   const wtRaw = document.getElementById('mem-wt').value;
   const weight_g = wtRaw !== '' ? (parseFloat(wtRaw) || null) : null;
-  meals = meals.map(m => m.id == id ? { ...m, desc, cal, pro, weight_g } : m);
+  const fatRaw = document.getElementById('mem-fat').value;
+  const carbsRaw = document.getElementById('mem-carbs').value;
+  const fat = trackMacros && fatRaw !== '' ? (parseInt(fatRaw) || null) : null;
+  const carbs = trackMacros && carbsRaw !== '' ? (parseInt(carbsRaw) || null) : null;
+  meals = meals.map(m => m.id == id ? { ...m, desc, cal, pro, weight_g, fat, carbs } : m);
   closeMealEditModal();
   await api("/meals/save",{date:dateKey(activeDate),meals});
   updateUI();
@@ -1766,7 +1804,7 @@ async function addFoodItem() {
       try { await saveFoodItems(); toast(items.length > 1 ? `${items.length} food items added ✓` : 'Food item added ✓'); }
       catch (e) { toast('Added locally — save failed, will retry on next change'); }
     } else {
-      const r = await resolveFoodAmounts(name, weight_g, cal, pro);
+      const r = await resolveFoodAmounts(name, weight_g, cal, pro, 0, 0, false);
       foodItems.push({ id: newLocalId(), name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, created_at: new Date().toISOString() });
       renderFoodItems();
       renderPresetBuilderPicker();
@@ -1994,7 +2032,7 @@ async function addItemToPresetCard(presetId) {
   if (btn.disabled) return;
   btn.disabled = true; btn.textContent = '…';
   try {
-    const r = await resolveFoodAmounts(name, weight_g, cal, pro);
+    const r = await resolveFoodAmounts(name, weight_g, cal, pro, 0, 0, false);
     p.items.push({ food_item_id: null, name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, qty: 1 });
   } catch (e) {
     toast('Error: ' + e.message);
@@ -2075,7 +2113,7 @@ async function addAdhocToPresetBuilder() {
   if (btn.disabled) return;
   btn.disabled = true; btn.textContent = '…';
   try {
-    const r = await resolveFoodAmounts(name, weight_g, cal, pro);
+    const r = await resolveFoodAmounts(name, weight_g, cal, pro, 0, 0, false);
     presetBuilderItems.push({ food_item_id: null, name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, qty: 1 });
   } catch (e) {
     toast('Error: ' + e.message);
@@ -2574,8 +2612,8 @@ function updateCharCount() {
 }
 
 // Push a meal, persist, and refresh everything that depends on the day's totals.
-async function logMeal(desc, cal, pro, weight_g = null) {
-  meals.push({ id: Date.now() + Math.random(), desc, cal, pro, weight_g, time: timeNow() });
+async function logMeal(desc, cal, pro, weight_g = null, fat = null, carbs = null) {
+  meals.push({ id: Date.now() + Math.random(), desc, cal, pro, weight_g, fat, carbs, time: timeNow() });
   await api("/meals/save", { date: dateKey(activeDate), meals });
   updateUI();
   refreshInsight();
@@ -2627,83 +2665,73 @@ async function callFoodCalcAI(failureTag, sysPrompt, userMsg, requiredField) {
 // four directions consistent with each other — the residual uncertainty is
 // now only "is the AI's density estimate itself accurate," not also
 // "did this particular phrasing of the question get a different guess."
+// Single canonical per-100g lookup, covering all four macros in one AI call
+// regardless of whether fat/carb tracking is on — the marginal cost of the
+// extra two numbers is negligible, and it keeps this the one source of
+// truth every direction below computes from (see the comment on
+// resolveFoodAmounts for why that matters).
 async function getFoodDensity(food) {
-  const sysPrompt = `You are a precise nutrition reference. Given a food, report its calories and protein per 100g using standard nutrition data (typical USDA-style values; account for stated preparation like cooked/raw/fried when given, and default to a common preparation otherwise). A ratio like "93/7" or "80/20" describes the lean-to-fat percentage of ground meat (e.g. 93% lean, 7% fat) — treat it as a description of the food, never as a fraction to divide. Respond with ONLY a raw JSON object — no prose, no explanation, no markdown, no code fences. Your entire reply must start with { and end with }, in exactly this shape: {"cal_per_100g":165,"protein_per_100g":31}.`;
+  const sysPrompt = `You are a precise nutrition reference. Given a food, report its calories, protein, fat, and carbohydrates per 100g using standard nutrition data (typical USDA-style values; account for stated preparation like cooked/raw/fried when given, and default to a common preparation otherwise). A ratio like "93/7" or "80/20" describes the lean-to-fat percentage of ground meat (e.g. 93% lean, 7% fat) — treat it as a description of the food, never as a fraction to divide. Respond with ONLY a raw JSON object — no prose, no explanation, no markdown, no code fences. Your entire reply must start with { and end with }, in exactly this shape: {"cal_per_100g":165,"protein_per_100g":31,"fat_per_100g":3.6,"carbs_per_100g":0}.`;
   const parsed = await callFoodCalcAI('food_density', sysPrompt, food, 'cal_per_100g');
-  return { calPer100g: Number(parsed.cal_per_100g) || 0, proPer100g: Number(parsed.protein_per_100g) || 0 };
+  return {
+    calPer100g: Number(parsed.cal_per_100g) || 0,
+    proPer100g: Number(parsed.protein_per_100g) || 0,
+    fatPer100g: Number(parsed.fat_per_100g) || 0,
+    carbsPer100g: Number(parsed.carbs_per_100g) || 0,
+  };
 }
 
-// Weight → Calories+Protein: scale the per-100g density up to the given weight.
-async function calcCaloriesForWeight(grams, food) {
-  const { calPer100g, proPer100g } = await getFoodDensity(food);
-  return { cal: Math.round(calPer100g * grams / 100), pro: Math.round(proPer100g * grams / 100) };
-}
+// Smart food entry: fills in only whichever of {weight, calories, protein,
+// fat, carbs} the user actually left blank — anything typed is used exactly
+// as typed, never silently recomputed over. fat/carbs are only considered
+// (and only returned) when trackMacros is on; pass it explicitly rather
+// than reading the global so this stays testable/predictable.
+//
+// One weight is resolved for the whole item: if given directly, that wins;
+// otherwise it's derived from whichever macro(s) were typed (averaging the
+// implied weight when more than one was given, e.g. calories AND protein
+// but no weight — recipes don't always agree exactly with a flat density).
+// Every macro not typed is then filled in from that weight and the food's
+// per-100g density — so weight->calories, calories->weight, and every
+// other direction all trace back to the same numbers instead of each being
+// an independently-phrased (and possibly inconsistent) AI guess.
+//
+// Shared by the Food Log's Add Food entry, the Add Food Item catalog form,
+// and the preset builder/card's one-off item entry.
+async function resolveFoodAmounts(food, weight_g, cal, pro, fat, carbs, trackMacros) {
+  fat = trackMacros ? fat : 0;
+  carbs = trackMacros ? carbs : 0;
+  const given = { cal, pro, fat, carbs };
+  if (!weight_g && !cal && !pro && !fat && !carbs) {
+    throw new Error(`enter a weight, calories, protein${trackMacros ? ', fat, or carbs' : ', or protein'} amount`);
+  }
 
-// Calories → Weight+Protein: invert the same density to solve for weight,
-// then derive protein from that weight — exact arithmetic, not a second guess.
-async function calcWeightForCalories(calories, food) {
-  const { calPer100g, proPer100g } = await getFoodDensity(food);
-  const weight_g = calPer100g ? Math.round(calories / calPer100g * 100) : 0;
-  return { weight_g, pro: Math.round(proPer100g * weight_g / 100) };
-}
+  const needsWeight = !weight_g;
+  const needsAnyMacro = !cal || !pro || (trackMacros && (!fat || !carbs));
+  const density = (needsWeight || needsAnyMacro) ? await getFoodDensity(food) : null;
 
-// Protein → Weight+Calories: same density, inverted on the protein side.
-async function calcWeightForProtein(protein, food) {
-  const { calPer100g, proPer100g } = await getFoodDensity(food);
-  const weight_g = proPer100g ? Math.round(protein / proPer100g * 100) : 0;
-  return { weight_g, cal: Math.round(calPer100g * weight_g / 100) };
-}
+  let resolvedWeight = weight_g;
+  if (!resolvedWeight) {
+    const perGram = { cal: density.calPer100g, pro: density.proPer100g, fat: density.fatPer100g, carbs: density.carbsPer100g };
+    const implied = ['cal', 'pro', 'fat', 'carbs']
+      .filter(k => given[k] && perGram[k])
+      .map(k => given[k] / perGram[k] * 100);
+    resolvedWeight = implied.length ? Math.round(implied.reduce((a, b) => a + b, 0) / implied.length) : 0;
+  }
 
-// Calories+Protein → Weight: both targets are already known but may not
-// perfectly agree with a single density (recipes vary) — solve for weight
-// from each side of the same density and average, rather than trusting
-// either target alone.
-async function calcWeightForCaloriesAndProtein(calories, protein, food) {
-  const { calPer100g, proPer100g } = await getFoodDensity(food);
-  const wFromCal = calPer100g ? calories / calPer100g * 100 : null;
-  const wFromPro = proPer100g ? protein / proPer100g * 100 : null;
-  const weight_g = Math.round(
-    wFromCal != null && wFromPro != null ? (wFromCal + wFromPro) / 2 :
-    wFromCal != null ? wFromCal : (wFromPro || 0)
-  );
-  return { weight_g };
-}
+  const fromDensity = (typed, perGramKey) =>
+    typed || (density ? Math.round(density[perGramKey] * resolvedWeight / 100) : 0);
 
-// Smart food entry: fills in only whichever of {weight, calories, protein}
-// the user actually left blank — anything typed is used exactly as typed,
-// never silently recomputed over. Shared by the Food Log's Add Food entry
-// and the preset builder's one-off item entry — the same "give whatever
-// you know" interface both use.
-async function resolveFoodAmounts(food, weight_g, cal, pro) {
-  const hasW = !!weight_g, hasC = !!cal, hasP = !!pro;
-  if (hasW && hasC && hasP) {
-    return { weight_g, cal, pro };
+  const result = {
+    weight_g: resolvedWeight,
+    cal: fromDensity(cal, 'calPer100g'),
+    pro: fromDensity(pro, 'proPer100g'),
+  };
+  if (trackMacros) {
+    result.fat = fromDensity(fat, 'fatPer100g');
+    result.carbs = fromDensity(carbs, 'carbsPer100g');
   }
-  if (hasW && hasC) {
-    const r = await calcCaloriesForWeight(weight_g, food);
-    return { weight_g, cal, pro: r.pro };
-  }
-  if (hasW && hasP) {
-    const r = await calcCaloriesForWeight(weight_g, food);
-    return { weight_g, cal: r.cal, pro };
-  }
-  if (hasW) {
-    const r = await calcCaloriesForWeight(weight_g, food);
-    return { weight_g, cal: r.cal, pro: r.pro };
-  }
-  if (hasC && hasP) {
-    const r = await calcWeightForCaloriesAndProtein(cal, pro, food);
-    return { weight_g: r.weight_g, cal, pro };
-  }
-  if (hasC) {
-    const r = await calcWeightForCalories(cal, food);
-    return { weight_g: r.weight_g, cal, pro: r.pro };
-  }
-  if (hasP) {
-    const r = await calcWeightForProtein(pro, food);
-    return { weight_g: r.weight_g, cal: r.cal, pro };
-  }
-  throw new Error('enter a weight, calories, or protein amount');
+  return result;
 }
 
 // Splits free text describing one or more foods (e.g. "4oz yogurt, 1oz
@@ -2715,7 +2743,9 @@ async function resolveFoodAmounts(food, weight_g, cal, pro) {
 // logging; this one logs immediately, matching Add Food's single-shot
 // style everywhere else.
 async function estimateFoodItems(text) {
-  const sysPrompt = `You are a nutrition estimator assistant. Split the input into individual food items — there may be just one. Return ONLY valid JSON, no markdown, no backticks, in exactly this shape: {"items":[{"description":"short name","calories":0,"protein":0,"grams":0}]}. If a weight or volume is given for an item (e.g. "4 oz", "1 cup"), convert it to grams, use it for a precise calculation, and report that value in "grams"; otherwise estimate a typical serving and set "grams" to 0. Realistic estimates. Descriptions under 5 words, no leading quantity in the description.${dietContextLine()}`;
+  const macroShape = trackMacros ? `,"fat":0,"carbs":0` : '';
+  const macroAsk = trackMacros ? ' Also estimate total fat and carbohydrates (grams) per item, in "fat" and "carbs".' : '';
+  const sysPrompt = `You are a nutrition estimator assistant. Split the input into individual food items — there may be just one. Return ONLY valid JSON, no markdown, no backticks, in exactly this shape: {"items":[{"description":"short name","calories":0,"protein":0,"grams":0${macroShape}}]}. If a weight or volume is given for an item (e.g. "4 oz", "1 cup"), convert it to grams, use it for a precise calculation, and report that value in "grams"; otherwise estimate a typical serving and set "grams" to 0.${macroAsk} Realistic estimates. Descriptions under 5 words, no leading quantity in the description.${dietContextLine()}`;
   let raw = '';
   let diag = '';
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -2735,7 +2765,9 @@ async function estimateFoodItems(text) {
         desc: (it.description || text).slice(0, 120),
         cal: Math.round(it.calories) || 0,
         pro: Math.round(it.protein) || 0,
-        weight_g: it.grams ? Math.round(it.grams * 10) / 10 : null
+        weight_g: it.grams ? Math.round(it.grams * 10) / 10 : null,
+        fat: trackMacros ? (Math.round(it.fat) || 0) : null,
+        carbs: trackMacros ? (Math.round(it.carbs) || 0) : null
       }));
     } catch (e) {
       if (attempt < 1) continue;
@@ -2750,33 +2782,37 @@ async function calcSmartFood() {
   const wtEl = document.getElementById('sf-wt');
   const calEl = document.getElementById('sf-cal');
   const proEl = document.getElementById('sf-pro');
+  const fatEl = document.getElementById('sf-fat');
+  const carbsEl = document.getElementById('sf-carbs');
   const food = foodEl.value.trim();
   const weight_g = parseFloat(wtEl.value) || 0;
   const cal = parseInt(calEl.value) || 0;
   const pro = parseInt(proEl.value) || 0;
+  const fat = trackMacros ? (parseInt(fatEl.value) || 0) : 0;
+  const carbs = trackMacros ? (parseInt(carbsEl.value) || 0) : 0;
   if (!food) { foodEl.focus(); return; }
   const btn = document.getElementById('sf-btn');
   if (btn.disabled) return;
   btn.disabled = true; btn.textContent = '…';
   try {
-    if (!weight_g && !cal && !pro) {
+    if (!weight_g && !cal && !pro && !fat && !carbs) {
       // Nothing numeric typed — the Food field is free text that may
       // describe several items at once. Split and log all of them.
       const items = await estimateFoodItems(food);
       const t = timeNow();
-      items.forEach(it => meals.push({ id: newLocalId(), desc: it.desc, cal: it.cal, pro: it.pro, weight_g: it.weight_g, time: t }));
+      items.forEach(it => meals.push({ id: newLocalId(), desc: it.desc, cal: it.cal, pro: it.pro, weight_g: it.weight_g, fat: it.fat, carbs: it.carbs, time: t }));
       await api('/meals/save', { date: dateKey(activeDate), meals });
       updateUI();
       refreshInsight();
       autoSaveDay();
-      foodEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = ''; foodEl.focus();
+      foodEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = ''; fatEl.value = ''; carbsEl.value = ''; foodEl.focus();
       toast(items.length > 1
         ? `Logged ${items.length} items ✓`
         : `Logged: ${items[0].cal} kcal · ${items[0].pro}g protein`);
     } else {
-      const r = await resolveFoodAmounts(food, weight_g, cal, pro);
-      await logMeal(`${food} (${r.weight_g}g)`, r.cal, r.pro, r.weight_g);
-      foodEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = ''; foodEl.focus();
+      const r = await resolveFoodAmounts(food, weight_g, cal, pro, fat, carbs, trackMacros);
+      await logMeal(`${food} (${r.weight_g}g)`, r.cal, r.pro, r.weight_g, r.fat, r.carbs);
+      foodEl.value = ''; wtEl.value = ''; calEl.value = ''; proEl.value = ''; fatEl.value = ''; carbsEl.value = ''; foodEl.focus();
       toast(`Logged: ${r.cal} kcal · ${r.pro}g protein · ${r.weight_g}g`);
     }
   } catch (e) {
@@ -4509,6 +4545,7 @@ function loginSuccess(user) {
   const sub = document.querySelector('.logo-sub'); if(sub) sub.textContent = user.name.split(' ')[0].toUpperCase();
   loadTheme(user.theme || 'dark');
   loadCoachMode(user.coach_mode || 'auto');
+  loadTrackMacros(user.track_macros);
   updateAvatarBtn();
   boot();
 }
@@ -4553,6 +4590,40 @@ window.onGoogleLibraryLoad = initGoogleAuth;
 let currentActivity = 'sedentary';
 let currentGoalMode = 'deficit';
 let coachMode = 'auto'; // 'auto' | 'manual' — see setCoachMode/loadCoachMode
+
+// Whether fat/carbs are tracked at all — off by default (opt-in). Gates the
+// extra Fat/Carbs inputs on every food-entry form, the AI density lookup
+// asking for fat/carbs per 100g, and the Day tab's Fat/Carbs stats.
+let trackMacros = false;
+
+function loadTrackMacros(on) {
+  trackMacros = !!on;
+  document.querySelectorAll('.macro-mode-btn').forEach(b => b.classList.remove('on'));
+  const el = document.getElementById(trackMacros ? 'macros-on' : 'macros-off');
+  if (el) el.classList.add('on');
+  renderFoodMacroFields();
+}
+
+// Shows/hides every Fat+Carbs input row (Add Food, the meal edit modal) in
+// one place — every such row shares the .macro-row class, so new ones just
+// need that class to pick up the toggle automatically.
+function renderFoodMacroFields() {
+  document.querySelectorAll('.macro-row').forEach(el => {
+    el.style.display = trackMacros ? '' : 'none';
+  });
+}
+
+function setTrackMacros(on, btn) {
+  loadTrackMacros(on);
+  if (btn) { document.querySelectorAll('.macro-mode-btn').forEach(b => b.classList.remove('on')); btn.classList.add('on'); }
+  if (currentUser) {
+    const stored = JSON.parse(localStorage.getItem('bl_user') || '{}');
+    stored.track_macros = on;
+    localStorage.setItem('bl_user', JSON.stringify(stored));
+    scheduleProfileSave();
+  }
+  updateUI();
+}
 let CAL_T_USER = 1800; // 'deficit' | 'maintain' | 'bulk'
 let PRO_T_USER = 120;
 let PRO_RATIO_USER = 1.0; // g protein per lb bodyweight — used to recompute each day's target off that day's weight
@@ -4825,7 +4896,7 @@ async function saveProfile() {
     aggressiveness: currentAggressiveness,
     rmr: t.rmr, cal_target_override: calOverride,
     muscle_loss_pct: musclePct, muscle_gain_pct: muscleGainPct, muscle_maintain_pct: muscleMaintainPct,
-    coach_mode: coachMode, diet_notes: dietNotes
+    coach_mode: coachMode, diet_notes: dietNotes, track_macros: trackMacros
   });
   // Update stored user
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
@@ -4840,6 +4911,7 @@ async function saveProfile() {
   stored.muscle_maintain_pct = muscleMaintainPct;
   stored.coach_mode = coachMode;
   stored.diet_notes = dietNotes;
+  stored.track_macros = trackMacros;
   localStorage.setItem('bl_user', JSON.stringify(stored));
   updateUI();
   refreshHistInsight();
@@ -4885,6 +4957,7 @@ function loadProfilePane() {
   if (themeBtn) themeBtn.classList.add('on');
   // Load AI Coach mode
   loadCoachMode(stored.coach_mode || 'auto');
+  loadTrackMacros(stored.track_macros);
 
   ['deficit','maintain','bulk'].forEach(mode => {
     const btn = document.querySelector(`#goal-btns .goal-btn.${mode}`);
