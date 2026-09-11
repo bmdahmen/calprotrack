@@ -370,13 +370,13 @@
   .fe-go-muted:hover{background:#222;}
   .fi-swipe-wrap{position:relative;overflow:hidden;border-bottom:1px solid #111;}
   .fi-actions-tray{position:absolute;top:0;left:0;bottom:0;width:76px;display:flex;align-items:center;justify-content:center;gap:2px;background:#1c1414;}
-  .fi-row{position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 12px 10px 32px;background:#111;transition:transform .2s ease;touch-action:pan-y;}
+  .fi-row{position:relative;display:flex;flex-direction:column;gap:6px;padding:10px 32px 10px 12px;background:#111;transition:transform .2s ease;touch-action:pan-y;}
   .fi-row.revealed{transform:translateX(76px);}
   .fi-row:hover{background:#161010;}
   .fi-line{display:flex;align-items:baseline;flex-wrap:wrap;column-gap:6px;row-gap:2px;}
   .fi-name{font-size:13px;font-weight:600;color:#eee;}
   .fi-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;}
-  .fi-drag-handle{position:absolute;left:0;top:0;bottom:0;width:28px;display:flex;align-items:center;justify-content:center;color:#555;font-size:15px;line-height:1;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;}
+  .fi-drag-handle{position:absolute;right:0;top:0;bottom:0;width:28px;display:flex;align-items:center;justify-content:center;color:#555;font-size:15px;line-height:1;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;}
   .fi-drag-handle:active{color:#f97316;cursor:grabbing;}
   .fi-swipe-wrap.fi-dragging{opacity:.55;}
   .qty-stepper{display:flex;align-items:center;gap:6px;flex-shrink:0;}
@@ -768,11 +768,6 @@
             <div class="fe-row macro-row" id="fi-macro-row" style="margin-top:8px;display:none">
               <div class="fe-col fe-fat"><label class="field-lbl">Fat</label><div class="fe-suffix"><input type="number" id="fi-fat" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
               <div class="fe-col fe-carb"><label class="field-lbl">Carbs</label><div class="fe-suffix"><input type="number" id="fi-carbs" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addFoodItem()"><span>g</span></div></div>
-            </div>
-            <div class="fe-row" style="margin-top:8px">
-              <label style="display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:#888;cursor:pointer">
-                <input type="checkbox" id="fi-hidden" style="margin:0">Preset-only — hide from Food Items list
-              </label>
             </div>
             <div class="fe-row" style="margin-top:8px">
               <button class="fe-go grow" id="fi-btn" onclick="addFoodItem()">Add Item</button>
@@ -1726,7 +1721,6 @@ function foodItemRowHtml(f) {
       <button class="icon-btn" onclick="deleteFoodItem('${f.id}')" title="Delete">✕</button>
     </div>
     <div class="fi-row" id="fi-row-${f.id}" ontouchstart="fiRowTouchStart(event,'${f.id}')" ontouchend="fiRowTouchEnd(event,'${f.id}')" onclick="fiRowClick('${f.id}')">
-      <span class="fi-drag-handle" title="Drag to reorder" onpointerdown="fiDragHandlePointerDown(event,'${f.id}')">⠿</span>
       <div class="fi-line"><span class="fi-name">${f.hidden ? '🔒 ' : ''}${esc(f.name)}</span> <span class="meal-meta"><span class="kc">${f.cal} kcal</span> · <span class="pr">${f.pro||0}g prot</span>${trackMacros && f.fat != null ? ` · <span class="ft">${f.fat}g fat</span>` : ''}${trackMacros && f.carbs != null ? ` · <span class="cb">${f.carbs}g carbs</span>` : ''}${f.weight_g ? ` · <span class="wt" id="fi-wt-${f.id}">${scaledWeightText(f.weight_g, qty)}</span>` : ''}</span></div>
       <div class="fi-controls">
         <div class="qty-stepper">
@@ -1737,6 +1731,7 @@ function foodItemRowHtml(f) {
         <button class="icon-btn" onclick="event.stopPropagation();openFoodItemServingWizard('${f.id}')" title="Adjust servings">🎚️</button>
         <button type="button" class="fi-log-btn" onclick="event.stopPropagation();logFoodItem('${f.id}')">+ Log</button>
       </div>
+      <span class="fi-drag-handle" title="Drag to reorder" onpointerdown="fiDragHandlePointerDown(event,'${f.id}')">⠿</span>
     </div>
   </div>`;
 }
@@ -1938,14 +1933,12 @@ async function addFoodItem() {
   const wtEl = document.getElementById('fi-wt');
   const fatEl = document.getElementById('fi-fat');
   const carbsEl = document.getElementById('fi-carbs');
-  const hiddenEl = document.getElementById('fi-hidden');
   const name = nameEl.value.trim();
   const cal = parseInt(calEl.value) || 0;
   const pro = parseInt(proEl.value) || 0;
   const weight_g = parseFloat(wtEl.value) || 0;
   const fat = trackMacros ? (parseInt(fatEl.value) || 0) : 0;
   const carbs = trackMacros ? (parseInt(carbsEl.value) || 0) : 0;
-  const hidden = hiddenEl.checked ? 1 : 0;
   if (!name) { nameEl.focus(); return; }
   const btn = document.getElementById('fi-btn');
   if (btn.disabled) return;
@@ -1953,20 +1946,20 @@ async function addFoodItem() {
   try {
     if (!weight_g && !cal && !pro && !fat && !carbs) {
       const items = await estimateFoodItems(name);
-      items.forEach(it => foodItems.push({ id: newLocalId(), name: it.desc, cal: it.cal, pro: it.pro, weight_g: it.weight_g, fat: it.fat, carbs: it.carbs, hidden, created_at: new Date().toISOString() }));
+      items.forEach(it => foodItems.push({ id: newLocalId(), name: it.desc, cal: it.cal, pro: it.pro, weight_g: it.weight_g, fat: it.fat, carbs: it.carbs, hidden: 0, created_at: new Date().toISOString() }));
       renderFoodItems();
       renderPresetBuilderPicker();
       try { await saveFoodItems(); toast(items.length > 1 ? `${items.length} food items added ✓` : 'Food item added ✓'); }
       catch (e) { toast('Added locally — save failed, will retry on next change'); }
     } else {
       const r = await resolveFoodAmounts(name, weight_g, cal, pro, fat, carbs, trackMacros);
-      foodItems.push({ id: newLocalId(), name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, fat: trackMacros ? r.fat : null, carbs: trackMacros ? r.carbs : null, hidden, created_at: new Date().toISOString() });
+      foodItems.push({ id: newLocalId(), name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, fat: trackMacros ? r.fat : null, carbs: trackMacros ? r.carbs : null, hidden: 0, created_at: new Date().toISOString() });
       renderFoodItems();
       renderPresetBuilderPicker();
       try { await saveFoodItems(); toast('Food item added ✓'); }
       catch (e) { toast('Added locally — save failed, will retry on next change'); }
     }
-    nameEl.value = ''; calEl.value = ''; proEl.value = ''; wtEl.value = ''; fatEl.value = ''; carbsEl.value = ''; hiddenEl.checked = false; nameEl.focus();
+    nameEl.value = ''; calEl.value = ''; proEl.value = ''; wtEl.value = ''; fatEl.value = ''; carbsEl.value = ''; nameEl.focus();
   } catch (e) {
     toast('Error: ' + e.message);
   }
