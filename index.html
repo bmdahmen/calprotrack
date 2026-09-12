@@ -3081,14 +3081,17 @@ async function sendFood() {
 
   let raw = '';
   try {
-    const sysPrompt = `You are a nutrition estimator assistant. Return ONLY valid JSON, no markdown, no backticks: {"items":[{"description":"short name","calories":0,"protein":0}],"totalCalories":0,"totalProtein":0,"message":"1-2 sentences: briefly note what the meal is and any notable detail (e.g. high protein, calorie-dense, light). Be conversational and specific."}. Realistic estimates, typical servings. Descriptions under 5 words.${dietContextLine()}`;
+    const macroItemShape = trackMacros ? ',"fat":0,"carbs":0' : '';
+    const macroTotalShape = trackMacros ? ',"totalFat":0,"totalCarbs":0' : '';
+    const macroAsk = trackMacros ? ' Also estimate fat and carbohydrates (grams) per item, in "fat"/"carbs", and the meal totals in "totalFat"/"totalCarbs".' : '';
+    const sysPrompt = `You are a nutrition estimator assistant. Return ONLY valid JSON, no markdown, no backticks: {"items":[{"description":"short name","calories":0,"protein":0${macroItemShape}}],"totalCalories":0,"totalProtein":0${macroTotalShape},"message":"1-2 sentences: briefly note what the meal is and any notable detail (e.g. high protein, calorie-dense, light). Be conversational and specific."}. Realistic estimates, typical servings. Descriptions under 5 words.${macroAsk}${dietContextLine()}`;
 
     let messages;
     if (chatContext) {
       // Dialogue mode — include previous estimate as context
       messages = [
         { role: 'user', content: `Estimate nutrition for: ${chatContext.items}` },
-        { role: 'assistant', content: JSON.stringify({ items: pendingSuggestion?.items || [], totalCalories: chatContext.totalCal, totalProtein: chatContext.totalPro, message: 'Previous estimate.' }) },
+        { role: 'assistant', content: JSON.stringify({ items: pendingSuggestion?.items || [], totalCalories: chatContext.totalCal, totalProtein: chatContext.totalPro, ...(trackMacros ? { totalFat: chatContext.totalFat, totalCarbs: chatContext.totalCarbs } : {}), message: 'Previous estimate.' }) },
         { role: 'user', content: pendingImageB64
           ? [{ type:"image", source:{type:"base64",media_type:pendingImageType,data:pendingImageB64}}, {type:"text",text:`Adjust the previous estimate: ${text}`}]
           : `Adjust the previous estimate. User says: "${text}". Revise accordingly and return updated JSON.` }
@@ -3098,7 +3101,7 @@ async function sendFood() {
       const msgContent = pendingImageB64
         ? [
             {type:"image", source:{type:"base64", media_type:pendingImageType, data:pendingImageB64}},
-            {type:"text", text: text ? `Analyze this food. Extra context: ${text}` : "Identify all food in this image and estimate calories and protein."}
+            {type:"text", text: text ? `Analyze this food. Extra context: ${text}` : `Identify all food in this image and estimate calories, protein${trackMacros ? ', fat, and carbs' : ''}.`}
           ]
         : [{type:"text", text:text}];
       messages = [{role:"user", content: msgContent}];
@@ -3126,8 +3129,8 @@ async function sendFood() {
         <div class="ai-body">
           ${msgHtml}
           <div class="ai-suggest-card">
-            <div class="ai-suggest-total">${parsed.totalCalories} kcal · ${parsed.totalProtein}g protein</div>
-            <div class="ai-suggest-items">${parsed.items.map(i=>`${esc(i.description)} — ${i.calories} kcal, ${i.protein}g`).join('<br>')}</div>
+            <div class="ai-suggest-total">${parsed.totalCalories} kcal · ${parsed.totalProtein}g protein${trackMacros ? ` · ${parsed.totalFat||0}g fat · ${parsed.totalCarbs||0}g carbs` : ''}</div>
+            <div class="ai-suggest-items">${parsed.items.map(i=>`${esc(i.description)} — ${i.calories} kcal, ${i.protein}g${trackMacros ? `, ${i.fat||0}g fat, ${i.carbs||0}g carbs` : ''}`).join('<br>')}</div>
             <div class="ai-suggest-actions">
               <button class="btn-save-food" onclick="saveFoodSuggestion('${suggId}')">✓ LOG THIS</button>
               <button class="btn-discuss" onclick="adjustFoodEstimate('${suggId}')">✎ Adjust</button>
@@ -3156,7 +3159,7 @@ function adjustFoodEstimate(suggId) {
   const msgsEl = document.getElementById('chat-msgs');
   if (pendingSuggestion) {
     const items = pendingSuggestion.items.map(i => `${i.description} (${i.calories} kcal, ${i.protein}g)`).join(', ');
-    chatContext = { role: 'assistant', items, totalCal: pendingSuggestion.totalCalories, totalPro: pendingSuggestion.totalProtein, suggId };
+    chatContext = { role: 'assistant', items, totalCal: pendingSuggestion.totalCalories, totalPro: pendingSuggestion.totalProtein, totalFat: pendingSuggestion.totalFat, totalCarbs: pendingSuggestion.totalCarbs, suggId };
     // Show a prompt nudge in chat
     const nudgeId = 'nudge-' + Date.now();
     msgsEl.insertAdjacentHTML('beforeend', `
@@ -3178,7 +3181,7 @@ async function saveFoodSuggestion(suggId) {
   if (!pendingSuggestion) return;
   const t = timeNow();
   pendingSuggestion.items.forEach(item=>{
-    meals.push({id:Date.now()+Math.random(), desc:item.description, cal:item.calories, pro:item.protein, time:t});
+    meals.push({id:Date.now()+Math.random(), desc:item.description, cal:item.calories, pro:item.protein, fat: trackMacros ? (item.fat||0) : null, carbs: trackMacros ? (item.carbs||0) : null, time:t});
   });
   pendingSuggestion = null;
   await api("/meals/save",{date:dateKey(activeDate),meals});
