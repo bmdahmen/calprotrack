@@ -759,6 +759,8 @@
             <div class="food-entry-head"><span>Add Food Item</span><span class="fe-hint ai">→ reusable · AI fills in whatever's missing</span></div>
             <div class="fe-row">
               <div class="fe-col grow"><label class="field-lbl">Name</label><input type="text" id="fi-name" maxlength="80" placeholder="Mango — or list several to add them all" onkeydown="if(event.key==='Enter')addFoodItem()"></div>
+              <button type="button" class="fe-cam-btn" id="fi-cam-btn" onclick="document.getElementById('fi-photo-input').click()" title="Fill in from a photo of the nutrition label">📷</button>
+              <input type="file" id="fi-photo-input" accept="image/*" style="display:none" onchange="handleFoodItemLabelPhoto(event)">
             </div>
             <div class="fe-row" style="margin-top:8px">
               <div class="fe-col fe-kcal"><label class="field-lbl">Calories</label><div class="fe-suffix"><input type="number" id="fi-cal" inputmode="numeric" step="1" min="0" placeholder="auto" onkeydown="if(event.key==='Enter')addFoodItem()"><span>kc</span></div></div>
@@ -1920,6 +1922,54 @@ function setFoodItemQty(id, value) {
   const el = document.getElementById('fi-qty-' + id);
   if (el) el.value = next;
   updateFoodItemWeightDisplay(id, next);
+}
+
+// Reads a photo of a nutrition facts label (packaging, not the food itself)
+// and returns the printed values — this is transcription, not estimation,
+// so it doesn't go through the density/AI-guess machinery the rest of the
+// smart entry uses.
+async function parseNutritionLabelPhoto(b64, mediaType) {
+  const macroShape = trackMacros ? ',"fat":0,"carbs":0' : '';
+  const macroAsk = trackMacros ? ' Also include "fat" and "carbs" (grams) if the label lists them.' : '';
+  const sysPrompt = `You are transcribing a nutrition facts label from a photo — not estimating, just reading the printed numbers exactly as shown. Return ONLY valid JSON, no markdown, no backticks, in exactly this shape: {"name":"product name if visible on the packaging, else empty string","cal":0,"pro":0,"weight_g":0${macroShape}}. Use the label's serving size for weight_g in grams (convert oz/ml/etc. to grams, e.g. 1oz=28.35g; if the serving is given as a count like "1 bar", use the net weight instead). If a field truly isn't on the label, use 0.${macroAsk}`;
+  const messages = [{ role: 'user', content: [
+    { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+    { type: 'text', text: 'Read this nutrition facts label and transcribe its values.' }
+  ] }];
+  const data = await api('/', { max_tokens: 300, thinking: { type: 'disabled' }, _type: 'image', system: sysPrompt, messages });
+  if (data.rate_limited) throw new Error(data.error.message);
+  if (data.error) throw new Error(data.error.type === 'overloaded_error' ? 'Claude is busy — try again in a moment.' : (data.error.message || 'Request failed'));
+  const raw = (data.content || []).map(b => b.text || '').join('').trim();
+  const j = raw.indexOf('{'), k = raw.lastIndexOf('}');
+  if (j < 0 || k < 0) throw new Error(raw ? `couldn't read the result — model said: "${raw.slice(0, 120)}"` : 'no response — try again');
+  return JSON.parse(raw.substring(j, k + 1));
+}
+
+async function handleFoodItemLabelPhoto(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const btn = document.getElementById('fi-cam-btn');
+  if (btn.disabled) return;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const { b64, type } = await fileToResizedBase64(file);
+    const parsed = await parseNutritionLabelPhoto(b64, type);
+    const nameEl = document.getElementById('fi-name');
+    if (parsed.name && !nameEl.value.trim()) nameEl.value = parsed.name;
+    document.getElementById('fi-cal').value = parsed.cal || '';
+    document.getElementById('fi-pro').value = parsed.pro || '';
+    document.getElementById('fi-wt').value = parsed.weight_g || '';
+    if (trackMacros) {
+      document.getElementById('fi-fat').value = parsed.fat || '';
+      document.getElementById('fi-carbs').value = parsed.carbs || '';
+    }
+    nameEl.focus();
+    toast('Label read — review and hit Add Item');
+  } catch (err) {
+    toast('Error reading label: ' + err.message);
+  }
+  btn.disabled = false; btn.textContent = '📷';
 }
 
 // Same "give whatever you know" smart entry as Add Food: AI fills in
@@ -4445,35 +4495,47 @@ Write 2-3 encouraging but factual sentences. Prioritize evaluating the CURRENT p
 let pendingImageB64 = null;
 let pendingImageType = null;
 
+// Shared by the food-log photo estimate and the nutrition-label photo
+// reader: downscales an uploaded/captured image to a reasonable size and
+// returns its base64 data, keeping API payloads small.
+function fileToResizedBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > h && w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        else if (h > w && h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+        else if (w > MAX) { w = MAX; h = MAX; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (!match) { reject(new Error('Could not read image')); return; }
+        resolve({ type: match[1], b64: match[2], dataUrl });
+      };
+      img.onerror = () => reject(new Error('Could not read image'));
+      img.src = ev.target.result;
+    };
+    reader.onerror = () => reject(new Error('Could not read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function previewImage(e) {
   const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => {
-    const img = new Image();
-    img.onload = () => {
-      // Resize to max 800px on longest side
-      const MAX = 800;
-      let w = img.width, h = img.height;
-      if (w > h && w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
-      else if (h > w && h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
-      else if (w > MAX) { w = MAX; h = MAX; }
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-      if (!match) return;
-      pendingImageType = 'image/jpeg';
-      pendingImageB64 = match[2];
-      document.getElementById('img-thumb').src = dataUrl;
-      document.getElementById('img-preview').style.display = 'block';
-      document.getElementById('food-input').placeholder = 'Add a note or just hit LOG →';
-    };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
   e.target.value = '';
+  if (!file) return;
+  fileToResizedBase64(file).then(({ type, b64, dataUrl }) => {
+    pendingImageType = type;
+    pendingImageB64 = b64;
+    document.getElementById('img-thumb').src = dataUrl;
+    document.getElementById('img-preview').style.display = 'block';
+    document.getElementById('food-input').placeholder = 'Add a note or just hit LOG →';
+  }).catch(err => toast('Error: ' + err.message));
 }
 
 function clearImage() {
