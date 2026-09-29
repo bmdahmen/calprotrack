@@ -4869,7 +4869,14 @@ async function handleGoogleCredential(response) {
       localStorage.setItem('bl_session', sessionToken);
     }
     authExpiredHandled = false;
-    localStorage.setItem('bl_user', JSON.stringify(data.user));
+    // Merge: never let a stale server row clobber rest-day/cycle fields that were
+    // saved on this device but hadn't synced yet (e.g. app restarted mid-sync).
+    const prevUser = JSON.parse(localStorage.getItem('bl_user')||'{}');
+    const mergedUser = data.user || {};
+    for (const k of ['rest_cal_target','cycle_length','cycle_pattern','cycle_anchor']) {
+      if (mergedUser[k] == null && prevUser[k] != null) mergedUser[k] = prevUser[k];
+    }
+    localStorage.setItem('bl_user', JSON.stringify(mergedUser));
     if (silent && data.user && data.user.id === currentUser.id) return; // token stored; nothing else to do
     if (data.is_new) {
       // New user — show onboarding

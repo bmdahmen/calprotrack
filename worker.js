@@ -1,10 +1,11 @@
 // Deployed automatically by .github/workflows/deploy-worker.yml on every
 // push to main that touches this file (or wrangler.toml) — mirrors how
 // deploy-pages.yml has always auto-deployed index.html. No manual
-// `wrangler deploy` needed going forward. NOTE: `wrangler deploy` does NOT
-// apply D1 migrations on its own (wrangler v4) — the workflow runs
-// `wrangler d1 migrations apply calorie --remote` first, so schema changes in
-// migrations/ land before the new code goes live.
+// `wrangler deploy` needed going forward. NOTE on D1 migrations: `wrangler
+// deploy` does NOT apply them on its own (wrangler v4), and the CI deploy token
+// lacks D1 permission, so the workflow's `migrations apply` step is best-effort.
+// /auth/profile self-heals instead: on a missing-column error it applies
+// migrations/0025 via the worker's own D1 binding and retries.
 const GOOGLE_CLIENT_ID = '156334413688-usb68f1fldmrhic94mn925l75hnk82pk.apps.googleusercontent.com';
 
 // Default models, used only if the corresponding env var isn't set.
@@ -185,9 +186,27 @@ export default {
       const user_id = resolveUser(body.user_id);
       if (!user_id) return authError();
       const { tdee, pro_target, age, weight_lbs, height_in, activity, goal_mode, aggressiveness, theme, dexa_date, dexa_weight, dexa_bf_pct, muscle_loss_pct, muscle_gain_pct, muscle_maintain_pct, rmr, cal_target_override, coach_mode, diet_notes, track_macros, fat_target_override, carbs_target_override, rest_cal_target, cycle_length, cycle_pattern, cycle_anchor } = body;
-      await env.DB.prepare(
-        'UPDATE users SET tdee=?, pro_target=?, age=?, weight_lbs=?, height_in=?, activity=?, goal_mode=?, aggressiveness=?, theme=?, dexa_date=?, dexa_weight=?, dexa_bf_pct=?, muscle_loss_pct=?, muscle_gain_pct=?, muscle_maintain_pct=?, rmr=?, cal_target_override=?, coach_mode=?, diet_notes=?, track_macros=?, fat_target_override=?, carbs_target_override=?, rest_cal_target=?, cycle_length=?, cycle_pattern=?, cycle_anchor=? WHERE id=?'
-      ).bind(tdee||2100, pro_target||120, age||35, weight_lbs||170, height_in||66, activity||'sedentary', goal_mode||'deficit', aggressiveness||'moderate', theme||'dark', dexa_date||null, dexa_weight||null, dexa_bf_pct||null, muscle_loss_pct!=null?muscle_loss_pct:20, muscle_gain_pct!=null?muscle_gain_pct:20, muscle_maintain_pct!=null?muscle_maintain_pct:20, rmr||null, cal_target_override||null, coach_mode||'auto', diet_notes || null, track_macros?1:0, fat_target_override||null, carbs_target_override||null, rest_cal_target||null, cycle_length||null, cycle_pattern||null, cycle_anchor||null, user_id).run();
+      const profileSql =
+        'UPDATE users SET tdee=?, pro_target=?, age=?, weight_lbs=?, height_in=?, activity=?, goal_mode=?, aggressiveness=?, theme=?, dexa_date=?, dexa_weight=?, dexa_bf_pct=?, muscle_loss_pct=?, muscle_gain_pct=?, muscle_maintain_pct=?, rmr=?, cal_target_override=?, coach_mode=?, diet_notes=?, track_macros=?, fat_target_override=?, carbs_target_override=?, rest_cal_target=?, cycle_length=?, cycle_pattern=?, cycle_anchor=? WHERE id=?';
+      const profileArgs = [tdee||2100, pro_target||120, age||35, weight_lbs||170, height_in||66, activity||'sedentary', goal_mode||'deficit', aggressiveness||'moderate', theme||'dark', dexa_date||null, dexa_weight||null, dexa_bf_pct||null, muscle_loss_pct!=null?muscle_loss_pct:20, muscle_gain_pct!=null?muscle_gain_pct:20, muscle_maintain_pct!=null?muscle_maintain_pct:20, rmr||null, cal_target_override||null, coach_mode||'auto', diet_notes || null, track_macros?1:0, fat_target_override||null, carbs_target_override||null, rest_cal_target||null, cycle_length||null, cycle_pattern||null, cycle_anchor||null, user_id];
+      try {
+        await env.DB.prepare(profileSql).bind(...profileArgs).run();
+      } catch (e) {
+        // Self-healing schema: `wrangler deploy` never applied D1 migrations on its own
+        // and the CI deploy token lacks D1 permission, so a missing column means
+        // migrations/0025 never landed. Apply it via the worker's own D1 binding and retry once.
+        if (!/no such column/i.test(e.message || String(e))) throw e;
+        for (const ddl of [
+          'ALTER TABLE users ADD COLUMN rest_cal_target INTEGER',
+          'ALTER TABLE users ADD COLUMN cycle_length INTEGER',
+          'ALTER TABLE users ADD COLUMN cycle_pattern TEXT',
+          'ALTER TABLE users ADD COLUMN cycle_anchor TEXT',
+        ]) {
+          try { await env.DB.prepare(ddl).run(); } catch (e2) { /* already exists */ }
+        }
+        await logError(env, { user_id, source: 'schema', type: 'self_heal', message: 'applied migration 0025 (rest-day columns) on demand', detail: e.message || String(e) });
+        await env.DB.prepare(profileSql).bind(...profileArgs).run();
+      }
       return json({ ok: true });
     }
 
