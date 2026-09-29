@@ -5279,20 +5279,7 @@ async function saveProfile() {
   const carbsTargetRaw = parseFloat(document.getElementById('prof-carbs-target')?.value);
   FAT_T_USER = (isFinite(fatTargetRaw) && fatTargetRaw > 0) ? fatTargetRaw : null;
   CARBS_T_USER = (isFinite(carbsTargetRaw) && carbsTargetRaw > 0) ? carbsTargetRaw : null;
-  await api('/auth/profile', {
-    user_id: currentUser.id,
-    tdee: t.tdee, cal_target: t.calTarget, pro_target: protein,
-    age: t.age, weight_lbs: t.weight, height_in: t.height,
-    activity: currentActivity, goal_mode: currentGoalMode,
-    aggressiveness: currentAggressiveness,
-    rmr: t.rmr, cal_target_override: calOverride,
-    muscle_loss_pct: musclePct, muscle_gain_pct: muscleGainPct, muscle_maintain_pct: muscleMaintainPct,
-    coach_mode: coachMode, diet_notes: dietNotes, track_macros: trackMacros,
-    fat_target_override: FAT_T_USER, carbs_target_override: CARBS_T_USER,
-    rest_cal_target: REST_T_USER, cycle_length: CYCLE_LEN,
-    cycle_pattern: CYCLE_PATTERN || null, cycle_anchor: CYCLE_ANCHOR || null
-  });
-  // Update stored user
+  // Persist on this device FIRST so entries survive an app restart even if the server sync fails.
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
   stored.tdee = t.tdee; stored.pro_target = protein;
   stored.goal_mode = currentGoalMode; stored.cal_target = t.calTarget;
@@ -5313,6 +5300,24 @@ async function saveProfile() {
   stored.cycle_pattern = CYCLE_PATTERN;
   stored.cycle_anchor = CYCLE_ANCHOR;
   localStorage.setItem('bl_user', JSON.stringify(stored));
+  try {
+  await api('/auth/profile', {
+    user_id: currentUser.id,
+    tdee: t.tdee, cal_target: t.calTarget, pro_target: protein,
+    age: t.age, weight_lbs: t.weight, height_in: t.height,
+    activity: currentActivity, goal_mode: currentGoalMode,
+    aggressiveness: currentAggressiveness,
+    rmr: t.rmr, cal_target_override: calOverride,
+    muscle_loss_pct: musclePct, muscle_gain_pct: muscleGainPct, muscle_maintain_pct: muscleMaintainPct,
+    coach_mode: coachMode, diet_notes: dietNotes, track_macros: trackMacros,
+    fat_target_override: FAT_T_USER, carbs_target_override: CARBS_T_USER,
+    rest_cal_target: REST_T_USER, cycle_length: CYCLE_LEN,
+    cycle_pattern: CYCLE_PATTERN || null, cycle_anchor: CYCLE_ANCHOR || null
+  });
+  } catch (e) {
+    console.warn('profile sync failed:', e);
+    toast('Saved on this device — server sync failed, will retry on next change');
+  }
   updateUI();
   refreshHistInsight();
 }

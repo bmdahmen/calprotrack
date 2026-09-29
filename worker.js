@@ -1,7 +1,10 @@
 // Deployed automatically by .github/workflows/deploy-worker.yml on every
 // push to main that touches this file (or wrangler.toml) — mirrors how
 // deploy-pages.yml has always auto-deployed index.html. No manual
-// `wrangler deploy` needed going forward.
+// `wrangler deploy` needed going forward. NOTE: `wrangler deploy` does NOT
+// apply D1 migrations on its own (wrangler v4) — the workflow runs
+// `wrangler d1 migrations apply calorie --remote` first, so schema changes in
+// migrations/ land before the new code goes live.
 const GOOGLE_CLIENT_ID = '156334413688-usb68f1fldmrhic94mn925l75hnk82pk.apps.googleusercontent.com';
 
 // Default models, used only if the corresponding env var isn't set.

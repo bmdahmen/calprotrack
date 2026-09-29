@@ -6,6 +6,8 @@ on:
     paths:
       - worker.js
       - wrangler.toml
+      - migrations/**
+      - .github/workflows/deploy-worker.yml
 
 jobs:
   deploy:
@@ -14,9 +16,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy to Cloudflare Workers
+      - name: Apply D1 migrations and deploy to Cloudflare Workers
         run: |
           npm install -g wrangler
+          wrangler d1 migrations apply calorie --remote
           wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
