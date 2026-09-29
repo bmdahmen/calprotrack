@@ -441,3 +441,5 @@ export default {
     return new Response('Not found', { status: 404, headers: cors });
   },
 };
+
+// Deploy verification 2026-09-29: no-op change by Muse to test the push-to-deploy path.
