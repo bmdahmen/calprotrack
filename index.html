@@ -1299,7 +1299,7 @@ async function loadDay(d) {
     ? "TODAY — " + d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}).toUpperCase()
     : d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}).toUpperCase();
   const dayType = getDayType(dateKey(d));
-  lbl.innerHTML = dateStr + (CYCLE_LEN ? ` <span class="daytype-badge ${dayType}">${dayType === 'rest' ? '🛋 REST' : '🏋️ TRAIN'}</span>` : '');
+  lbl.innerHTML = dateStr + (CYCLE_LEN ? ` <span class="daytype-badge ${dayType}">${dayType === 'rest' ? '🛋' : '🏋️'}</span>` : '');
   lbl.className = "day-label" + (isTod ? " today" : "");
 
   // Disable chat for past days? No — allow editing any day
