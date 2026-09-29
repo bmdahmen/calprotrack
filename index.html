@@ -537,6 +537,16 @@
   .goal-btn.on.deficit{border-color:#60a5fa;color:#60a5fa;}
   .goal-btn.on.maintain{border-color:#fbbf24;color:#fbbf24;}
   .goal-btn.on.bulk{border-color:#4ade80;color:#4ade80;}
+  .cyc-btns{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+  .cyc-btn{flex:1;min-width:52px;background:none;border:1px solid #2a2a2a;color:#555;font-family:'DM Mono',monospace;font-size:9px;padding:8px 4px;border-radius:6px;cursor:pointer;transition:all .15s;text-align:center;line-height:1.7;}
+  .cyc-btn.on.train{border-color:#4ade80;color:#4ade80;}
+  .cyc-btn.on.rest{border-color:#fbbf24;color:#fbbf24;}
+  body.light .cyc-btn{border-color:#c8c1b8;color:#7a7168;}
+  body.light .cyc-btn.on.train{border-color:#2a8040;color:#1a5c28;}
+  body.light .cyc-btn.on.rest{border-color:#a09020;color:#5c4a10;}
+  .daytype-badge{display:inline-block;font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:10px;border:1px solid #333;color:#888;margin-left:8px;vertical-align:middle;letter-spacing:1px;}
+  .daytype-badge.rest{border-color:#fbbf24;color:#fbbf24;}
+  .daytype-badge.train{border-color:#4ade80;color:#4ade80;}
   /* Extended progress bar */
   .prog-bar-wrap{position:relative;height:6px;background:#1a1a1a;border-radius:3px;overflow:visible;margin-top:4px;}
   .prog-bar-bg{position:absolute;inset:0;background:#1a1a1a;border-radius:3px;overflow:hidden;}
@@ -921,6 +931,22 @@
           <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;" id="cal-override-desc"></div>
         </div>
 
+        <div style="margin-top:10px">
+          <label class="field-lbl">Rest Day Calorie Target</label>
+          <input type="number" id="prof-rest-cal-target" inputmode="numeric" placeholder="Same as training days" step="1" min="0" oninput="scheduleProfileSave()">
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;" id="rest-cal-desc"></div>
+        </div>
+
+        <div style="margin-top:14px">
+          <label class="field-lbl">Training Cycle</label>
+          <div style="display:flex;gap:10px;margin-top:4px;">
+            <div style="flex:1"><label class="field-lbl" style="font-size:8px;opacity:.7">Cycle length (days)</label><input type="number" id="prof-cycle-length" inputmode="numeric" placeholder="e.g. 4" step="1" min="2" max="14" oninput="onCycleLengthInput()"></div>
+            <div style="flex:1"><label class="field-lbl" style="font-size:8px;opacity:.7">Cycle starts</label><input type="date" id="prof-cycle-anchor" onchange="scheduleProfileSave()" style="font-family:'DM Mono',monospace;"></div>
+          </div>
+          <div class="cyc-btns" id="cycle-pattern-btns"></div>
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:#444;margin-top:5px;line-height:1.5;">Tap each day to toggle Training / Rest. Day 1 is the "Cycle starts" date and the pattern repeats from there. Leave cycle length blank to treat every day as a training day.</div>
+        </div>
+
         <div style="margin-top:14px;font-family:'DM Mono',monospace;font-size:10px;color:#555;line-height:1.8;">
           Estimated TDEE: <span id="prof-tdee-display" style="color:#f97316">—</span><br>
           <span style="font-size:9px;color:#333" id="prof-tdee-source">Mifflin-St Jeor · updates automatically</span>
@@ -1269,9 +1295,11 @@ async function loadDay(d) {
   // Update day label
   const lbl = document.getElementById("day-label");
   const isTod = isToday(d);
-  lbl.textContent = isTod
+  const dateStr = isTod
     ? "TODAY — " + d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}).toUpperCase()
     : d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"}).toUpperCase();
+  const dayType = getDayType(dateKey(d));
+  lbl.innerHTML = dateStr + (CYCLE_LEN ? ` <span class="daytype-badge ${dayType}">${dayType === 'rest' ? '🛋 REST' : '🏋️ TRAIN'}</span>` : '');
   lbl.className = "day-label" + (isTod ? " today" : "");
 
   // Disable chat for past days? No — allow editing any day
@@ -1423,10 +1451,64 @@ function proteinTargetFor(atDate, liveWeight) {
   return (PRO_RATIO_USER && weight) ? Math.round(PRO_RATIO_USER * weight) : (PRO_T_USER || PRO_T || 120);
 }
 
+// Day type from the training cycle: 'train' | 'rest'. Without a configured
+// cycle every day is a training day (previous behavior).
+function getDayType(dateStr) {
+  if (!CYCLE_LEN || CYCLE_LEN < 2 || !CYCLE_PATTERN || CYCLE_PATTERN.length !== CYCLE_LEN || !CYCLE_ANCHOR) return 'train';
+  const dayMs = 86400000;
+  const d = Date.parse(dateStr + 'T12:00:00'), a = Date.parse(CYCLE_ANCHOR + 'T12:00:00');
+  if (isNaN(d) || isNaN(a)) return 'train';
+  const idx = ((Math.round((d - a) / dayMs) % CYCLE_LEN) + CYCLE_LEN) % CYCLE_LEN;
+  return CYCLE_PATTERN[idx] === 'R' ? 'rest' : 'train';
+}
+
+// Calorie target for a specific date: the rest-day target on rest days (when
+// set), otherwise the training-day target.
+function calTargetFor(dateStr) {
+  if (getDayType(dateStr) === 'rest' && REST_T_USER) return REST_T_USER;
+  return CAL_T_USER || CAL_T || 1800;
+}
+
+function onCycleLengthInput() {
+  const v = parseInt(document.getElementById('prof-cycle-length').value);
+  CYCLE_LEN = (v >= 2 && v <= 14) ? v : null;
+  if (CYCLE_LEN) {
+    if (!CYCLE_PATTERN || CYCLE_PATTERN.length !== CYCLE_LEN) {
+      CYCLE_PATTERN = 'T'.repeat(CYCLE_LEN); // default: all training days
+    }
+    if (!CYCLE_ANCHOR) {
+      CYCLE_ANCHOR = todayKey();
+      document.getElementById('prof-cycle-anchor').value = CYCLE_ANCHOR;
+    }
+  } else {
+    CYCLE_PATTERN = '';
+  }
+  renderCyclePatternBtns();
+  scheduleProfileSave();
+}
+
+function renderCyclePatternBtns() {
+  const box = document.getElementById('cycle-pattern-btns');
+  if (!box) return;
+  if (!CYCLE_LEN) { box.innerHTML = ''; return; }
+  box.innerHTML = Array.from({length: CYCLE_LEN}, (_, i) => {
+    const isRest = CYCLE_PATTERN[i] === 'R';
+    return `<button type="button" class="cyc-btn ${isRest ? 'rest' : 'train'} on" onclick="toggleCycleDay(${i})">D${i + 1}<br>${isRest ? '🛋 Rest' : '🏋️ Train'}</button>`;
+  }).join('');
+}
+
+function toggleCycleDay(i) {
+  const arr = CYCLE_PATTERN.split('');
+  arr[i] = arr[i] === 'R' ? 'T' : 'R';
+  CYCLE_PATTERN = arr.join('');
+  renderCyclePatternBtns();
+  scheduleProfileSave();
+}
+
 function updateUI() {
   const {cal, pro, fat, carbs} = totals();
   const TDEE = TDEE_USER || 2100;
-  const CAL_T_EFF = CAL_T_USER || CAL_T || 1800;
+  const CAL_T_EFF = calTargetFor(dateKey(activeDate));
   const todayWtEl0 = document.getElementById('wt-am');
   const todayWt0 = todayWtEl0 ? parseFloat(todayWtEl0.value) || null : null;
   const PRO_T_EFF = proteinTargetFor(dateKey(activeDate), todayWt0);
@@ -2806,7 +2888,7 @@ function renderHistory() {
       <td style="color:#444">${e.weightPM??'—'}</td>
       <td style="color:#444">${e.waistNavel??'—'}</td>
       <td style="color:#444">${e.waistSmallest??'—'}</td>
-      <td style="font-weight:600;color:${e.calories?(e.calories>CAL_T?(document.body.classList.contains('light')?'#8b1a1a':'#f87171'):(document.body.classList.contains('light')?'#1a6b2a':'#4ade80')):(document.body.classList.contains('light')?'#5c5349':'#2a2a2a')}">${e.calories??'—'}</td>
+      <td style="font-weight:600;color:${e.calories?(e.calories>calTargetFor(e.date)?(document.body.classList.contains('light')?'#8b1a1a':'#f87171'):(document.body.classList.contains('light')?'#1a6b2a':'#4ade80')):(document.body.classList.contains('light')?'#5c5349':'#2a2a2a')}">${e.calories??'—'}</td>
       <td style="font-weight:600;color:${e.protein?(e.protein>=proteinTargetFor(e.date,e.weightAM)?(document.body.classList.contains('light')?'#1a6b2a':'#4ade80'):(document.body.classList.contains('light')?'#8b1a1a':'#f87171')):(document.body.classList.contains('light')?'#5c5349':'#2a2a2a')}">${e.protein?e.protein+'g':'—'}</td>
       <td style="color:#444">${e.chest??'—'}</td>
       <td style="color:#444">${e.neck??'—'}</td>
@@ -3943,7 +4025,7 @@ async function refreshInsight(forceGenerate = false) {
 
   // Fingerprint deliberately excludes hour-of-day: staleness is governed by
   // the time-based throttle below, not by crossing an hour boundary.
-  const fp = `${cal}:${pro}:${currentGoalMode}:${CAL_T_USER}:${PRO_T_TODAY}:${foodSig}`;
+  const fp = `${cal}:${pro}:${currentGoalMode}:${calTargetFor(dateKey(activeDate))}:${PRO_T_TODAY}:${foodSig}`;
   const cacheKey = 'insight-day-' + dateKey(activeDate);
   // Tracks the timestamp + fingerprint of the most recent food edit since
   // the last real generation, so the coach waits for 5 quiet minutes after
@@ -4040,7 +4122,10 @@ async function refreshInsight(forceGenerate = false) {
 
   // Determine color class
   const TDEE = TDEE_USER || 2100;
-  const CAL_TARGET = CAL_T_USER || TDEE;  // user's actual goal (deficit/maintain/bulk adjusted)
+  const CAL_TARGET = calTargetFor(dateKey(activeDate));  // rest-day target applies on rest days
+  const dayTypeNote = getDayType(dateKey(activeDate)) === 'rest' && REST_T_USER
+    ? ' Today is a scheduled rest day, which is why the calorie goal is lower than usual.'
+    : '';
   const PRO_T = PRO_T_TODAY;
   const proRemaining = PRO_T - pro;
   const calRemaining = CAL_TARGET - cal;  // remaining to goal, not TDEE
@@ -4072,7 +4157,7 @@ async function refreshInsight(forceGenerate = false) {
 
   const sysPrompt = `You are a registered-dietitian-style nutrition coach. You look past calories and protein to overall diet quality: dietary fiber, healthy vs saturated/processed fats, vegetable and fruit intake, micronutrient variety (iron, calcium, potassium, omega-3s, etc.), whole vs ultra-processed foods, added sugar, and how protein is spread across the day. You reason from the SPECIFIC foods the user logged — you audit what they actually ate. Foods are logged as separate entries even when they're the same category (e.g. broccoli, carrots, and lettuce each logged separately are all "vegetables") — before stating any total quantity (grams of veg, servings of fruit, etc.), add up every matching entry in the food list; never quote a single entry's amount as if it were the day's total. Never give obvious filler like "eat more protein" or "you have calories left" unless that is genuinely the single most important thing right now; prefer the most useful non-obvious observation their food list reveals.${dietContextLine()}`;
 
-  const prompt = `It is ${hStr} (${mealContext}). The user is ${modeDesc}. Foods eaten so far today: ${foodList}. Totals: ${cal} kcal, ${pro}g protein. Goal: ${CAL_TARGET} kcal and ${PRO_T}g protein minimum. TDEE (maintenance): ${TDEE} kcal. Calories remaining to goal: ${calRemaining} kcal. Protein remaining: ${proRemaining}g. ${goalContext}
+  const prompt = `It is ${hStr} (${mealContext}). The user is ${modeDesc}.${dayTypeNote} Foods eaten so far today: ${foodList}. Totals: ${cal} kcal, ${pro}g protein. Goal: ${CAL_TARGET} kcal and ${PRO_T}g protein minimum. TDEE (maintenance): ${TDEE} kcal. Calories remaining to goal: ${calRemaining} kcal. Protein remaining: ${proRemaining}g. ${goalContext}
 
 Audit today's intake and name the single most useful gap or improvement you can see in the ACTUAL foods — e.g. no vegetables, low fiber, all protein from one source, heavy processed/saturated fat, lots of added sugar, or a specific macro/micronutrient shortfall. Then suggest one specific food to eat next that addresses it while fitting their remaining calories and protein (protein can always go higher; don't push a zero-protein food unless protein is met and calories are nearly maxed). Two sentences, ~40 words max. Be concrete about their food and remaining numbers. No emoji. No fluff.`;
 
@@ -4133,7 +4218,10 @@ async function sendDayChat() {
     ? meals.map(m => `${m.desc} (${m.cal}kcal, ${m.pro}g pro)`).join('; ')
     : 'nothing logged yet';
   const TDEE = TDEE_USER || 2100;
-  const CAL_TARGET = CAL_T_USER || TDEE;
+  const CAL_TARGET = calTargetFor(dateKey(activeDate));
+  const dayTypeNote = getDayType(dateKey(activeDate)) === 'rest' && REST_T_USER
+    ? ' Today is a scheduled rest day, which is why the calorie goal is lower than usual.'
+    : '';
 
   msgs.insertAdjacentHTML('beforeend', `<div class="msg-user fade" style="justify-content:flex-end;display:flex;margin-bottom:6px;"><div class="qa-bubble">${esc(text)}</div></div>`);
   const spId = 'dsp-'+Date.now();
@@ -4143,7 +4231,7 @@ async function sendDayChat() {
   dayChatHistory.push({ role: 'user', content: text });
 
   try {
-    const sysPrompt = `You are a registered-dietitian-style nutrition coach helping the user with TODAY's food log specifically. Foods eaten so far today: ${foodList}. Totals: ${cal} kcal, ${pro}g protein. Goal: ${CAL_TARGET} kcal and ${PRO_T_TODAY}g protein minimum. TDEE (maintenance): ${TDEE} kcal. Goal mode: ${currentGoalMode}.
+    const sysPrompt = `You are a registered-dietitian-style nutrition coach helping the user with TODAY's food log specifically.${dayTypeNote} Foods eaten so far today: ${foodList}. Totals: ${cal} kcal, ${pro}g protein. Goal: ${CAL_TARGET} kcal and ${PRO_T_TODAY}g protein minimum. TDEE (maintenance): ${TDEE} kcal. Goal mode: ${currentGoalMode}.
 
 Answer the user's question specifically and practically, referencing their actual foods and numbers where relevant. Keep responses under 3 sentences. Be direct.${dietContextLine()}`;
     const data = await api('/', {
@@ -4807,6 +4895,10 @@ function loginSuccess(user) {
   else if (user.cal_target) CAL_T_USER = user.cal_target;
   FAT_T_USER = user.fat_target_override || null;
   CARBS_T_USER = user.carbs_target_override || null;
+  REST_T_USER = user.rest_cal_target || null;
+  CYCLE_LEN = user.cycle_length || null;
+  CYCLE_PATTERN = user.cycle_pattern || '';
+  CYCLE_ANCHOR = user.cycle_anchor || '';
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   const sub = document.querySelector('.logo-sub'); if(sub) sub.textContent = user.name.split(' ')[0].toUpperCase();
@@ -4898,6 +4990,13 @@ function setTrackMacros(on, btn) {
   updateUI();
 }
 let CAL_T_USER = 1800; // 'deficit' | 'maintain' | 'bulk'
+// Rest-day / training-cycle state: REST_T_USER is the manual rest-day calorie
+// target (null = same as the training-day target); CYCLE_LEN/PATTERN/ANCHOR
+// define the repeating train/rest pattern (null length = every day trains).
+let REST_T_USER = null;
+let CYCLE_LEN = null;
+let CYCLE_PATTERN = '';
+let CYCLE_ANCHOR = '';
 let PRO_T_USER = 120;
 let PRO_RATIO_USER = 1.0; // g protein per lb bodyweight — used to recompute each day's target off that day's weight
 let TDEE_USER = 2100;
@@ -5091,6 +5190,10 @@ function updateTDEEDisplay() {
 
   TDEE_USER    = t.tdee;
   CAL_T_USER   = t.calTarget;
+  const restRaw = parseInt(document.getElementById('prof-rest-cal-target').value);
+  REST_T_USER = (!isNaN(restRaw) && restRaw > 0) ? restRaw : null;
+  const anchorEl = document.getElementById('prof-cycle-anchor');
+  if (anchorEl) CYCLE_ANCHOR = anchorEl.value || '';
   const proteinRatio = parseFloat(document.getElementById('prof-protein-ratio').value) || 1.0;
   PRO_T_USER   = Math.round(proteinRatio * t.weight);
   PRO_RATIO_USER = proteinRatio;
@@ -5106,8 +5209,11 @@ function updateTDEEDisplay() {
     const pct = Math.round((cfg.mult - 1) * 100);
     pctStr = pct === 0 ? 'maintenance' : (pct > 0 ? `+${pct}%` : `${pct}%`);
   }
+  const targetStr = REST_T_USER
+    ? `Train ${t.calTarget} kcal · Rest ${REST_T_USER} kcal`
+    : `Target ${t.calTarget} kcal`;
   document.getElementById('prof-tdee-display').innerHTML =
-    `TDEE ${t.tdee} kcal &nbsp;·&nbsp; <span class="tdee-target-val">Target ${t.calTarget} kcal</span> <span class="tdee-pct-note">(${pctStr}${t.hasOverride ? ' · custom' : ''})</span>`;
+    `TDEE ${t.tdee} kcal &nbsp;·&nbsp; <span class="tdee-target-val">${targetStr}</span> <span class="tdee-pct-note">(${pctStr}${t.hasOverride ? ' · custom' : ''})</span>`;
 
   const sourceEl = document.getElementById('prof-tdee-source');
   if (sourceEl) sourceEl.textContent = t.rmr ? 'Using your entered RMR · updates automatically' : 'Mifflin-St Jeor estimate · updates automatically';
@@ -5116,6 +5222,12 @@ function updateTDEEDisplay() {
   if (overrideDesc) {
     overrideDesc.textContent = t.hasOverride
       ? `Overriding the calculation above — ${t.calTarget} kcal (${pctStr} vs ${t.tdee} TDEE).`
+      : '';
+  }
+  const restDesc = document.getElementById('rest-cal-desc');
+  if (restDesc) {
+    restDesc.textContent = REST_T_USER
+      ? `Applies on rest days from your Training Cycle below — ${REST_T_USER} kcal (${Math.round((REST_T_USER / t.tdee - 1) * 100)}% vs ${t.tdee} TDEE).`
       : '';
   }
   updateAggrDesc(); // keeps the "X% of TDEE" line in sync — TDEE_USER just changed above
@@ -5176,7 +5288,9 @@ async function saveProfile() {
     rmr: t.rmr, cal_target_override: calOverride,
     muscle_loss_pct: musclePct, muscle_gain_pct: muscleGainPct, muscle_maintain_pct: muscleMaintainPct,
     coach_mode: coachMode, diet_notes: dietNotes, track_macros: trackMacros,
-    fat_target_override: FAT_T_USER, carbs_target_override: CARBS_T_USER
+    fat_target_override: FAT_T_USER, carbs_target_override: CARBS_T_USER,
+    rest_cal_target: REST_T_USER, cycle_length: CYCLE_LEN,
+    cycle_pattern: CYCLE_PATTERN || null, cycle_anchor: CYCLE_ANCHOR || null
   });
   // Update stored user
   const stored = JSON.parse(localStorage.getItem('bl_user')||'{}');
@@ -5194,6 +5308,10 @@ async function saveProfile() {
   stored.track_macros = trackMacros;
   stored.fat_target_override = FAT_T_USER;
   stored.carbs_target_override = CARBS_T_USER;
+  stored.rest_cal_target = REST_T_USER;
+  stored.cycle_length = CYCLE_LEN;
+  stored.cycle_pattern = CYCLE_PATTERN;
+  stored.cycle_anchor = CYCLE_ANCHOR;
   localStorage.setItem('bl_user', JSON.stringify(stored));
   updateUI();
   refreshHistInsight();
@@ -5223,6 +5341,14 @@ function loadProfilePane() {
   }
   if (stored.rmr) document.getElementById('prof-rmr').value = stored.rmr;
   if (stored.cal_target_override) document.getElementById('prof-cal-override').value = stored.cal_target_override;
+  if (stored.rest_cal_target) document.getElementById('prof-rest-cal-target').value = stored.rest_cal_target;
+  REST_T_USER = stored.rest_cal_target || null;
+  CYCLE_LEN = stored.cycle_length || null;
+  CYCLE_PATTERN = stored.cycle_pattern || '';
+  CYCLE_ANCHOR = stored.cycle_anchor || '';
+  document.getElementById('prof-cycle-length').value = CYCLE_LEN || '';
+  document.getElementById('prof-cycle-anchor').value = CYCLE_ANCHOR || '';
+  renderCyclePatternBtns();
   document.getElementById('prof-muscle-pct').value = stored.muscle_loss_pct != null ? stored.muscle_loss_pct : 20;
   document.getElementById('prof-muscle-gain-pct').value = stored.muscle_gain_pct != null ? stored.muscle_gain_pct : 20;
   document.getElementById('prof-muscle-maintain-pct').value = stored.muscle_maintain_pct != null ? stored.muscle_maintain_pct : 20;
