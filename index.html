@@ -4288,6 +4288,9 @@ function segmentStats(seg) {
   if (weightPts.length < 2) return null;
   const first = weightPts[0], last = weightPts[weightPts.length - 1];
   const days = Math.max(1, (new Date(last.date) - new Date(first.date)) / 86400000);
+  // Headline label: calendar days since the phase started (its start_date),
+  // not the weigh-in span — a phase with no weigh-in on day one shouldn't
+  // undercount its own age.
   const change = last.weightAM - first.weightAM;
   return { mode: seg.mode, startDate: first.date, endDate: last.date, days: Math.round(days), startWeight: first.weightAM, endWeight: last.weightAM, change, perWeek: (change / days) * 7 };
 }
@@ -4313,7 +4316,8 @@ function currentPhaseStats(allSorted) {
   // (theilSenTrend is hoisted; defined with the energy-balance helpers.)
   const trend = theilSenTrend(weightPts);
   const change = trend ? trend.perDay * days : last.weightAM - first.weightAM;
-  return { mode: p.mode, startDate: p.start_date, days: Math.round(days), daySpan: days, startWeight: first.weightAM, endWeight: last.weightAM, change, perWeek: (change / days) * 7, se: trend ? trend.se : null };
+  const calDays = Math.max(1, Math.round((new Date(todayKey()) - new Date(p.start_date)) / 86400000));
+  return { mode: p.mode, startDate: p.start_date, days: calDays, daySpan: days, startWeight: first.weightAM, endWeight: last.weightAM, change, perWeek: (change / days) * 7, se: trend ? trend.se : null };
 }
 
 async function refreshHistInsight() {
