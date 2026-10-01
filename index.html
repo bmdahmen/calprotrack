@@ -4455,7 +4455,7 @@ async function refreshHistInsight() {
     <div class="hist-rate-block">
       <div class="hist-rate-num ${defClass}">${imbalance > 0 ? '+' : ''}${Math.round(imbalance)}</div>
       <div class="hist-rate-lbl">KCAL ${imbalance <= 0 ? 'DEFICIT' : 'SURPLUS'}</div>
-      <div class="hist-rate-window" title="${weightChangeLbs.toFixed(1)} lbs × ${Math.round(kcalPerLb)} kcal/lb at ${muscleSharePct}% muscle share">${showImpliedTdee ? `TDEE ≈ ${Math.round(avgEaten - imbalance)}${imbalanceSE != null ? ` ± ${Math.round(imbalanceSE)}` : ''} · ${Math.round(kcalPerLb)} kcal/lb` : 'from weight change'}</div>
+      <div class="hist-rate-window" title="${weightChangeLbs.toFixed(1)} lbs × ${Math.round(kcalPerLb)} kcal/lb at ${muscleSharePct}% muscle share">${showImpliedTdee ? `TDEE ≈ ${Math.round(avgEaten - imbalance)}${imbalanceSE != null ? ` ± ${Math.round(imbalanceSE)}` : ''}` : 'from weight change'}</div>
     </div>` : '';
 
   // Plain intake averages over the window — same date range and same
@@ -4507,7 +4507,7 @@ async function refreshHistInsight() {
       <div class="hist-rate-block">
         <div class="hist-rate-num ${pDefClass}">${pImb > 0 ? '+' : ''}${Math.round(pImb)}</div>
         <div class="hist-rate-lbl">KCAL ${pImb <= 0 ? 'DEFICIT' : 'SURPLUS'}</div>
-        <div class="hist-rate-window" title="${curStats.change.toFixed(1)} lbs × ${Math.round(pKcalPerLb)} kcal/lb at ${pSharePct}% muscle share">${showPTdee ? `TDEE ≈ ${Math.round(pAvg - pImb)}${pImbSE != null ? ` ± ${Math.round(pImbSE)}` : ''} · ${Math.round(pKcalPerLb)} kcal/lb` : 'from weight change'}</div>
+        <div class="hist-rate-window" title="${curStats.change.toFixed(1)} lbs × ${Math.round(pKcalPerLb)} kcal/lb at ${pSharePct}% muscle share">${showPTdee ? `TDEE ≈ ${Math.round(pAvg - pImb)}${pImbSE != null ? ` ± ${Math.round(pImbSE)}` : ''}` : 'from weight change'}</div>
       </div>` : ''}
       ${pAvg != null ? `
       <div class="hist-rate-block">
