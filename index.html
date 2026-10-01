@@ -4313,7 +4313,7 @@ function currentPhaseStats(allSorted) {
   // (theilSenTrend is hoisted; defined with the energy-balance helpers.)
   const trend = theilSenTrend(weightPts);
   const change = trend ? trend.perDay * days : last.weightAM - first.weightAM;
-  return { mode: p.mode, startDate: p.start_date, days: Math.round(days), startWeight: first.weightAM, endWeight: last.weightAM, change, perWeek: (change / days) * 7 };
+  return { mode: p.mode, startDate: p.start_date, days: Math.round(days), daySpan: days, startWeight: first.weightAM, endWeight: last.weightAM, change, perWeek: (change / days) * 7, se: trend ? trend.se : null };
 }
 
 async function refreshHistInsight() {
@@ -4386,8 +4386,9 @@ async function refreshHistInsight() {
   // number. (Without this, the two blocks could differ by a hair from one
   // extra weigh-in shifting the robust median.)
   if (curStats && wTrend && weightPts.length && weightPts[0].date <= curStats.startDate) {
-    curStats.change = wTrend.perDay * daySpanW;
+    curStats.change = wTrend.perDay * curStats.daySpan;
     curStats.perWeek = wTrend.perDay * 7;
+    curStats.se = wTrend.se;
   }
 
   let waistSummary = '';
@@ -4477,7 +4478,20 @@ async function refreshHistInsight() {
   // Headline block — weight change since the current phase started, shown
   // ahead of (and independent of) the window blocks below since it's what
   // the user is mostly looking for: how is THIS phase going.
-  const curPhaseBlock = curStats ? `
+  // Phase-scope intake + energy balance for the headline: same estimator as
+  // the window blocks, but over the whole phase regardless of selected range.
+  const curPhaseBlock = curStats ? (() => {
+    const pKcalPerLb = kcalPerLbFor(curStats.change);
+    const pImb = dailyEnergyImbalance(curStats.change, curStats.daySpan);
+    const pImbSE = curStats.se != null ? curStats.se * pKcalPerLb : null; // se is per-day; × kcal/lb = kcal/day
+    const pCalArr = allSorted.filter(e => e.calories && e.date >= curStats.startDate && e.date < todayKey());
+    const pAvg = pCalArr.length ? pCalArr.reduce((s, e) => s + e.calories, 0) / pCalArr.length : null;
+    const showPTdee = pAvg != null && pCalArr.length >= 5;
+    const pSharePct = Math.round(muscleShareFor(curStats.change) * 100);
+    let pDefClass;
+    if (curStats.mode === 'bulk') pDefClass = pImb > 50 ? 'loss' : pImb < -50 ? 'gain' : 'neutral';
+    else pDefClass = pImb < -50 ? 'loss' : pImb > 50 ? 'gain' : 'neutral';
+    return `
     <div class="hist-rate-caption">SINCE ${(phaseModeLabel[curStats.mode]||curStats.mode).toUpperCase()} STARTED (${curStats.days}D)</div>
     <div class="hist-rate-blocks">
       <div class="hist-rate-block">
@@ -4485,7 +4499,20 @@ async function refreshHistInsight() {
         <div class="hist-rate-lbl">${curRate.label.toUpperCase()}</div>
         <div class="hist-rate-window">${curStats.startWeight} → ${curStats.endWeight} lbs</div>
       </div>
-    </div>` : '';
+      ${pImb != null ? `
+      <div class="hist-rate-block">
+        <div class="hist-rate-num ${pDefClass}">${pImb > 0 ? '+' : ''}${Math.round(pImb)}</div>
+        <div class="hist-rate-lbl">KCAL ${pImb <= 0 ? 'DEFICIT' : 'SURPLUS'}</div>
+        <div class="hist-rate-window" title="${curStats.change.toFixed(1)} lbs × ${Math.round(pKcalPerLb)} kcal/lb at ${pSharePct}% muscle share">${showPTdee ? `TDEE ≈ ${Math.round(pAvg - pImb)}${pImbSE != null ? ` ± ${Math.round(pImbSE)}` : ''} · ${Math.round(pKcalPerLb)} kcal/lb` : 'from weight change'}</div>
+      </div>` : ''}
+      ${pAvg != null ? `
+      <div class="hist-rate-block">
+        <div class="hist-rate-num kc">${Math.round(pAvg)}</div>
+        <div class="hist-rate-lbl">AVG KCAL/DAY</div>
+        <div class="hist-rate-window">${pCalArr.length} days logged</div>
+      </div>` : ''}
+    </div>`;
+  })() : '';
 
   rateRow.innerHTML = `
     ${curPhaseBlock}
