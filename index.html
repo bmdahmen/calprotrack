@@ -4308,7 +4308,11 @@ function currentPhaseStats(allSorted) {
   if (weightPts.length < 2) return null;
   const first = weightPts[0], last = weightPts[weightPts.length - 1];
   const days = Math.max(1, (new Date(last.date) - new Date(first.date)) / 86400000);
-  const change = last.weightAM - first.weightAM;
+  // Same robust trend as the window stats below — one estimator everywhere, so
+  // the headline rate and the window rate can't disagree with each other.
+  // (theilSenTrend is hoisted; defined with the energy-balance helpers.)
+  const trend = theilSenTrend(weightPts);
+  const change = trend ? trend.perDay * days : last.weightAM - first.weightAM;
   return { mode: p.mode, startDate: p.start_date, days: Math.round(days), startWeight: first.weightAM, endWeight: last.weightAM, change, perWeek: (change / days) * 7 };
 }
 
@@ -4376,6 +4380,15 @@ async function refreshHistInsight() {
   const weightChangeLbs = wTrend ? wTrend.perDay * daySpanW : lastW.weightAM - firstW.weightAM;
   const weightChangeSE = wTrend && wTrend.se != null ? wTrend.se * daySpanW : null;
   const weightPerWeek = (weightChangeLbs / daySpanW) * 7;
+
+  // If the selected window covers the whole current phase, the headline
+  // "since phase started" rate reuses the window's trend — same data, same
+  // number. (Without this, the two blocks could differ by a hair from one
+  // extra weigh-in shifting the robust median.)
+  if (curStats && wTrend && weightPts.length && weightPts[0].date <= curStats.startDate) {
+    curStats.change = wTrend.perDay * daySpanW;
+    curStats.perWeek = wTrend.perDay * 7;
+  }
 
   let waistSummary = '';
   let waistChangePer = null;
