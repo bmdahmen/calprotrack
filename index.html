@@ -4370,7 +4370,11 @@ async function refreshHistInsight() {
   // Calculate rates
   const firstW = weightPts[0], lastW = weightPts[weightPts.length-1];
   const daySpanW = Math.max(1, (new Date(lastW.date) - new Date(firstW.date)) / 86400000);
-  const weightChangeLbs = lastW.weightAM - firstW.weightAM;
+  // Robust trend (Theil-Sen) through all weigh-ins in the window; falls back
+  // to plain endpoints when there are fewer than 3 weigh-ins.
+  const wTrend = theilSenTrend(weightPts);
+  const weightChangeLbs = wTrend ? wTrend.perDay * daySpanW : lastW.weightAM - firstW.weightAM;
+  const weightChangeSE = wTrend && wTrend.se != null ? wTrend.se * daySpanW : null;
   const weightPerWeek = (weightChangeLbs / daySpanW) * 7;
 
   let waistSummary = '';
@@ -4420,6 +4424,9 @@ async function refreshHistInsight() {
   // change (fat/lean energy densities + muscle split), and — when intake was
   // logged for enough of the window — the maintenance intake it implies.
   const imbalance = dailyEnergyImbalance(weightChangeLbs, daySpanW);
+  const kcalPerLb = kcalPerLbFor(weightChangeLbs);
+  const imbalanceSE = weightChangeSE != null ? (weightChangeSE * kcalPerLb) / daySpanW : null;
+  const muscleSharePct = Math.round(muscleShareFor(weightChangeLbs) * 100);
   const calDaysArr = pts.filter(e => e.calories && e.date < todayKey());
   const avgEaten = calDaysArr.length ? calDaysArr.reduce((s, e) => s + e.calories, 0) / calDaysArr.length : null;
   const showImpliedTdee = avgEaten != null && calDaysArr.length >= 5;
@@ -4430,7 +4437,7 @@ async function refreshHistInsight() {
     <div class="hist-rate-block">
       <div class="hist-rate-num ${defClass}">${imbalance > 0 ? '+' : ''}${Math.round(imbalance)}</div>
       <div class="hist-rate-lbl">KCAL ${imbalance <= 0 ? 'DEFICIT' : 'SURPLUS'}</div>
-      <div class="hist-rate-window">${showImpliedTdee ? `TDEE ≈ ${Math.round(avgEaten - imbalance)}` : 'from weight change'}</div>
+      <div class="hist-rate-window" title="${weightChangeLbs.toFixed(1)} lbs × ${Math.round(kcalPerLb)} kcal/lb at ${muscleSharePct}% muscle share">${showImpliedTdee ? `TDEE ≈ ${Math.round(avgEaten - imbalance)}${imbalanceSE != null ? ` ± ${Math.round(imbalanceSE)}` : ''} · ${Math.round(kcalPerLb)} kcal/lb` : 'from weight change'}</div>
     </div>` : '';
 
   // Plain intake averages over the window — same date range and same
@@ -5478,11 +5485,59 @@ function muscleShareFor(deltaW) {
   return Math.min(100, Math.max(0, pct)) / 100;
 }
 
+// ── Robust weight-trend estimation ─────────────────────────────────────────
+// The old approach (last − first morning weight) let a single noisy weigh-in
+// at either end of the window swing the TDEE estimate ~±90 kcal, and water
+// swings (illness dips, glycogen rebounds) read as tissue change. Instead we
+// fit the trend through ALL morning weights in the window with a Theil-Sen
+// estimator — the median of every pairwise slope — which shrugs off outlier
+// stretches without any tuning. Residual noise around the fit becomes a
+// standard error so the TDEE can be shown with an honest ± band.
+function theilSenTrend(weightPts) {
+  // weightPts: [{date, weightAM}] sorted ascending. Returns {perDay, se} in
+  // lbs/day, or null when the window has fewer than 3 weigh-ins.
+  const t0 = new Date(weightPts[0].date).getTime();
+  const pts = weightPts
+    .map(e => ({ x: (new Date(e.date).getTime() - t0) / 86400000, y: e.weightAM }))
+    .filter(p => p.x >= 0 && isFinite(p.y));
+  if (pts.length < 3) return null;
+  const slopes = [];
+  for (let i = 0; i < pts.length; i++)
+    for (let j = i + 1; j < pts.length; j++) {
+      const dx = pts[j].x - pts[i].x;
+      if (dx > 0) slopes.push((pts[j].y - pts[i].y) / dx);
+    }
+  if (!slopes.length) return null;
+  slopes.sort((a, b) => a - b);
+  const mid = slopes.length >> 1;
+  const perDay = slopes.length % 2 ? slopes[mid] : (slopes[mid - 1] + slopes[mid]) / 2;
+  // Intercept = median(y − slope·x); SE from residuals around the robust line
+  // via the usual OLS slope-SE formula as an approximation.
+  const offs = pts.map(p => p.y - perDay * p.x).sort((a, b) => a - b);
+  const omid = offs.length >> 1;
+  const intercept = offs.length % 2 ? offs[omid] : (offs[omid - 1] + offs[omid]) / 2;
+  const n = pts.length;
+  const meanX = pts.reduce((s, p) => s + p.x, 0) / n;
+  let ssx = 0, rss = 0;
+  for (const p of pts) {
+    ssx += (p.x - meanX) * (p.x - meanX);
+    const r = p.y - (perDay * p.x + intercept);
+    rss += r * r;
+  }
+  const se = ssx > 0 && n > 2 ? Math.sqrt((rss / (n - 2)) / ssx) : null;
+  return { perDay, se };
+}
+
+// Energy cost of a pound of body-weight change under the user's muscle-share
+// assumption — surfaced in the UI so the assumption isn't invisible.
+function kcalPerLbFor(deltaW) {
+  const share = muscleShareFor(deltaW);
+  return (1 - share) * FAT_KCAL_PER_LB + share * LEAN_KCAL_PER_LB;
+}
+
 function dailyEnergyImbalance(deltaW, days) {
   if (!days) return null;
-  const lean = deltaW * muscleShareFor(deltaW);
-  const fat = deltaW - lean;
-  return (fat * FAT_KCAL_PER_LB + lean * LEAN_KCAL_PER_LB) / days;
+  return (deltaW * kcalPerLbFor(deltaW)) / days;
 }
 
 // Extrapolates body fat % on a given date/weight from a single DEXA scan,
