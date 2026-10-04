@@ -6,3 +6,8 @@ compatibility_date = "2024-01-01"
 binding = "DB"
 database_name = "calorie"
 database_id = "ce1b81ad-050f-4ea2-9b66-974881099f89"
+
+# Plain (non-secret) env vars. Kept here — not in the dashboard — so CI
+# `wrangler deploy` doesn't wipe them.
+[vars]
+MODEL_SONNET = "claude-sonnet-5-5"
