@@ -26,7 +26,7 @@ function getModels(env) {
 function buildModelCascade(env) {
   const m = getModels(env);
   return {
-    image: [m.opus, m.sonnet],
+    image: [m.sonnet, m.opus], // Sonnet 5.5 primary (cheaper/faster); Opus fallback
     food: [m.sonnet, m.opus],
     ai_coach: [m.sonnet, m.opus],
     default: [m.sonnet, m.opus],
