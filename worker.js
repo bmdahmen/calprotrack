@@ -12,7 +12,7 @@ const GOOGLE_CLIENT_ID = '156334413688-usb68f1fldmrhic94mn925l75hnk82pk.apps.goo
 // To roll to new models with no code change/redeploy, set these in your
 // Cloudflare Worker environment instead: MODEL_OPUS, MODEL_SONNET.
 const DEFAULT_MODELS = {
-  opus: 'claude-opus-4-8',
+  opus: 'claude-opus-5-5',
   sonnet: 'claude-sonnet-5',
 };
 
