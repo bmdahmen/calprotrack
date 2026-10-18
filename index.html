@@ -1138,7 +1138,7 @@ const CAL_T = 1800, PRO_T = 120;
 // numeric rateRow is always recomputed fresh, never cached/restored) — an
 // old-format cached entry would otherwise render literally as
 // "...html...||...text..." in the AI Coach bar.
-const HIST_CACHE_VERSION = 'v11';
+const HIST_CACHE_VERSION = 'v12';
 
 const SEED_HISTORY = [
   {date:"2019-12-01",weightAM:147,notes:"Baseline adult weight"},
@@ -4379,7 +4379,11 @@ function currentPhaseStats(allSorted) {
   const trend = theilSenTrend(weightPts);
   const change = trend ? trend.perDay * days : last.weightAM - first.weightAM;
   const calDays = Math.max(1, Math.round((new Date(todayKey()) - new Date(p.start_date)) / 86400000));
-  return { mode: p.mode, startDate: p.start_date, days: calDays, daySpan: days, startWeight: first.weightAM, endWeight: last.weightAM, change, perWeek: (change / days) * 7, se: trend ? trend.se : null };
+  // Display endpoints come off the trend line, not raw first/last weigh-ins,
+  // so the shown "a → b" always agrees with the shown rate.
+  const startWeight = trend ? trendValueAt(trend, first.date) : first.weightAM;
+  const endWeight = trend ? trendValueAt(trend, last.date) : last.weightAM;
+  return { mode: p.mode, startDate: p.start_date, days: calDays, daySpan: days, startWeight, endWeight, change, perWeek: (change / days) * 7, se: trend ? trend.se : null };
 }
 
 async function refreshHistInsight() {
@@ -4446,15 +4450,25 @@ async function refreshHistInsight() {
   const weightChangeLbs = wTrend ? wTrend.perDay * daySpanW : lastW.weightAM - firstW.weightAM;
   const weightChangeSE = wTrend && wTrend.se != null ? wTrend.se * daySpanW : null;
   const weightPerWeek = (weightChangeLbs / daySpanW) * 7;
+  // Trend-line endpoints for display — raw first/last next to a robust rate
+  // showed two different estimators (e.g. +2.01/wk beside "151 → 156.9").
+  const wStartDisp = wTrend ? trendValueAt(wTrend, firstW.date) : firstW.weightAM;
+  const wEndDisp = wTrend ? trendValueAt(wTrend, lastW.date) : lastW.weightAM;
 
   // If the selected window covers the whole current phase, the headline
   // "since phase started" rate reuses the window's trend — same data, same
   // number. (Without this, the two blocks could differ by a hair from one
   // extra weigh-in shifting the robust median.)
   if (curStats && wTrend && weightPts.length && weightPts[0].date <= curStats.startDate) {
+    const lastPt = weightPts[weightPts.length - 1];
+    curStats.daySpan = Math.max(1, (new Date(lastPt.date) - new Date(curStats.startDate)) / 86400000);
     curStats.change = wTrend.perDay * curStats.daySpan;
     curStats.perWeek = wTrend.perDay * 7;
     curStats.se = wTrend.se;
+    // Keep the displayed endpoints on the same trend line as the rate —
+    // raw first/last weigh-ins would disagree with it (same bug as #2).
+    curStats.startWeight = trendValueAt(wTrend, curStats.startDate);
+    curStats.endWeight = trendValueAt(wTrend, lastPt.date);
   }
 
   let waistSummary = '';
@@ -4563,7 +4577,7 @@ async function refreshHistInsight() {
       <div class="hist-rate-block">
         <div class="hist-rate-num ${curRate.cls}">${curRate.wStr}</div>
         <div class="hist-rate-lbl">${curRate.label.toUpperCase()}</div>
-        <div class="hist-rate-window">${curStats.startWeight} → ${curStats.endWeight} lbs</div>
+        <div class="hist-rate-window">${curStats.startWeight.toFixed(1)} → ${curStats.endWeight.toFixed(1)} lbs</div>
       </div>
       ${pImb != null ? `
       <div class="hist-rate-block">
@@ -4587,7 +4601,7 @@ async function refreshHistInsight() {
       <div class="hist-rate-block">
         <div class="hist-rate-num ${wClass}">${wStr}</div>
         <div class="hist-rate-lbl">${wLabel.toUpperCase()}</div>
-        <div class="hist-rate-window">${firstW.weightAM} → ${lastW.weightAM} lbs</div>
+        <div class="hist-rate-window">${wStartDisp.toFixed(1)} → ${wEndDisp.toFixed(1)} lbs</div>
       </div>
       ${waistChangePer !== null ? `
       <div class="hist-rate-block">
@@ -4634,12 +4648,28 @@ async function refreshHistInsight() {
     if (seq !== histInsightSeq) return; // a newer refresh has since started — drop this stale result
     // A blank value means something explicitly invalidated this row (e.g. a
     // goal-mode change) — never reuse that, or the coach renders empty.
-    if (cached && cached.value && (Date.now() - new Date(cached.updated_at).getTime()) < DAY_MS) {
+    // The fingerprint must also match the current data (weigh-ins, waist,
+    // goal mode, DEXA, phases, diet context) — without this check the prose
+    // could sit up to 24h behind the freshly rendered numbers above it.
+    if (cached && cached.value && cached.fingerprint === histFP && (Date.now() - new Date(cached.updated_at).getTime()) < DAY_MS) {
       bar.innerHTML = '<span class="insight-label">AI COACH</span>' + cached.value;
       return;
     }
   } catch(e) {}
   if (seq !== histInsightSeq) return;
+
+  // Ground the model against invented explanations: show the window's actual
+  // weigh-in range with dates, so a dip-and-rebound reads as what it is
+  // instead of becoming a confabulated story about phase boundaries.
+  let shapeLine = '';
+  if (weightPts.length >= 3) {
+    let mn = weightPts[0], mx = weightPts[0];
+    for (const p of weightPts) {
+      if (p.weightAM < mn.weightAM) mn = p;
+      if (p.weightAM > mx.weightAM) mx = p;
+    }
+    shapeLine = `Within the selected window, weigh-ins ranged from ${mn.weightAM} lbs (${mn.date}) to ${mx.weightAM} lbs (${mx.date}).`;
+  }
 
   // Build AI prompt
   const goalCtx = currentGoalMode === 'bulk'
@@ -4651,7 +4681,7 @@ async function refreshHistInsight() {
   // Headline: weight change since the CURRENT phase started — the number
   // the user cares about most, regardless of which window is selected.
   const headlineLine = curStats
-    ? `Current phase: ${curStats.mode}, started ${curStats.startDate} (${curStats.days} days ago). Weight change SINCE THIS PHASE STARTED: ${curStats.change > 0 ? '+' : ''}${curStats.change.toFixed(1)} lbs (${curRate.wStr} lbs/week), from ${curStats.startWeight} to ${curStats.endWeight} lbs. This is the number that matters most for evaluating progress.`
+    ? `Current phase: ${curStats.mode}, started ${curStats.startDate} (${curStats.days} days ago). Weight change SINCE THIS PHASE STARTED: ${curStats.change > 0 ? '+' : ''}${curStats.change.toFixed(1)} lbs (${curRate.wStr} lbs/week), from ${curStats.startWeight.toFixed(1)} to ${curStats.endWeight.toFixed(1)} lbs. This is the number that matters most for evaluating progress.`
     : `Current phase: ${currentGoalMode || 'deficit'} (no phase start date recorded, or not enough weight data logged since it started — treat the window figures below as the only available signal).`;
 
   // If the selected window spans more than one phase, break it down so the
@@ -4663,13 +4693,13 @@ async function refreshHistInsight() {
 
   const prompt = `${headlineLine}
 
-For additional context, over the selected ${range}-day window overall: weight went from ${firstW.weightAM} lbs to ${lastW.weightAM} lbs (${weightChangeLbs > 0 ? '+' : ''}${weightChangeLbs.toFixed(1)} lbs, ${wStr} lbs/week).${segLines ? `
+For additional context, over the selected ${range}-day window overall: weight went from ${wStartDisp.toFixed(1)} lbs to ${wEndDisp.toFixed(1)} lbs (${weightChangeLbs > 0 ? '+' : ''}${weightChangeLbs.toFixed(1)} lbs, ${wStr} lbs/week).${shapeLine ? `\n${shapeLine}` : ''}${segLines ? `
 This window spans multiple phases — breakdown:
 ${segLines}` : ''}
 ${waistSummary ? waistSummary : 'No waist data available.'}
 ${goalCtx}
 
-Write 2-3 encouraging but factual sentences. Prioritize evaluating the CURRENT phase specifically — the "since this phase started" figure — against the goal; that's what the user wants to know. Use the wider window or older phases only as brief supporting context if genuinely useful (e.g. contrasting how a prior deficit's pace compares to how maintenance is holding), never as the primary evaluation. Comment on whether the current phase's rate is appropriate for the goal and whether to stay the course or adjust. Be specific with numbers. No emoji.`;
+Write 2-3 encouraging but factual sentences. Prioritize evaluating the CURRENT phase specifically — the "since this phase started" figure — against the goal; that's what the user wants to know. Use the wider window or older phases only as brief supporting context if genuinely useful (e.g. contrasting how a prior deficit's pace compares to how maintenance is holding), never as the primary evaluation. Comment on whether the current phase's rate is appropriate for the goal and whether to stay the course or adjust. Be specific with numbers. If the window rate and the phase rate differ, explain it only from the data given above (e.g. a sharp dip and rebound visible in the weigh-in range) — never invent reasons involving phase boundaries or dates not stated. No emoji.`;
 
   try {
     const dietCtx = dietContextLine().trim();
@@ -5631,7 +5661,15 @@ function theilSenTrend(weightPts) {
     rss += r * r;
   }
   const se = ssx > 0 && n > 2 ? Math.sqrt((rss / (n - 2)) / ssx) : null;
-  return { perDay, se };
+  return { perDay, se, intercept, x0: t0 };
+}
+
+// Trend-line value at a date string. Used for display endpoints so the
+// shown "start → end" always satisfies rate × span = end − start — raw
+// first/last weigh-ins next to a robust rate was showing two different
+// estimators side by side (e.g. +0.91/wk beside "148.2 → 156.9").
+function trendValueAt(t, dateStr) {
+  return t.perDay * ((new Date(dateStr).getTime() - t.x0) / 86400000) + t.intercept;
 }
 
 // Energy cost of a pound of body-weight change under the user's muscle-share
