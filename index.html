@@ -418,6 +418,13 @@
 
   #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a1a1a;border:1px solid #2a2a2a;color:#aaa;font-family:'DM Mono',monospace;font-size:11px;padding:8px 18px;border-radius:20px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;}
   #toast.show{opacity:1;}
+  /* Big success pop on item log — unmissable confirmation (iOS blocks vibration for web apps, so visual it is) */
+  #logflash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:1000;opacity:0;}
+  #logflash.show{opacity:1;}
+  #logflash .ring{width:88px;height:88px;border-radius:50%;background:rgba(76,175,80,.14);border:2px solid #4caf50;display:flex;align-items:center;justify-content:center;}
+  #logflash.show .ring{animation:logpop .75s ease forwards;}
+  #logflash .ring svg{width:46px;height:46px;stroke:#4caf50;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;}
+  @keyframes logpop{0%{transform:scale(.55);opacity:0;}22%{transform:scale(1.1);opacity:1;}42%{transform:scale(1);}75%{transform:scale(1);opacity:1;}100%{transform:scale(1);opacity:0;}}
   .loading-overlay{position:fixed;inset:0;background:#08080888;z-index:50;display:flex;align-items:center;justify-content:center;}
   .loading-box{font-family:'DM Mono',monospace;font-size:11px;color:#555;display:flex;align-items:center;gap:10px;}
 
@@ -1113,6 +1120,7 @@
 </div>
 
 <div id="toast"></div>
+<div id="logflash"><div class="ring"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div></div>
 
 <script>
 const WORKER = "https://calorie.bmdahmen.workers.dev";
@@ -2083,14 +2091,14 @@ async function addFoodItem() {
       items.forEach(it => foodItems.push({ id: newLocalId(), name: it.desc, cal: it.cal, pro: it.pro, weight_g: it.weight_g, fat: it.fat, carbs: it.carbs, hidden: 0, created_at: new Date().toISOString() }));
       renderFoodItems();
       renderPresetBuilderPicker();
-      try { await saveFoodItems(); toast(items.length > 1 ? `${items.length} food items added ✓` : 'Food item added ✓'); }
+      try { await saveFoodItems(); toast(items.length > 1 ? `${items.length} food items added ✓` : 'Food item added ✓'); flashSuccess(); }
       catch (e) { toast('Added locally — save failed, will retry on next change'); }
     } else {
       const r = await resolveFoodAmounts(name, weight_g, cal, pro, fat, carbs, trackMacros);
       foodItems.push({ id: newLocalId(), name, cal: r.cal, pro: r.pro, weight_g: r.weight_g || null, fat: trackMacros ? r.fat : null, carbs: trackMacros ? r.carbs : null, hidden: 0, created_at: new Date().toISOString() });
       renderFoodItems();
       renderPresetBuilderPicker();
-      try { await saveFoodItems(); toast('Food item added ✓'); }
+      try { await saveFoodItems(); toast('Food item added ✓'); flashSuccess(); }
       catch (e) { toast('Added locally — save failed, will retry on next change'); }
     }
     nameEl.value = ''; calEl.value = ''; proEl.value = ''; wtEl.value = ''; fatEl.value = ''; carbsEl.value = ''; nameEl.focus();
@@ -2147,7 +2155,7 @@ async function logFoodItem(id) {
   const el = document.getElementById('fi-qty-' + id);
   if (el) el.value = 1;
   updateFoodItemWeightDisplay(id, 1);
-  toast(`Logged: ${cal} kcal · ${pro}g protein`);
+  toast(`Logged: ${cal} kcal · ${pro}g protein`); flashSuccess();
 }
 
 // -- Presets --
@@ -3416,6 +3424,16 @@ function toast(msg) {
   const t = document.getElementById("toast");
   t.textContent = msg; t.classList.add("show");
   setTimeout(()=>t.classList.remove("show"),2200);
+}
+
+// Big success pop shown on a confirmed log. Also tries navigator.vibrate —
+// a no-op on iOS (Apple doesn't expose it to web apps) but gives a real buzz on Android.
+function flashSuccess() {
+  try { if (navigator.vibrate) navigator.vibrate(15); } catch (e) {}
+  const f = document.getElementById("logflash");
+  if (!f) return;
+  f.classList.remove("show"); void f.offsetWidth; f.classList.add("show");
+  setTimeout(()=>f.classList.remove("show"), 800);
 }
 
 
