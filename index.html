@@ -1214,7 +1214,7 @@ async function api(path, body) {
   // Auto-inject user_id for data endpoints. The worker ignores this whenever
   // a session token is presented — it's the compatibility fallback for the
   // rollout window and costs nothing to keep sending.
-  const dataEndpoints = ['/meals/', '/meas/', '/history/', '/cache/', '/fooditems/', '/presets/'];
+  const dataEndpoints = ['/meals/', '/meas/', '/history/', '/cache/', '/fooditems/', '/presets/', '/dexa/', '/phases/'];
   if (currentUser && dataEndpoints.some(e => path.startsWith(e))) {
     body = { ...body, user_id: currentUser.id };
   }
