@@ -445,26 +445,27 @@ export default {
     }
 
     if (path === '/history/save') {
-      const { date, calories, protein, fat, carbs, weightAM, weightPM, waistNavel, waistSmallest, chest, neck, thigh, bicep, hips, restingHR, bpSystolic, bpDiastolic } = body;
+      const { date, calories, protein, fat, carbs, weightAM, weightPM, waistNavel, waistSmallest, chest, neck, thigh, bicep, hips, restingHR, bpSystolic, bpDiastolic, cardio_eatback } = body;
       const user_id = resolveUser(body.user_id);
       if (!user_id) return authError();
       const historySql =
-        'INSERT INTO history (date,calories,protein,fat,carbs,weightAM,weightPM,waistNavel,waistSmallest,chest,neck,thigh,bicep,hips,restingHR,bpSystolic,bpDiastolic,user_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET calories=excluded.calories,protein=excluded.protein,fat=excluded.fat,carbs=excluded.carbs,weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,chest=excluded.chest,neck=excluded.neck,thigh=excluded.thigh,bicep=excluded.bicep,hips=excluded.hips,restingHR=excluded.restingHR,bpSystolic=excluded.bpSystolic,bpDiastolic=excluded.bpDiastolic';
-      const historyArgs = [date, calories||null, protein||null, fat||null, carbs||null, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, chest||null, neck||null, thigh||null, bicep||null, hips||null, restingHR||null, bpSystolic||null, bpDiastolic||null, user_id];
+        'INSERT INTO history (date,calories,protein,fat,carbs,weightAM,weightPM,waistNavel,waistSmallest,chest,neck,thigh,bicep,hips,restingHR,bpSystolic,bpDiastolic,cardio_eatback,user_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(date,user_id) DO UPDATE SET calories=excluded.calories,protein=excluded.protein,fat=excluded.fat,carbs=excluded.carbs,weightAM=excluded.weightAM,weightPM=excluded.weightPM,waistNavel=excluded.waistNavel,waistSmallest=excluded.waistSmallest,chest=excluded.chest,neck=excluded.neck,thigh=excluded.thigh,bicep=excluded.bicep,hips=excluded.hips,restingHR=excluded.restingHR,bpSystolic=excluded.bpSystolic,bpDiastolic=excluded.bpDiastolic,cardio_eatback=excluded.cardio_eatback';
+      const historyArgs = [date, calories||null, protein||null, fat||null, carbs||null, weightAM||null, weightPM||null, waistNavel||null, waistSmallest||null, chest||null, neck||null, thigh||null, bicep||null, hips||null, restingHR||null, bpSystolic||null, bpDiastolic||null, cardio_eatback||null, user_id];
       try {
         await env.DB.prepare(historySql).bind(...historyArgs).run();
       } catch (e) {
         // Self-healing schema: `wrangler deploy` never applies D1 migrations on its own
         // and the CI deploy token lacks D1 permission, so a missing column means
-        // migrations/0026 never landed. Apply it via the worker's own D1 binding and retry once.
+        // migrations/0026 or 0027 never landed. Apply them via the worker's own D1 binding and retry once.
         if (!/no such column/i.test(e.message || String(e))) throw e;
         for (const ddl of [
           'ALTER TABLE history ADD COLUMN fat REAL',
           'ALTER TABLE history ADD COLUMN carbs REAL',
+          'ALTER TABLE history ADD COLUMN cardio_eatback INTEGER',
         ]) {
           try { await env.DB.prepare(ddl).run(); } catch (e2) { /* already exists */ }
         }
-        await logError(env, { user_id, source: 'schema', type: 'self_heal', message: 'applied migration 0026 (history fat/carbs) on demand', detail: e.message || String(e) });
+        await logError(env, { user_id, source: 'schema', type: 'self_heal', message: 'applied migrations 0026/0027 (history fat/carbs/cardio_eatback) on demand', detail: e.message || String(e) });
         await env.DB.prepare(historySql).bind(...historyArgs).run();
       }
       return json({ ok: true });

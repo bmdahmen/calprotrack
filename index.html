@@ -712,6 +712,9 @@
           <div class="prog-marker-lbl" id="cal-lbl-tdee" style="color:#fbbf24"></div>
         </div>
       </div>
+      <div class="fe-row" style="margin-top:-6px;margin-bottom:20px">
+        <div class="fe-col"><label class="field-lbl">Cardio to eat back (kcal)</label><div class="fe-suffix"><input type="number" id="cardio-eatback" inputmode="numeric" step="1" min="0" placeholder="0" onblur="saveEatBack()"><span>kc</span></div></div>
+      </div>
       <div class="prog-wrap" id="pro-prog-wrap" style="margin-bottom:20px">
         <div class="prog-meta"><span>Protein</span><span class="prog-val" id="pro-txt"></span></div>
         <div class="prog-bar"><div class="prog-fill" id="pro-fill" style="width:0%;background:#a78bfa"></div></div>
@@ -1363,6 +1366,15 @@ async function loadDay(d) {
     setPrevMeasPlaceholders(d);
   }
 
+  // Populate the cardio eat-back input from this day's saved history row
+  // BEFORE the autoSaveDay() below, so the load doesn't wipe it with null.
+  const ebRow = historyData.find(e => e.date === dateKey(d));
+  const ebEl = document.getElementById('cardio-eatback');
+  if (ebEl) {
+    ebEl.value = ebRow && ebRow.cardio_eatback ? ebRow.cardio_eatback : '';
+    setFieldSaved(ebEl, !!(ebRow && ebRow.cardio_eatback));
+  }
+
   updateUI();
   // Sync measurements to history on every day load so history stays current
   autoSaveDay();
@@ -1479,6 +1491,46 @@ function calTargetFor(dateStr) {
   return CAL_T_USER || CAL_T || 1800;
 }
 
+// Added-cardio calories for the day on screen, from the eat-back input in
+// the food log pane (0 when blank).
+function dayEatBack() {
+  const el = document.getElementById('cardio-eatback');
+  if (!el) return 0;
+  const n = parseInt(el.value);
+  return isNaN(n) ? 0 : Math.max(0, n);
+}
+
+// A day's real budget: base target plus any cardio calories the user chose
+// to eat back that day. For the day on screen this reads the live input;
+// for other dates it reads the saved history row.
+function calBudgetFor(dateStr) {
+  const base = calTargetFor(dateStr);
+  if (dateStr === dateKey(activeDate)) return base + dayEatBack();
+  const row = historyData.find(e => e.date === dateStr);
+  return base + (row && row.cardio_eatback ? row.cardio_eatback : 0);
+}
+
+// Value to persist for the viewed day's cardio eat-back: the live input when
+// set, otherwise the already-saved value — so a day load that hasn't
+// populated the input yet can't wipe a stored value with null.
+function eatBackToSave() {
+  const el = document.getElementById('cardio-eatback');
+  if (el && el.value !== '') {
+    const n = parseInt(el.value);
+    return isNaN(n) ? null : Math.max(0, n);
+  }
+  const row = historyData.find(e => e.date === dateKey(activeDate));
+  return row && row.cardio_eatback ? row.cardio_eatback : null;
+}
+
+// Persist the eat-back input and refresh the budget display.
+function saveEatBack() {
+  const el = document.getElementById('cardio-eatback');
+  if (el) setFieldSaved(el, !!el.value);
+  updateUI();
+  autoSaveDay();
+}
+
 function onCycleLengthInput() {
   const v = parseInt(document.getElementById('prof-cycle-length').value);
   CYCLE_LEN = (v >= 2 && v <= 14) ? v : null;
@@ -1518,7 +1570,7 @@ function toggleCycleDay(i) {
 function updateUI() {
   const {cal, pro, fat, carbs} = totals();
   const TDEE = TDEE_USER || 2100;
-  const CAL_T_EFF = calTargetFor(dateKey(activeDate));
+  const CAL_T_EFF = calBudgetFor(dateKey(activeDate));
   const todayWtEl0 = document.getElementById('wt-am');
   const todayWt0 = todayWtEl0 ? parseFloat(todayWtEl0.value) || null : null;
   const PRO_T_EFF = proteinTargetFor(dateKey(activeDate), todayWt0);
@@ -1531,7 +1583,8 @@ function updateUI() {
   const over = cal > CAL_T_EFF;
   const mode = currentGoalMode || 'deficit';
 
-  document.getElementById("cal-txt").textContent = `${cal} / ${CAL_T_EFF}` + (remCal>0?` · ${remCal} left`:" · OVER");
+  const EB_TXT = dayEatBack() > 0 ? ` · incl. ${dayEatBack()} cardio` : '';
+  document.getElementById("cal-txt").textContent = `${cal} / ${CAL_T_EFF}` + EB_TXT + (remCal>0?` · ${remCal} left`:" · OVER");
   document.getElementById("pro-txt").textContent = `${pro}g / ${PRO_T_EFF}g` + (remPro>0?` · ${remPro}g left`:" · ✓");
 
   // Extended bar: scale to 130% of TDEE so there's room beyond goal
@@ -2830,6 +2883,7 @@ async function autoSaveDay() {
     restingHR: parseInt(document.getElementById("rhr").value)||null,
     bpSystolic: parseInt(document.getElementById("bp-sys").value)||null,
     bpDiastolic: parseInt(document.getElementById("bp-dia").value)||null,
+    cardio_eatback: eatBackToSave(),
   });
   datesWithData.add(dateKey(activeDate));
   await loadHistory();
@@ -2858,6 +2912,7 @@ async function saveDay() {
     restingHR: parseInt(document.getElementById("rhr").value)||null,
     bpSystolic: parseInt(document.getElementById("bp-sys").value)||null,
     bpDiastolic: parseInt(document.getElementById("bp-dia").value)||null,
+    cardio_eatback: eatBackToSave(),
   });
   datesWithData.add(dateKey(activeDate));
   await loadHistory();
@@ -2902,7 +2957,7 @@ function renderHistory() {
       <td style="color:#444">${e.weightPM??'—'}</td>
       <td style="color:#444">${e.waistNavel??'—'}</td>
       <td style="color:#444">${e.waistSmallest??'—'}</td>
-      <td style="font-weight:600;color:${e.calories?(e.calories>calTargetFor(e.date)?(document.body.classList.contains('light')?'#8b1a1a':'#f87171'):(document.body.classList.contains('light')?'#1a6b2a':'#4ade80')):(document.body.classList.contains('light')?'#5c5349':'#2a2a2a')}">${e.calories??'—'}</td>
+      <td style="font-weight:600;color:${e.calories?(e.calories>calBudgetFor(e.date)?(document.body.classList.contains('light')?'#8b1a1a':'#f87171'):(document.body.classList.contains('light')?'#1a6b2a':'#4ade80')):(document.body.classList.contains('light')?'#5c5349':'#2a2a2a')}">${e.calories??'—'}</td>
       <td style="font-weight:600;color:${e.protein?(e.protein>=proteinTargetFor(e.date,e.weightAM)?(document.body.classList.contains('light')?'#1a6b2a':'#4ade80'):(document.body.classList.contains('light')?'#8b1a1a':'#f87171')):(document.body.classList.contains('light')?'#5c5349':'#2a2a2a')}">${e.protein?e.protein+'g':'—'}</td>
       <td style="color:#444">${e.chest??'—'}</td>
       <td style="color:#444">${e.neck??'—'}</td>
@@ -4087,7 +4142,7 @@ async function refreshInsight(forceGenerate = false) {
 
   // Fingerprint deliberately excludes hour-of-day: staleness is governed by
   // the time-based throttle below, not by crossing an hour boundary.
-  const fp = `${cal}:${pro}:${currentGoalMode}:${calTargetFor(dateKey(activeDate))}:${PRO_T_TODAY}:${foodSig}`;
+  const fp = `${cal}:${pro}:${currentGoalMode}:${calBudgetFor(dateKey(activeDate))}:${PRO_T_TODAY}:${foodSig}`;
   const cacheKey = 'insight-day-' + dateKey(activeDate);
   // Tracks the timestamp + fingerprint of the most recent food edit since
   // the last real generation, so the coach waits for 5 quiet minutes after
@@ -4184,7 +4239,7 @@ async function refreshInsight(forceGenerate = false) {
 
   // Determine color class
   const TDEE = TDEE_USER || 2100;
-  const CAL_TARGET = calTargetFor(dateKey(activeDate));  // rest-day target applies on rest days
+  const CAL_TARGET = calBudgetFor(dateKey(activeDate));  // rest-day target applies on rest days
   const dayTypeNote = getDayType(dateKey(activeDate)) === 'rest' && REST_T_USER
     ? ' Today is a scheduled rest day, which is why the calorie goal is lower than usual.'
     : '';
@@ -4280,7 +4335,7 @@ async function sendDayChat() {
     ? meals.map(m => `${m.desc} (${m.cal}kcal, ${m.pro}g pro)`).join('; ')
     : 'nothing logged yet';
   const TDEE = TDEE_USER || 2100;
-  const CAL_TARGET = calTargetFor(dateKey(activeDate));
+  const CAL_TARGET = calBudgetFor(dateKey(activeDate));
   const dayTypeNote = getDayType(dateKey(activeDate)) === 'rest' && REST_T_USER
     ? ' Today is a scheduled rest day, which is why the calorie goal is lower than usual.'
     : '';
