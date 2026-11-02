@@ -655,6 +655,9 @@
         <div><label class="field-lbl">Waist @ Navel (in)</label><input type="number" inputmode="decimal" id="waist-nav" onblur="saveMeas('waist-nav')" placeholder="35.0" step="0.25"></div>
         <div><label class="field-lbl">Waist Smallest (in)</label><input type="number" inputmode="decimal" id="waist-sml" onblur="saveMeas('waist-sml')" placeholder="32.5" step="0.25"></div>
       </div>
+      <div class="meas-grid" style="margin-top:12px;">
+        <div><label class="field-lbl">Cardio to eat back (kcal)</label><input type="number" inputmode="numeric" id="cardio-eatback" step="1" min="0" placeholder="0" onblur="saveEatBack()"></div>
+      </div>
       <button type="button" class="hist-coach-toggle" id="more-meas-toggle" onclick="toggleMoreMeasurements()">+ More measurements</button>
       <div class="meas-grid" id="more-meas-grid" style="display:none;margin-top:8px;">
         <div><label class="field-lbl">Chest (in)</label><input type="number" inputmode="decimal" id="chest" onblur="saveMeas('chest')" placeholder="40.0" step="0.25"></div>
@@ -711,9 +714,6 @@
           <div class="prog-marker" id="cal-marker-tdee" style="background:#fbbf24"></div>
           <div class="prog-marker-lbl" id="cal-lbl-tdee" style="color:#fbbf24"></div>
         </div>
-      </div>
-      <div class="fe-row" style="margin-top:-6px;margin-bottom:20px">
-        <div class="fe-col"><label class="field-lbl">Cardio to eat back (kcal)</label><div class="fe-suffix"><input type="number" id="cardio-eatback" inputmode="numeric" step="1" min="0" placeholder="0" onblur="saveEatBack()"><span>kc</span></div></div>
       </div>
       <div class="prog-wrap" id="pro-prog-wrap" style="margin-bottom:20px">
         <div class="prog-meta"><span>Protein</span><span class="prog-val" id="pro-txt"></span></div>
